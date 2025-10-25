@@ -1,5 +1,5 @@
-// C:\ecily\ecily_landing\backend\src\index.js
-// Vollständige Ersetzung – Mount von legacyDisplay **vor** der Firmware-/config-Route
+// C:\QR\backend\src\index.js
+// Robust: Health immer 200, Mongo verbindet mit Retry (kein process.exit bei Fehlern)
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,7 +14,7 @@ import dotenv from 'dotenv';
 import { WebSocketServer } from 'ws';
 
 /* Routers */
-import legacyDisplayRouter from './routes/legacyDisplay.js'; // ← NEU
+import legacyDisplayRouter from './routes/legacyDisplay.js';
 import configRouter from './routes/config.js';
 import adminRouter from './routes/admin.js';
 import checkoutRouter from './routes/checkout.js';
@@ -26,9 +26,10 @@ dotenv.config();
 /* ───────────────── Env & Config ───────────────── */
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/qr2buy';
+const MONGO_URL = process.env.MONGO_URL || '';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || true;
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
+const SKIP_DB = process.env.SKIP_DB === '1';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,14 +63,46 @@ app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 /* JSON body (alle anderen Routen) */
 app.use(express.json({ limit: '1mb' }));
 
-/* ───────────────── MongoDB ───────────────── */
-mongoose
-  .connect(MONGO_URL)
-  .then(() => logger.info({ msg: '[db] connected', url: MONGO_URL }))
-  .catch((err) => {
-    logger.error({ msg: '[db] connection error', err: err.message });
-    process.exit(1);
-  });
+/* ───────────────── MongoDB (non-fatal connect + retry) ───────────────── */
+const dbState = {
+  want: !SKIP_DB && !!MONGO_URL,
+  connected: false,
+  lastError: null,
+  lastConnectedAt: null
+};
+
+function scheduleRetry(ms) {
+  logger.warn({ msg: `[db] retry in ${ms} ms` });
+  setTimeout(connectMongo, ms).unref();
+}
+
+async function connectMongo() {
+  if (!dbState.want) {
+    logger.warn({ msg: '[db] skipping connect (SKIP_DB=1 oder MONGO_URL leer)' });
+    return;
+  }
+  try {
+    await mongoose.connect(MONGO_URL);
+    dbState.connected = true;
+    dbState.lastError = null;
+    dbState.lastConnectedAt = new Date().toISOString();
+    logger.info({ msg: '[db] connected' });
+  } catch (err) {
+    dbState.connected = false;
+    dbState.lastError = err?.message || String(err);
+    logger.error({ msg: '[db] connection error', err: dbState.lastError });
+    scheduleRetry(5000);
+  }
+}
+
+mongoose.connection.on('disconnected', () => {
+  if (!dbState.want) return;
+  dbState.connected = false;
+  logger.warn({ msg: '[db] disconnected' });
+  scheduleRetry(3000);
+});
+
+connectMongo();
 
 /* ───────────────── SSE (Server-Sent Events) ───────────────── */
 const sseClients = new Set();
@@ -105,7 +138,13 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     service: 'qr2buy_api',
     time: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'development'
+    env: process.env.NODE_ENV || 'development',
+    db: {
+      want: dbState.want,
+      connected: dbState.connected,
+      lastError: dbState.lastError,
+      lastConnectedAt: dbState.lastConnectedAt
+    }
   });
 });
 
