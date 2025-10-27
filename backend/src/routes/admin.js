@@ -1,7 +1,6 @@
-// C:\ecily\ecily_landing\backend\src\routes\admin.js
+// C:\QR\backend\src\routes\admin.js
 import { Router } from 'express';
 import { Product, Device, STATUS } from '../models.js';
-import { basicAuth } from '../middleware/basicAuth.js';
 
 const router = Router();
 
@@ -20,9 +19,6 @@ async function makeUniqueShortId(len = 6) {
     if (!exists) return s;
   }
 }
-
-/* Protect all admin routes */
-router.use(basicAuth());
 
 /* ───────── Products ───────── */
 router.post('/products', async (req, res, next) => {
