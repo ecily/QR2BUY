@@ -1,7 +1,7 @@
 // C:\QR\backend\src\routes\checkout.js
 import { Router } from 'express';
 import Stripe from 'stripe';
-import { Product, Device, STATUS } from '../models.js';
+import { Product, Device, Order, STATUS } from '../models.js';
 
 const router = Router();
 
@@ -21,6 +21,10 @@ function getStripe() {
   return new Stripe(key, { apiVersion: '2024-06-20' });
 }
 
+/**
+ * Markiert Produkt/Device als SOLD (idempotent).
+ * Bevorzugt die Device-Zuordnung aus Session-Metadata; fällt sonst auf Produkt.deviceId zurück (falls vorhanden).
+ */
 async function markSold({ productId, deviceIdFromMeta }) {
   const product = await Product.findById(productId);
   if (!product) return { ok: false, reason: 'product not found' };
@@ -43,9 +47,53 @@ async function markSold({ productId, deviceIdFromMeta }) {
     await device.save();
   }
 
-  // Hinweis: Broadcast (SSE/WS) erfolgt im bestehenden Code-Pfad global;
-  // andernfalls greift das 20s-Polling der Firmware.
-  return { ok: true, productId: String(product._id), deviceId: device?.deviceId || null };
+  return { ok: true, product, device };
+}
+
+/**
+ * Legt eine Order zur Stripe-Session an bzw. aktualisiert sie (idempotent via sessionId).
+ */
+async function upsertOrderFromSession(session, { productId, deviceIdFromMeta }) {
+  const amount = Number(session?.amount_total ?? 0); // Stripe gibt Cent zurück
+  const currency = String(session?.currency || 'EUR').toUpperCase();
+  const customerEmail = session?.customer_details?.email || '';
+  const paymentIntentId = session?.payment_intent?.id || (typeof session?.payment_intent === 'string' ? session.payment_intent : '');
+  const paymentStatus =
+    session?.payment_status ||
+    session?.status ||
+    (session?.payment_intent?.status ? `pi:${session.payment_intent.status}` : 'unknown');
+
+  const update = {
+    productId,
+    deviceId: deviceIdFromMeta || undefined,
+    amount,
+    currency,
+    status: 'PAID',
+    customerEmail,
+    paymentIntentId,
+    paymentStatus,
+    raw: {
+      id: session.id,
+      mode: session.mode,
+      payment_status: session.payment_status,
+      status: session.status
+    },
+    updatedAt: new Date()
+  };
+
+  const order = await Order.findOneAndUpdate(
+    { sessionId: session.id },
+    {
+      $set: update,
+      $setOnInsert: {
+        sessionId: session.id,
+        createdAt: new Date()
+      }
+    },
+    { new: true, upsert: true }
+  );
+
+  return order;
 }
 
 async function createSessionForProduct(req, product, { deviceId, quantity = 1 }) {
@@ -139,7 +187,8 @@ router.post('/by-short/:shortId', async (req, res, next) => {
 
 /**
  * GET /api/checkout/verify?session_id=cs_test_...
- * Fallback ohne Webhook/CLI: prüft Stripe-Session und markiert SOLD.
+ * Fallback ohne Webhook/CLI: prüft Stripe-Session, legt/aktualisiert Order (idempotent) und markiert SOLD.
+ * Response: { ok:true, order, product, device }
  */
 router.get('/verify', async (req, res) => {
   try {
@@ -149,12 +198,12 @@ router.get('/verify', async (req, res) => {
     let stripe;
     try {
       stripe = getStripe();
-    } catch (e) {
+    } catch {
       return res.status(500).json({ ok: false, error: 'Stripe not configured on server' });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['payment_intent']
+      expand: ['payment_intent', 'line_items']
     });
 
     const paid =
@@ -163,7 +212,9 @@ router.get('/verify', async (req, res) => {
       session?.payment_intent?.status === 'succeeded';
 
     if (!paid) {
-      return res.status(409).json({ ok: false, error: 'payment not completed', status: session?.payment_status || session?.status });
+      return res
+        .status(409)
+        .json({ ok: false, error: 'payment not completed', status: session?.payment_status || session?.status });
     }
 
     const meta = session?.metadata || {};
@@ -174,10 +225,20 @@ router.get('/verify', async (req, res) => {
       return res.status(400).json({ ok: false, error: 'missing productId in session metadata' });
     }
 
-    const result = await markSold({ productId, deviceIdFromMeta });
-    if (!result.ok) return res.status(404).json({ ok: false, error: result.reason });
+    // 1) Order idempotent anlegen/aktualisieren
+    const order = await upsertOrderFromSession(session, { productId, deviceIdFromMeta });
 
-    return res.json({ ok: true, mode: 'verify', productId: result.productId, deviceId: result.deviceId });
+    // 2) Produkt/Device SOLD (idempotent)
+    const sold = await markSold({ productId, deviceIdFromMeta });
+    if (!sold.ok) return res.status(404).json({ ok: false, error: sold.reason });
+
+    return res.json({
+      ok: true,
+      mode: 'verify',
+      order,
+      product: sold.product,
+      device: sold.device || null
+    });
   } catch (err) {
     console.error('[verify] error', err);
     return res.status(500).json({ ok: false, error: 'verify failed' });

@@ -12,8 +12,10 @@ import {
 import ky from "ky";
 import "./App.css";
 import LandingPage from "./pages/LandingPage.jsx";
-import Admin from "./pages/Admin.jsx"; // Admin-Seite
+import Admin from "./pages/Admin.jsx";
 import { getPublicProductByShort, startCheckoutRedirectByShort } from "./api.js";
+import MockDisplay from "./pages/MockDisplay.jsx";
+import SuccessPage from "./pages/SuccessPage.jsx";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -298,7 +300,6 @@ function Dashboard() {
 
   return (
     <div className="app">
-      {/* Subtiles Projekt-Band */}
       <div className="project-banner">
         Ein Projekt von{" "}
         <a href="https://www.ecily.com" target="_blank" rel="noopener noreferrer">
@@ -309,7 +310,6 @@ function Dashboard() {
       <header className="header" role="banner">
         <div className="header__left">
           <h1 className="title">qr2buy – Dashboard</h1>
-          <span className="subtitle">ESP32 • ILI9341 • Backend • SSE</span>
         </div>
         <div className="header__right">
           <Button variant="ghost" onClick={() => setDark((d) => !d)} title="Dark-Mode umschalten">
@@ -508,7 +508,7 @@ function ProductRoute() {
   }
 
   const p = state.product;
-  const isSold = p.status === 'SOLD'; // ← FIX HIER
+  const isSold = p.status === 'SOLD';
   const price = new Intl.NumberFormat('de-AT', {
     style: 'currency',
     currency: (p.currency || 'EUR').toUpperCase()
@@ -572,27 +572,6 @@ function ProductRoute() {
             Gerät: <code>{deviceId}</code>
           </p>
         ) : null}
-      </Card>
-    </main>
-  );
-}
-
-function SuccessPage() {
-  const [searchParams] = useSearchParams();
-  const sessionId = searchParams.get('session_id');
-  return (
-    <main style={styles.main}>
-      <Card>
-        <h1 style={styles.h1}>Vielen Dank! ✔</h1>
-        <p style={{ marginTop: 6 }}>
-          Deine Zahlung war erfolgreich{sessionId ? <> (Session: <code>{sessionId}</code>)</> : null}.
-        </p>
-        <p style={styles.muted}>
-          Das Display sollte in Kürze „VERKAUFT!“ anzeigen.
-        </p>
-        <div style={styles.row}>
-          <Link to="/" style={styles.btnPrimary}>Zur Startseite</Link>
-        </div>
       </Card>
     </main>
   );
@@ -708,6 +687,7 @@ export default function App() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/mock/:deviceId" element={<MockDisplay />} />
       <Route path="/p/:shortId" element={<ProductRoute />} />
       <Route path="/success" element={<SuccessPage />} />
       <Route path="/cancel" element={<CancelPage />} />
