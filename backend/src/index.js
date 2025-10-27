@@ -27,7 +27,7 @@ dotenv.config();
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 const MONGO_URL = process.env.MONGO_URL || '';
-const CORS_ORIGIN = process.env.CORS_ORIGIN || true;
+const CORS_ORIGIN_RAW = process.env.CORS_ORIGIN; // z. B. "https://monkfish-app-…"
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 const SKIP_DB = process.env.SKIP_DB === '1';
 
@@ -53,9 +53,55 @@ app.use(
   })
 );
 
-/* Security & CORS */
+/* Security */
 app.use(helmet());
-app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+
+/* ───────────────── CORS (robust, mit Preflight) ─────────────────
+   - Unterstützt mehrere Origins via Komma (z. B. "https://a.com,https://b.com")
+   - credentials=true nur, wenn Origin erlaubt
+   - Preflight auf allen Routen (OPTIONS *) */
+const allowedOrigins = (() => {
+  if (!CORS_ORIGIN_RAW || CORS_ORIGIN_RAW === 'true') return true; // reflektiert Origin
+  // Komma-getrennte Liste -> Array
+  return String(CORS_ORIGIN_RAW)
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+})();
+
+function corsOptionsDelegate(req, cb) {
+  const reqOrigin = req.header('Origin');
+  // Standardoptionen
+  const base = {
+    methods: ['GET','HEAD','POST','PUT','PATCH','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','Stripe-Signature'],
+    credentials: true,
+    optionsSuccessStatus: 204
+  };
+
+  // Kein Origin -> vermutlich Server-zu-Server / curl: CORS unnötig
+  if (!reqOrigin || allowedOrigins === true) {
+    return cb(null, { ...base, origin: reqOrigin || true });
+  }
+
+  const isAllowed = Array.isArray(allowedOrigins)
+    ? allowedOrigins.includes(reqOrigin)
+    : false;
+
+  // Wenn nicht erlaubt → CORS blocken (origin:false)
+  return cb(null, { ...base, origin: isAllowed ? reqOrigin : false });
+}
+
+// Vary: Origin, damit Proxies korrekt cachen
+app.use((req, res, next) => {
+  res.header('Vary', 'Origin');
+  next();
+});
+
+// Aktivieren
+app.use(cors(corsOptionsDelegate));
+// Preflight global
+app.options('*', cors(corsOptionsDelegate));
 
 /* Stripe raw body (MUSS vor JSON-Parser stehen) */
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
@@ -144,6 +190,19 @@ app.get('/api/health', (_req, res) => {
       connected: dbState.connected,
       lastError: dbState.lastError,
       lastConnectedAt: dbState.lastConnectedAt
+    }
+  });
+});
+
+/* ───────────────── CORS-Debug (Hilfsroute) ───────────────── */
+app.get('/api/debug/cors', (req, res) => {
+  res.json({
+    ok: true,
+    origin: req.header('Origin') || null,
+    allowedOrigins,
+    headers: {
+      'access-control-allow-origin': res.getHeader('access-control-allow-origin') || null,
+      'access-control-allow-credentials': res.getHeader('access-control-allow-credentials') || null
     }
   });
 });
