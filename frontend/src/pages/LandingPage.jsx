@@ -1,3 +1,4 @@
+// C:\QR\frontend\src\pages\LandingPage.jsx
 import React, { useEffect } from "react";
 
 /**
@@ -238,7 +239,8 @@ export default function LandingPage() {
             <a href="#trust" style={{ color: colors.muted, textDecoration: "none", fontWeight: 600 }}>
               Sicherheit/DSGVO
             </a>
-            <Button href="#demo" variant="primary">Live-Demo</Button>
+            {/* geändert: führt direkt zur Admin-Seite */}
+            <Button href="/admin" variant="primary">Live-Demo</Button>
           </nav>
         </Container>
       </header>
@@ -274,7 +276,8 @@ export default function LandingPage() {
                 in Echtzeit: <strong>„Danke“ → „VERKAUFT!“</strong>
               </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Button href="#demo" variant="primary">Live-Demo starten</Button>
+                {/* geändert: führt direkt zur Admin-Seite */}
+                <Button href="/admin" variant="primary">Live-Demo öffnen</Button>
                 <Button href="#case" variant="ghost">Buchhändler-Beispiel</Button>
               </div>
 
@@ -422,7 +425,7 @@ export default function LandingPage() {
       <section id="trust" style={{ padding: "44px 0", background: colors.bg }}>
         <Container>
           <h2 style={{ fontSize: 28, margin: "0 0 12px" }}>Sicherheit, Compliance & Betrieb</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ display: "grid", gap: 10 }}>
               <Check><strong>Bewährte Zahlung mit Stripe</strong> – sicher, vertraut, weltweit im Einsatz.</Check>
               <Check><strong>Datenschutz zuerst</strong> – wir verwenden nur, was nötig ist (z. B. E-Mail für die Rechnung).</Check>

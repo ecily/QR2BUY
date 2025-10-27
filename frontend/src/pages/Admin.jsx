@@ -195,6 +195,38 @@ export default function Admin() {
     }
   }
 
+  /* ───────── Derived: nur unverlinkte Devices & linkbare Products ───────── */
+  const linkedProductIds = useMemo(() => {
+    const ids = new Set();
+    for (const d of devices) if (d.productId) ids.add(String(d.productId));
+    return ids;
+  }, [devices]);
+
+  const unlinkedDevices = useMemo(
+    () => devices.filter(d => !d.productId),
+    [devices]
+  );
+
+  const linkableProducts = useMemo(
+    () => products.filter(p => (String(p.status).toUpperCase() !== "SOLD") && !linkedProductIds.has(String(p._id))),
+    [products, linkedProductIds]
+  );
+
+  const productById = useMemo(
+    () => new Map(products.map(p => [String(p._id), p])),
+    [products]
+  );
+
+  const formatPrice = (amount, currency = "EUR") => {
+    if (amount == null) return "";
+    try {
+      return new Intl.NumberFormat("de-AT", { style: "currency", currency: String(currency).toUpperCase() })
+        .format(Number(amount));
+    } catch {
+      return `${Number(amount).toFixed(2)} ${String(currency).toUpperCase()}`;
+    }
+  };
+
   /* ───────── Handlers: Product ───────── */
   async function createProduct(e) {
     e.preventDefault();
@@ -311,6 +343,7 @@ export default function Admin() {
       borderRadius: 10, padding: "8px 12px", fontWeight: 600, cursor: "pointer"
     },
     input: { width: "100%", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px" },
+    select: { width: "100%", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px", background: "#fff" },
     label: { display: "block", fontWeight: 600, marginBottom: 6 },
 
     layout: { display: "grid", gridTemplateColumns: "1fr", gap: 16 },
@@ -331,6 +364,7 @@ export default function Admin() {
             Floating Display öffnen
           </button>
         )}
+        <button style={styles.btnGhost} onClick={refresh}>Neu laden</button>
       </div>
 
       {/* Layout: wenn Floating offen → nur linke Spalte; sonst 2 Spalten */}
@@ -392,22 +426,62 @@ export default function Admin() {
             </form>
           </section>
 
-          {/* Link Device ↔ Product */}
+          {/* Link Device ↔ Product (Dropdowns) */}
           <section style={styles.card}>
             <h2>Link: Device ↔ Product</h2>
             <form onSubmit={linkDeviceProduct} style={styles.formWide}>
               <div>
-                <label style={styles.label}>DeviceId</label>
-                <input style={styles.input} value={linkForm.deviceId}
-                       onChange={(e) => setLinkForm((s) => ({ ...s, deviceId: e.target.value }))} required />
+                <label style={styles.label}>Device auswählen</label>
+                <select
+                  style={styles.select}
+                  value={linkForm.deviceId}
+                  onChange={(e) => setLinkForm((s) => ({ ...s, deviceId: e.target.value }))}
+                  required
+                >
+                  <option value="">— unverlinktes Device wählen —</option>
+                  {unlinkedDevices.map((d) => (
+                    <option key={d._id} value={d.deviceId}>
+                      {d.deviceId}{d.name ? ` — ${d.name}` : ""}
+                    </option>
+                  ))}
+                </select>
+                {unlinkedDevices.length === 0 && (
+                  <p style={{ margin: "6px 0 0", color: "#667085", fontSize: 13 }}>
+                    Keine unverlinkten Devices vorhanden. Bitte Gerät anlegen oder ein bestehendes „Unlinken“.
+                  </p>
+                )}
               </div>
+
               <div>
-                <label style={styles.label}>Product shortId</label>
-                <input style={styles.input} value={linkForm.productShortId}
-                       onChange={(e) => setLinkForm((s) => ({ ...s, productShortId: e.target.value }))} required />
+                <label style={styles.label}>Produkt auswählen</label>
+                <select
+                  style={styles.select}
+                  value={linkForm.productShortId}
+                  onChange={(e) => setLinkForm((s) => ({ ...s, productShortId: e.target.value }))}
+                  required
+                >
+                  <option value="">— linkbares Produkt wählen —</option>
+                  {linkableProducts.map((p) => (
+                    <option key={p._id} value={p.shortId}>
+                      {p.name} — /{p.shortId} — {formatPrice(p.price, p.currency)}
+                    </option>
+                  ))}
+                </select>
+                {linkableProducts.length === 0 && (
+                  <p style={{ margin: "6px 0 0", color: "#667085", fontSize: 13 }}>
+                    Keine linkbaren Produkte (alle bereits verknüpft oder SOLD).
+                  </p>
+                )}
               </div>
+
               <div>
-                <button style={styles.btn} disabled={loading}>Verlinken</button>
+                <button
+                  style={styles.btn}
+                  disabled={loading || !linkForm.deviceId || !linkForm.productShortId}
+                  title={!linkForm.deviceId || !linkForm.productShortId ? "Bitte Device & Produkt wählen" : "Verlinken"}
+                >
+                  Verlinken
+                </button>
               </div>
             </form>
           </section>
@@ -431,7 +505,7 @@ export default function Admin() {
                     <div style={styles.row} key={p._id}>
                       <div>{p.name}</div>
                       <div><code>{p.shortId}</code></div>
-                      <div>{p.price} {p.currency}</div>
+                      <div>{formatPrice(p.price, p.currency)}</div>
                       <div>{p.status}</div>
                       <div style={styles.actions}>
                         <a style={styles.btnGhost} href={`${buyerBase}/p/${p.shortId}`} target="_blank" rel="noreferrer">Buyer-URL</a>
@@ -460,17 +534,20 @@ export default function Admin() {
                     <div>Product</div>
                     <div>Aktionen</div>
                   </div>
-                  {devices.map((d) => (
-                    <div style={{ ...styles.row, gridTemplateColumns: "minmax(200px,1.2fr) 160px minmax(260px,1.2fr) minmax(240px,1.2fr)" }} key={d._id}>
-                      <div><code>{d.deviceId}</code></div>
-                      <div>{d.status}</div>
-                      <div>{d.productId ? <code>{d.productId}</code> : "—"}</div>
-                      <div style={styles.actions}>
-                        <button style={styles.btnGhost} onClick={() => unlinkDevice(d)}>Unlink</button>
-                        <button style={styles.btnGhost} onClick={() => setPreviewDeviceId(d.deviceId)}>Im Mock anzeigen</button>
+                  {devices.map((d) => {
+                    const p = d.productId ? productById.get(String(d.productId)) : null;
+                    return (
+                      <div style={{ ...styles.row, gridTemplateColumns: "minmax(200px,1.2fr) 160px minmax(260px,1.2fr) minmax(240px,1.2fr)" }} key={d._id}>
+                        <div><code>{d.deviceId}</code>{d.name ? <> — {d.name}</> : null}</div>
+                        <div>{d.status}</div>
+                        <div>{p ? <><code>/{p.shortId}</code> — {p.name}</> : "—"}</div>
+                        <div style={styles.actions}>
+                          <button style={styles.btnGhost} onClick={() => unlinkDevice(d)}>Unlink</button>
+                          <button style={styles.btnGhost} onClick={() => setPreviewDeviceId(d.deviceId)}>Im Mock anzeigen</button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
