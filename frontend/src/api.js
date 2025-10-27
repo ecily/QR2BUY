@@ -1,22 +1,23 @@
-// C:\ecily\ecily_landing\frontend\src\api.js
+// C:\QR\frontend\src\api.js
 import ky from 'ky';
+import { API_BASE } from './config.js';
 
 let adminAuthHeader = null;
 
-/** Optional: set Basic-Auth for /api/admin routes. */
+/** Optional: Basic-Auth Header für /api/admin Routen setzen (falls Server das nutzt). */
 export function setAdminAuth(user, pass) {
   adminAuthHeader = 'Basic ' + btoa(`${String(user)}:${String(pass)}`);
 }
 
-/** Base API client */
+/** Gemeinsamer ky-Client – nutzt die zentrale API_BASE (z. B. https://lionfish-app-…/api) */
 const api = ky.create({
-  prefixUrl: '/api',
+  prefixUrl: API_BASE,                 // ← WICHTIG: statt '/api'
   timeout: 10000,
   credentials: 'include',
   headers: { 'Content-Type': 'application/json' }
 });
 
-/** Unified HTTP helper with optional query + admin auth */
+/** Einheitlicher HTTP-Helper (mit optionaler Query & Admin-Auth) */
 async function http(method, path, { json, searchParams, headers } = {}) {
   try {
     const res = await api(path, {
@@ -31,7 +32,6 @@ async function http(method, path, { json, searchParams, headers } = {}) {
     return res;
   } catch (err) {
     if (err?.response) {
-      // Try to extract server error message
       try {
         const data = await err.response.json();
         throw new Error(`${err.response.status} ${data?.error || data?.message || err.message}`);
@@ -61,7 +61,7 @@ export function createCheckoutByShort(shortId, { deviceId, quantity = 1 } = {}) 
   });
 }
 
-/** Convenience: Create session and redirect to Stripe Checkout */
+/** Checkout-Session erstellen und zu Stripe weiterleiten */
 export async function startCheckoutRedirectByShort(shortId, { deviceId, quantity = 1 } = {}) {
   const { ok, url } = await createCheckoutByShort(shortId, { deviceId, quantity });
   if (ok && url) {
@@ -71,7 +71,12 @@ export async function startCheckoutRedirectByShort(shortId, { deviceId, quantity
   throw new Error('Failed to create checkout session');
 }
 
-/* ───────── Admin (Basic-Auth required; use setAdminAuth) ───────── */
+/** Success-Verify ohne Webhook */
+export function checkoutVerify(sessionId) {
+  return http('GET', `checkout/verify`, { searchParams: { session_id: String(sessionId) } });
+}
+
+/* ───────── Admin (Basic-Auth optional; setAdminAuth nutzen wenn nötig) ───────── */
 export const adminListProducts = () => http('GET', 'admin/products');
 
 export function adminCreateProduct({ name, price, currency = 'EUR', shortId } = {}) {
