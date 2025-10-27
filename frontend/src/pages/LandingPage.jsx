@@ -1,5 +1,6 @@
 // C:\QR\frontend\src\pages\LandingPage.jsx
 import React, { useEffect } from "react";
+import { Link } from "react-router-dom";
 
 /**
  * qr2buy – Landing Page (Investor-/Customer-ready)
@@ -11,6 +12,7 @@ import React, { useEffect } from "react";
  * 4) Footer: © 2025 ecily.com/Webentwicklung (verlinkt)
  * 5) Mail auf andreas.franz@ecily.com
  * 6) Mock-Display: Kein „Scan & Buy“-Button (realistischer)
+ * 7) Live-Demo-Buttons navigieren als SPA-Link zu /admin (kein Server-Reload, kein 404)
  */
 
 const colors = {
@@ -74,7 +76,13 @@ const Pill = ({ children }) => (
   </span>
 );
 
-const Button = ({ children, variant = "primary", onClick, href }) => {
+/**
+ * Button: unterstützt
+ * - to="/pfad"  → React Router Link (SPA, kein 404)
+ * - href="https://…" → normales <a>
+ * - sonst <button>
+ */
+const Button = ({ children, variant = "primary", onClick, href, to }) => {
   const base = {
     display: "inline-flex",
     alignItems: "center",
@@ -102,18 +110,33 @@ const Button = ({ children, variant = "primary", onClick, href }) => {
       border: `1px solid ${colors.border}`,
     },
   };
-  const Comp = href ? "a" : "button";
+
+  const commonHandlers = {
+    onMouseDown: (e) => (e.currentTarget.style.transform = "translateY(1px)"),
+    onMouseUp:   (e) => (e.currentTarget.style.transform = "translateY(0)"),
+    onMouseLeave:(e) => (e.currentTarget.style.transform = "translateY(0)"),
+  };
+
+  if (to) {
+    return (
+      <Link to={to} onClick={onClick} style={{ ...base, ...styles[variant] }} {...commonHandlers}>
+        {children}
+      </Link>
+    );
+  }
+
+  if (href) {
+    return (
+      <a href={href} onClick={onClick} style={{ ...base, ...styles[variant] }} {...commonHandlers}>
+        {children}
+      </a>
+    );
+  }
+
   return (
-    <Comp
-      href={href}
-      onClick={onClick}
-      style={{ ...base, ...styles[variant] }}
-      onMouseDown={(e) => (e.currentTarget.style.transform = "translateY(1px)")}
-      onMouseUp={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-      onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0)")}
-    >
+    <button type="button" onClick={onClick} style={{ ...base, ...styles[variant] }} {...commonHandlers}>
       {children}
-    </Comp>
+    </button>
   );
 };
 
@@ -239,8 +262,8 @@ export default function LandingPage() {
             <a href="#trust" style={{ color: colors.muted, textDecoration: "none", fontWeight: 600 }}>
               Sicherheit/DSGVO
             </a>
-            {/* geändert: führt direkt zur Admin-Seite */}
-            <Button href="/admin" variant="primary">Live-Demo</Button>
+            {/* SPA-Link zur Admin-Seite */}
+            <Button to="/admin" variant="primary">Live-Demo</Button>
           </nav>
         </Container>
       </header>
@@ -276,8 +299,8 @@ export default function LandingPage() {
                 in Echtzeit: <strong>„Danke“ → „VERKAUFT!“</strong>
               </p>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {/* geändert: führt direkt zur Admin-Seite */}
-                <Button href="/admin" variant="primary">Live-Demo öffnen</Button>
+                {/* SPA-Link zur Admin-Seite */}
+                <Button to="/admin" variant="primary">Live-Demo öffnen</Button>
                 <Button href="#case" variant="ghost">Buchhändler-Beispiel</Button>
               </div>
 
@@ -425,7 +448,7 @@ export default function LandingPage() {
       <section id="trust" style={{ padding: "44px 0", background: colors.bg }}>
         <Container>
           <h2 style={{ fontSize: 28, margin: "0 0 12px" }}>Sicherheit, Compliance & Betrieb</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ display: "grid", gap: 10 }}>
               <Check><strong>Bewährte Zahlung mit Stripe</strong> – sicher, vertraut, weltweit im Einsatz.</Check>
               <Check><strong>Datenschutz zuerst</strong> – wir verwenden nur, was nötig ist (z. B. E-Mail für die Rechnung).</Check>
@@ -495,7 +518,7 @@ export default function LandingPage() {
           section > div[style*="grid-template-columns: 1.1fr 0.9fr"] { grid-template-columns: 1fr !important; }
           section > div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
         }
-        @media (max-width: 720px) {
+      @media (max-width: 720px) {
           h1 { font-size: 30px !important; }
           section > div[style*="grid-template-columns: repeat(3, 1fr)"] { grid-template-columns: 1fr !important; }
         }
