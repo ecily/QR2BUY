@@ -148,6 +148,19 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
+/* ───────────────── Root (200 OK für DO App-Health) ───────────────── */
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: 'qr2buy_api',
+    time: new Date().toISOString(),
+    endpoints: {
+      health: '/api/health',
+      events: '/api/events'
+    }
+  });
+});
+
 /* ───────────────── API Mounts (Reihenfolge wichtig) ───────────────── */
 /* 1) Legacy vor Firmware, damit GET /api/config ohne deviceId abgefangen wird */
 app.use('/api', legacyDisplayRouter);
@@ -203,6 +216,8 @@ wss.on('connection', (ws) => {
 });
 
 /* ───────────────── Static (Prod) ───────────────── */
+/* Hinweis: Backend wird separat deployed; der folgende Block ist nur aktiv,
+   wenn ein Frontend-Build vorhanden ist. */
 if (process.env.NODE_ENV === 'production') {
   const clientDist = path.join(__dirname, '..', 'frontend', 'dist');
   app.use(express.static(clientDist));

@@ -1,0 +1,45 @@
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Logs / Coverage ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+*.pid
+
+# --- Node / Monorepo ---
+**/node_modules/
+**/.pnp
+**/.pnp.js
+**/.turbo/
+**/.cache/
+**/.eslintcache
+
+# --- Build Outputs ---
+**/dist/
+**/build/
+
+# --- Framework caches (Vite/React etc.) ---
+**/.vite/
+**/.parcel-cache/
+
+# --- Env (Beispiel-Dateien erlauben) ---
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+
+# --- Backend tmp ---
+backend/tmp/
+backend/.tmp/
+
+# --- Misc ---
+*.sqlite
