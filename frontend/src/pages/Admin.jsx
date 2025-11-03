@@ -9,7 +9,8 @@ import {
   adminUnlink,
   adminOverrideStatus,
   startCheckoutRedirectByShort,
-  getPublicProductByShort
+  getPublicProductByShort,
+  adminDeleteProduct
 } from "../api.js";
 import MockDisplay from "./MockDisplay.jsx";
 
@@ -364,6 +365,25 @@ export default function Admin() {
     }
   }
 
+  async function deleteProduct(p) {
+    if (!p) return;
+    const ok = window.confirm(`Produkt wirklich löschen?\n\n${p.name} /${p.shortId}`);
+    if (!ok) return;
+    setLoading(true);
+    try {
+      await adminDeleteProduct(p._id);
+      if (selectedShortId === p.shortId) {
+        setSelectedShortId("");
+      }
+      await refresh();
+      setMsg({ tone: "success", text: "Produkt gelöscht." });
+    } catch (e) {
+      setMsg({ tone: "error", text: e.message });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   /* ───────── Handlers: Device ───────── */
   async function createDevice(e) {
     e.preventDefault();
@@ -694,7 +714,6 @@ export default function Admin() {
                         >
                           Im Mock anzeigen
                         </button>
-                        <a style={styles.btnGhost} href={`${buyerBase}/p/${p.shortId}`} target="_blank" rel="noreferrer">Buyer-URL</a>
                         <button
                           style={styles.btn}
                           onClick={() => startSimulatedCheckout(p)}
@@ -705,6 +724,13 @@ export default function Admin() {
                         </button>
                         <button style={styles.btnGhost} onClick={() => overrideProductStatus(p, "AVAILABLE")}>AVAILABLE</button>
                         <button style={styles.btnGhost} onClick={() => overrideProductStatus(p, "SOLD")}>SOLD</button>
+                        <button
+                          style={styles.btnGhost}
+                          onClick={() => deleteProduct(p)}
+                          title="Produkt endgültig löschen"
+                        >
+                          Produkt löschen
+                        </button>
                       </div>
                     </div>
                   ))}

@@ -86,6 +86,28 @@ router.patch('/products/:id', async (req, res, next) => {
   }
 });
 
+/* DELETE Produkt (inkl. Aufräumen bei Devices) */
+router.delete('/products/:id', async (req, res, next) => {
+  try {
+    const p = await Product.findById(req.params.id);
+    if (!p) return res.status(404).json({ ok: false, error: 'not found' });
+
+    // Geräte, die auf dieses Produkt zeigen, entlinken
+    await Device.updateMany({ productId: p._id }, { $set: { productId: null } });
+
+    // Falls Produkt selbst einen Device-Ref hält, auch dort aufräumen (idempotent)
+    if (p.deviceId) {
+      await Device.findByIdAndUpdate(p.deviceId, { $set: { productId: null } });
+    }
+
+    await p.deleteOne();
+
+    res.json({ ok: true, deleted: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 /* ───────── Devices ───────── */
 router.post('/devices', async (req, res, next) => {
   try {

@@ -83,6 +83,11 @@ export function adminCreateProduct({ name, price, currency = 'EUR', shortId } = 
   return http('POST', 'admin/products', { json: { name, price, currency, shortId } });
 }
 
+/** NEU: Produkt löschen */
+export function adminDeleteProduct(id) {
+  return http('DELETE', `admin/products/${encodeURIComponent(String(id))}`);
+}
+
 export const adminListDevices = () => http('GET', 'admin/devices');
 
 export function adminCreateDevice({ deviceId, name, deviceSecret } = {}) {
