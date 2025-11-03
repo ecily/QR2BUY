@@ -8,7 +8,8 @@ import {
   adminLink,
   adminUnlink,
   adminOverrideStatus,
-  startCheckoutRedirectByShort
+  startCheckoutRedirectByShort,
+  getPublicProductByShort
 } from "../api.js";
 import MockDisplay from "./MockDisplay.jsx";
 
@@ -66,7 +67,10 @@ function FloatingMock({
   open, onClose,
   deviceId, setDeviceId,
   scale, setScale,
-  poll, setPoll
+  poll, setPoll,
+  selectedProduct,
+  buyerUrl,
+  simState
 }) {
   const { pos, start, setPos } = useDraggable({ x: 24, y: 80 });
 
@@ -83,6 +87,20 @@ function FloatingMock({
   }, [open, modalW, setPos, vw]);
 
   if (!open) return null;
+
+  const priceFmt = (p) => {
+    if (!p) return "";
+    try {
+      return new Intl.NumberFormat("de-AT", { style: "currency", currency: String(p.currency || "EUR").toUpperCase() }).format(Number(p.price));
+    } catch {
+      return `${Number(p.price).toFixed(2)} ${String(p.currency || "EUR").toUpperCase()}`;
+    }
+  };
+
+  const qrImg = buyerUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=${Math.round(120*scale)}x${Math.round(120*scale)}&data=${encodeURIComponent(buyerUrl)}`
+    : "";
+
   return (
     <>
       <div
@@ -148,8 +166,66 @@ function FloatingMock({
           </div>
         </div>
 
-        <div style={{ display: "grid", placeItems: "center", padding: "8px 0 12px" }}>
+        <div style={{ position: "relative", display: "grid", placeItems: "center", padding: "8px 0 12px" }}>
           <MockDisplay deviceId={deviceId} scale={scale} poll={poll} hideChrome />
+
+          {/* Overlay: Produktinfo + QR */}
+          {selectedProduct && buyerUrl && (
+            <div
+              style={{
+                position: "absolute",
+                top: 8, left: 8,
+                background: "rgba(255,255,255,0.96)",
+                border: "1px solid #e5e7eb",
+                borderRadius: 12,
+                padding: 10,
+                maxWidth: 340,
+                pointerEvents: "none"
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 2 }}>{selectedProduct.name}</div>
+              <div style={{ color: "#475569", fontSize: 14, marginBottom: 8 }}>
+                {priceFmt(selectedProduct)} • /{selectedProduct.shortId}
+              </div>
+              <img
+                alt="QR zum Kaufen"
+                src={qrImg}
+                style={{ display: "block", width: Math.round(120*scale), height: Math.round(120*scale), borderRadius: 8 }}
+              />
+              <div style={{ marginTop: 6, color: "#64748b", fontSize: 12, wordBreak: "break-all" }}>
+                {buyerUrl}
+              </div>
+            </div>
+          )}
+
+          {/* Overlay: Simulationsstatus */}
+          {simState.mode !== "idle" && (
+            <div
+              style={{
+                position: "absolute",
+                top: 8, right: 8,
+                background: simState.mode === "success"
+                  ? "rgba(16,185,129,0.1)"
+                  : simState.mode === "error"
+                  ? "rgba(239,68,68,0.1)"
+                  : "rgba(59,92,204,0.1)",
+                border: "1px solid rgba(0,0,0,0.12)",
+                borderRadius: 12,
+                padding: "8px 10px",
+                maxWidth: 320,
+                pointerEvents: "none"
+              }}
+            >
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                {simState.mode === "waiting" && "Testkauf läuft …"}
+                {simState.mode === "success" && "Erledigt! Herzlichen Dank für Ihren Einkauf!"}
+                {simState.mode === "error" && "Abbruch / Fehler"}
+              </div>
+              <div style={{ color: "#334155", fontSize: 14, whiteSpace: "pre-wrap" }}>
+                {simState.message}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -174,9 +250,34 @@ export default function Admin() {
   const [previewPoll, setPreviewPoll] = useState(1000);
   const [floatOpen, setFloatOpen] = useState(true); // ← standardmäßig offen
 
-  const buyerBase = useMemo(() => window.location.origin, []);
+  /* ───────── Auswahl & Simulation ───────── */
+  const [selectedShortId, setSelectedShortId] = useState("");
+  const selectedProduct = useMemo(
+    () => products.find((p) => String(p.shortId) === String(selectedShortId)) || null,
+    [products, selectedShortId]
+  );
 
-  useEffect(() => { refresh(); }, []);
+  const [simState, setSimState] = useState({
+    mode: "idle", // idle | waiting | success | error
+    message: "",
+  });
+  const simTimerRef = useRef(null);
+
+  const buyerBase = useMemo(() => window.location.origin, []);
+  const buyerUrl = useMemo(() => {
+    if (!selectedProduct || !previewDeviceId) return "";
+    return `${buyerBase}/p/${encodeURIComponent(selectedProduct.shortId)}?device=${encodeURIComponent(previewDeviceId)}`;
+  }, [buyerBase, selectedProduct, previewDeviceId]);
+
+  useEffect(() => {
+    refresh();
+    return () => {
+      if (simTimerRef.current) {
+        clearInterval(simTimerRef.current);
+        simTimerRef.current = null;
+      }
+    };
+  }, []);
 
   async function refresh() {
     setLoading(true);
@@ -187,6 +288,9 @@ export default function Admin() {
       setDevices(d.devices || []);
       if ((d.devices || []).length && !previewDeviceId) {
         setPreviewDeviceId(d.devices[0].deviceId);
+      }
+      if (!selectedShortId && (p.products || []).length) {
+        setSelectedShortId(p.products[0].shortId);
       }
     } catch (e) {
       setMsg({ tone: "error", text: e.message || "Admin-API Fehler" });
@@ -280,18 +384,30 @@ export default function Admin() {
     }
   }
 
-  /* ───────── Handlers: Link ───────── */
+  /* ───────── Handlers: Link + sofort im Mock zeigen ───────── */
   async function linkDeviceProduct(e) {
     e.preventDefault();
     setLoading(true);
+    setMsg(null);
+
+    // Werte PUFFERN, bevor sie später geleert werden
+    const selDeviceId = linkForm.deviceId.trim();
+    const selShortId = linkForm.productShortId.trim().toLowerCase();
+
     try {
       await adminLink({
-        deviceId: linkForm.deviceId.trim(),
-        productShortId: linkForm.productShortId.trim().toLowerCase()
+        deviceId: selDeviceId,
+        productShortId: selShortId
       });
       setLinkForm({ deviceId: "", productShortId: "" });
       await refresh();
-      setMsg({ tone: "success", text: "Device ↔ Product verlinkt." });
+
+      // → Sofort im Mock anzeigen (Produkt + Device) & Overlay öffnen
+      setPreviewDeviceId(selDeviceId);
+      setSelectedShortId(selShortId);
+      setFloatOpen(true);
+
+      setMsg({ tone: "success", text: "Device ↔ Product verlinkt und im Mock angezeigt." });
     } catch (e) {
       setMsg({ tone: "error", text: e.message });
     } finally {
@@ -310,6 +426,66 @@ export default function Admin() {
     } finally {
       setLoading(false);
     }
+  }
+
+  /* ───────── Simulation: Testkauf starten (Polling bis SOLD) ───────── */
+  function startSimulatedCheckout(p) {
+    if (!p) return;
+    if (String(p.status).toUpperCase() === "SOLD") {
+      setMsg({ tone: "error", text: "Produkt ist bereits SOLD. Bitte auf AVAILABLE setzen." });
+      return;
+    }
+    setSelectedShortId(p.shortId);
+    setFloatOpen(true);
+
+    const href = `${buyerBase}/p/${encodeURIComponent(p.shortId)}?device=${encodeURIComponent(previewDeviceId)}`;
+    window.open(href, "_blank", "noopener,noreferrer");
+
+    setSimState({
+      mode: "waiting",
+      message: "Checkout im neuen Tab öffnen, Zahlungsdaten eingeben.\nDieses Display wartet live auf die Rückmeldung.",
+    });
+
+    if (simTimerRef.current) {
+      clearInterval(simTimerRef.current);
+      simTimerRef.current = null;
+    }
+
+    const startedAt = Date.now();
+    const timeoutMs = 5 * 60 * 1000;
+
+    simTimerRef.current = setInterval(async () => {
+      try {
+        const res = await getPublicProductByShort(p.shortId);
+        const status = String(res?.product?.status || "").toUpperCase();
+        if (status === "SOLD") {
+          clearInterval(simTimerRef.current);
+          simTimerRef.current = null;
+          setSimState({
+            mode: "success",
+            message: "Erledigt! Herzlichen Dank für Ihren Einkauf!",
+          });
+          refresh();
+        } else if (Date.now() - startedAt > timeoutMs) {
+          clearInterval(simTimerRef.current);
+          simTimerRef.current = null;
+          setSimState({
+            mode: "error",
+            message: "Zeitüberschreitung. Keine Zahlungsbestätigung empfangen.",
+          });
+        }
+      } catch {
+        // still waiting
+      }
+    }, 1500);
+  }
+
+  function resetSimulation() {
+    if (simTimerRef.current) {
+      clearInterval(simTimerRef.current);
+      simTimerRef.current = null;
+    }
+    setSimState({ mode: "idle", message: "" });
   }
 
   /* ───────── Layout Styles ───────── */
@@ -365,6 +541,9 @@ export default function Admin() {
           </button>
         )}
         <button style={styles.btnGhost} onClick={refresh}>Neu laden</button>
+        {simState.mode !== "idle" && (
+          <button style={styles.btnGhost} onClick={resetSimulation}>Simulation zurücksetzen</button>
+        )}
       </div>
 
       {/* Layout: wenn Floating offen → nur linke Spalte; sonst 2 Spalten */}
@@ -508,8 +687,22 @@ export default function Admin() {
                       <div>{formatPrice(p.price, p.currency)}</div>
                       <div>{p.status}</div>
                       <div style={styles.actions}>
+                        <button
+                          style={styles.btnGhost}
+                          onClick={() => { setSelectedShortId(p.shortId); setFloatOpen(true); }}
+                          title="Im Mock anzeigen (Produktinfo & QR)"
+                        >
+                          Im Mock anzeigen
+                        </button>
                         <a style={styles.btnGhost} href={`${buyerBase}/p/${p.shortId}`} target="_blank" rel="noreferrer">Buyer-URL</a>
-                        <button style={styles.btn} onClick={() => startCheckoutRedirectByShort(p.shortId)}>Testkauf</button>
+                        <button
+                          style={styles.btn}
+                          onClick={() => startSimulatedCheckout(p)}
+                          disabled={String(p.status).toUpperCase() === "SOLD"}
+                          title="Testkauf (öffnet Käuferseite im neuen Tab; Mock zeigt Live-Status)"
+                        >
+                          Testkauf
+                        </button>
                         <button style={styles.btnGhost} onClick={() => overrideProductStatus(p, "AVAILABLE")}>AVAILABLE</button>
                         <button style={styles.btnGhost} onClick={() => overrideProductStatus(p, "SOLD")}>SOLD</button>
                       </div>
@@ -543,7 +736,9 @@ export default function Admin() {
                         <div>{p ? <><code>/{p.shortId}</code> — {p.name}</> : "—"}</div>
                         <div style={styles.actions}>
                           <button style={styles.btnGhost} onClick={() => unlinkDevice(d)}>Unlink</button>
-                          <button style={styles.btnGhost} onClick={() => setPreviewDeviceId(d.deviceId)}>Im Mock anzeigen</button>
+                          <button style={styles.btnGhost} onClick={() => { setPreviewDeviceId(d.deviceId); setFloatOpen(true); }}>
+                            Im Mock anzeigen
+                          </button>
                         </div>
                       </div>
                     );
@@ -634,6 +829,9 @@ export default function Admin() {
         setScale={setPreviewScale}
         poll={previewPoll}
         setPoll={setPreviewPoll}
+        selectedProduct={selectedProduct}
+        buyerUrl={buyerUrl}
+        simState={simState}
       />
     </div>
   );
