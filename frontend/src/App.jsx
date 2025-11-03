@@ -7,14 +7,14 @@ import {
   useParams,
   useSearchParams,
   useNavigate,
-  Link
+  Link,
 } from "react-router-dom";
 import ky from "ky";
 import "./App.css";
 import LandingPage from "./pages/LandingPage.jsx";
 import Admin from "./pages/Admin.jsx";
 import { getPublicProductByShort, startCheckoutRedirectByShort } from "./api.js";
-import { ENDPOINTS } from "./config.js";
+import { API } from "./config.js";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -22,11 +22,6 @@ import { ENDPOINTS } from "./config.js";
 function isNonEmptyString(v) {
   return typeof v === "string" && v.trim().length > 0;
 }
-
-function isValidShortId(v) {
-  return /^[a-z0-9\-]{3,32}$/i.test(String(v || "").trim());
-}
-
 function formatCurrency(amount, currency = "EUR", locale = "de-AT") {
   if (typeof amount !== "number") return "";
   try {
@@ -38,23 +33,12 @@ function formatCurrency(amount, currency = "EUR", locale = "de-AT") {
     return `${(amount / 100).toFixed(2)} ${String(currency || "EUR").toUpperCase()}`;
   }
 }
-
-function clamp(n, min, max) {
-  return Math.min(Math.max(n, min), max);
+function clsx(...parts) {
+  return parts.filter(Boolean).join(" ");
 }
-
-function wait(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 const styles = {
-  main: {
-    maxWidth: 900,
-    margin: "0 auto",
-    padding: "24px 16px",
-  },
+  main: { maxWidth: 900, margin: "0 auto", padding: "24px 16px" },
   h1: { fontSize: 28, lineHeight: "32px", margin: "0 0 10px 0" },
-  h2: { fontSize: 22, lineHeight: "28px", margin: "18px 0 8px" },
   muted: { color: "#64748b", fontSize: 14 },
   row: { display: "flex", gap: 10, flexWrap: "wrap" },
   btn: {
@@ -77,23 +61,8 @@ const styles = {
     cursor: "pointer",
     fontWeight: 600,
   },
-  badge: {
-    display: "inline-block",
-    background: "#e2e8f0",
-    color: "#0f172a",
-    fontSize: 12,
-    padding: "2px 8px",
-    borderRadius: 999,
-    fontWeight: 600,
-  },
-  price: {
-    fontSize: 24,
-    fontWeight: 700,
-    marginTop: 8,
-  },
-  danger: { color: "#b00020" },
+  price: { fontSize: 24, fontWeight: 700, marginTop: 8 },
 };
-
 function Card({ children }) {
   return (
     <div
@@ -108,7 +77,6 @@ function Card({ children }) {
     </div>
   );
 }
-
 function Label({ children, tone = "neutral" }) {
   const bg = tone === "success" ? "#dcfce7" : tone === "error" ? "#fee2e2" : "#e2e8f0";
   const fg = tone === "success" ? "#166534" : tone === "error" ? "#991b1b" : "#0f172a";
@@ -128,67 +96,6 @@ function Label({ children, tone = "neutral" }) {
     </span>
   );
 }
-
-function Field({
-  id,
-  label,
-  value,
-  onChange,
-  placeholder,
-  maxLength,
-  error,
-  type = "text",
-  required,
-  autoComplete,
-  ariaDescription,
-}) {
-  const describedBy = error ? `${id}-error` : ariaDescription ? `${id}-desc` : undefined;
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <label htmlFor={id} style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
-        {label}
-      </label>
-      <input
-        id={id}
-        name={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        required={required}
-        autoComplete={autoComplete}
-        aria-describedby={describedBy}
-        style={{
-          width: "100%",
-          padding: "10px 12px",
-          borderRadius: 8,
-          border: "1px solid #cbd5e1",
-        }}
-      />
-      {ariaDescription && !error ? (
-        <div id={`${id}-desc`} style={{ ...styles.muted, marginTop: 6 }}>
-          {ariaDescription}
-        </div>
-      ) : null}
-      {error ? (
-        <div id={`${id}-error`} style={{ ...styles.muted, color: "#b00020", marginTop: 6 }}>
-          {error}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function clsx(...parts) {
-  return parts.filter(Boolean).join(" ");
-}
-
-const nowIso = () => new Date().toISOString().replace("T", " ").slice(0, 19);
-
-/* -------------------------------------------------------------------------- */
-/* Tiny UI                                                                    */
-/* -------------------------------------------------------------------------- */
 function Chip({ tone = "neutral", children, title }) {
   return (
     <span
@@ -206,20 +113,15 @@ function Chip({ tone = "neutral", children, title }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Dashboard (Demo/Admin)                                                     */
+/* Dashboard (kleiner Health-Check)                                            */
 /* -------------------------------------------------------------------------- */
 function Dashboard() {
-  const [state, setState] = useState({
-    health: null,
-    loading: true,
-    error: null,
-  });
-
+  const [state, setState] = useState({ health: null, loading: true, error: null });
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const res = await ky.get("/api/health").json();
+        const res = await ky.get(API.health).json();
         if (!alive) return;
         setState({ loading: false, error: null, health: res });
       } catch (e) {
@@ -231,32 +133,33 @@ function Dashboard() {
       alive = false;
     };
   }, []);
-
   return (
     <main style={styles.main}>
       <Card>
         <h1 style={styles.h1}>Dashboard</h1>
-        <p style={styles.muted}>Kleiner Health-Check und Demo.</p>
-        <pre style={{ whiteSpace: "pre-wrap" }}>
-          {JSON.stringify(state.health, null, 2)}
-        </pre>
+        <p style={styles.muted}>Backend-Status:</p>
+        <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(state.health, null, 2)}</pre>
       </Card>
     </main>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/* Produktseite                                                               */
+/* Produktseite                                                                */
 /* -------------------------------------------------------------------------- */
 function ProductRoute() {
   const { shortId } = useParams();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [state, setState] = useState({ loading: true, error: null, product: null, busy: false });
+  const [state, setState] = useState({
+    loading: true,
+    error: null,
+    product: null,
+    busy: false,
+  });
 
   const deviceId = useMemo(() => {
-    const q = searchParams.get('device') || searchParams.get('dev') || searchParams.get('deviceId');
-    return q || localStorage.getItem('qr2buy_deviceId') || '';
+    const q = searchParams.get("device") || searchParams.get("dev") || searchParams.get("deviceId");
+    return q || localStorage.getItem("qr2buy_deviceId") || "";
   }, [searchParams]);
 
   useEffect(() => {
@@ -284,7 +187,7 @@ function ProductRoute() {
   useEffect(() => {
     const startSSE = () => {
       try {
-        const es = new EventSource(ENDPOINTS.events()); // ← nutzt VITE_API_BASE
+        const es = new EventSource(API.events); // nutzt VITE_API_BASE
         sseRef.current = es;
         es.addEventListener("open", () => setSseConnected(true));
         es.addEventListener("error", () => setSseConnected(false));
@@ -293,38 +196,36 @@ function ProductRoute() {
           try {
             const data = JSON.parse(evt.data || "{}");
             if (data.version) setVersion(String(data.version));
-          } catch { /* noop */ }
+          } catch {}
         });
         es.addEventListener("product", (evt) => {
           try {
             const data = JSON.parse(evt.data || "{}");
             const changedShort = String(data?.shortId || "").toLowerCase();
             if (changedShort && changedShort === String(shortId || "").toLowerCase()) {
-              // Minimal nachladen für genau dieses Produkt
               (async () => {
                 try {
                   const refreshed = await getPublicProductByShort(shortId);
                   setState((s) => ({ ...s, product: refreshed?.product || s.product }));
-                } catch { /* ignore */ }
+                } catch {}
               })();
             }
-          } catch { /* noop */ }
+          } catch {}
         });
       } catch {
         setSseConnected(false);
       }
     };
-
     startSSE();
     return () => {
       if (sseRef.current) {
-        try { sseRef.current.close(); } catch {}
+        try {
+          sseRef.current.close();
+        } catch {}
         sseRef.current = null;
       }
     };
   }, [shortId]);
-
-  const p = state.product;
 
   if (state.loading) {
     return (
@@ -336,21 +237,23 @@ function ProductRoute() {
       </main>
     );
   }
-
   if (state.error || !state.product) {
     return (
       <main style={styles.main}>
         <Card>
           <h1 style={styles.h1}>Produkt nicht gefunden</h1>
-          <p style={styles.muted}>{state.error || 'Bitte QR erneut scannen oder zurück zur Startseite.'}</p>
+          <p style={styles.muted}>{state.error || "Bitte QR erneut scannen oder zurück."}</p>
           <div style={styles.row}>
-            <Link to="/" style={styles.btnSecondary}>Zur Startseite</Link>
+            <Link to="/" style={styles.btnSecondary}>
+              Zur Startseite
+            </Link>
           </div>
         </Card>
       </main>
     );
   }
 
+  const p = state.product;
   const isSold = String(p?.status || "").toUpperCase() === "SOLD";
 
   return (
@@ -362,7 +265,7 @@ function ProductRoute() {
             <Chip tone={sseConnected ? "success" : "warn"} title={sseConnected ? "Live verbunden" : "Live getrennt"}>
               LIVE
             </Chip>
-            {version ? <span style={styles.badge}>v{version}</span> : null}
+            {version ? <span className="chip">v{version}</span> : null}
           </div>
         </div>
 
@@ -379,10 +282,10 @@ function ProductRoute() {
               onClick={async () => {
                 try {
                   setState((s) => ({ ...s, busy: true }));
-                  if (deviceId) localStorage.setItem('qr2buy_deviceId', deviceId);
+                  if (deviceId) localStorage.setItem("qr2buy_deviceId", deviceId);
                   await startCheckoutRedirectByShort(shortId, { deviceId, quantity: 1 });
                 } catch (e) {
-                  alert('Checkout konnte nicht gestartet werden: ' + (e.message || e));
+                  alert("Checkout konnte nicht gestartet werden: " + (e.message || e));
                   setState((s) => ({ ...s, busy: false }));
                 }
               }}
@@ -395,7 +298,9 @@ function ProductRoute() {
         {isSold && (
           <div style={{ marginTop: 12 }}>
             <p style={styles.muted}>Dieser Artikel ist bereits verkauft. Danke fürs Interesse!</p>
-            <Link to="/" style={styles.btnSecondary}>Weitere Angebote</Link>
+            <Link to="/" style={styles.btnSecondary}>
+              Weitere Angebote
+            </Link>
           </div>
         )}
 
@@ -410,18 +315,104 @@ function ProductRoute() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Cancel                                                                     */
+/* Success (Verifizierung nach Stripe)                                         */
+/* -------------------------------------------------------------------------- */
+function SuccessPage() {
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get("session_id") || "";
+  const [state, setState] = useState({ loading: true, error: null, result: null });
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!isNonEmptyString(sessionId)) {
+        setState({ loading: false, error: "Fehlende session_id.", result: null });
+        return;
+      }
+      try {
+        const url = API.checkout.verify(sessionId);
+        const data = await ky.get(url).json();
+        if (!alive) return;
+        setState({ loading: false, error: null, result: data });
+      } catch (e) {
+        if (!alive) return;
+        setState({ loading: false, error: e?.message || String(e), result: null });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [sessionId]);
+
+  return (
+    <main style={styles.main}>
+      <Card>
+        <h1 style={styles.h1}>Zahlung erfolgreich</h1>
+        {state.loading ? (
+          <p style={styles.muted}>Verifiziere Zahlung …</p>
+        ) : state.error ? (
+          <>
+            <p className="error">Konnte nicht verifizieren: {state.error}</p>
+            <div style={{ marginTop: 12 }}>
+              <Link to="/" style={styles.btnSecondary}>
+                Zur Startseite
+              </Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={{ marginTop: 6 }}>
+              Vielen Dank! Der Artikel ist jetzt <strong>VERKAUFT</strong>.
+            </p>
+            <pre style={{ whiteSpace: "pre-wrap", marginTop: 12 }}>
+              {JSON.stringify(state.result, null, 2)}
+            </pre>
+            <div style={{ marginTop: 12 }}>
+              <Link to="/" style={styles.btnSecondary}>
+                Weitere Angebote
+              </Link>
+            </div>
+          </>
+        )}
+      </Card>
+    </main>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cancel                                                                      */
 /* -------------------------------------------------------------------------- */
 function CancelPage() {
   return (
     <main style={styles.main}>
       <Card>
         <h1 style={styles.h1}>Checkout abgebrochen</h1>
-        <p style={{ marginTop: 6 }}>
-          Der Checkout wurde abgebrochen. Du kannst es jederzeit erneut versuchen.
-        </p>
+        <p style={{ marginTop: 6 }}>Der Checkout wurde abgebrochen. Du kannst es jederzeit erneut versuchen.</p>
         <div style={styles.row}>
-          <Link to="/" style={styles.btnSecondary}>Zur Startseite</Link>
+          <Link to="/" style={styles.btnSecondary}>
+            Zur Startseite
+          </Link>
+        </div>
+      </Card>
+    </main>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* MockDisplay (einfaches Dev-Tool)                                            */
+/* -------------------------------------------------------------------------- */
+function MockDisplay() {
+  const { deviceId } = useParams();
+  return (
+    <main style={styles.main}>
+      <Card>
+        <h1 style={styles.h1}>Mock Display</h1>
+        <p style={styles.muted}>Geräte-ID: <code>{deviceId}</code></p>
+        <p>Diese Seite simuliert ein Display-Gerät (minimaler Stub).</p>
+        <div style={styles.row}>
+          <Link to="/" style={styles.btnSecondary}>
+            Zur Startseite
+          </Link>
         </div>
       </Card>
     </main>
