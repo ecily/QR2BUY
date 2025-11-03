@@ -8,7 +8,7 @@ import { ENDPOINTS } from '../config.js';
  * Mock-Display für: Hailege 2.4" ILI9341 (240x320, Portrait)
  * - Pollt /api/config?deviceId=...
  * - Zeigt Text + QR wie auf der Hardware
- * - Bei status=SOLD: “VERKAUFT!” und QR ausgeblendet
+ * - Bei status=SOLD: Vollbild-"VERKAUFT!"-Screen (Content blendet aus)
  *
  * Route: /mock/:deviceId
  * Beispiel: /mock/ESP32-DEMO-001?scale=3
@@ -150,6 +150,7 @@ export default function MockDisplay({
     letterSpacing: '0.5px',
     color: '#9bb0ff',
     opacity: 0.9,
+    transition: 'opacity 200ms ease',
   };
 
   const textAreaStyle = {
@@ -160,6 +161,7 @@ export default function MockDisplay({
     whiteSpace: 'pre',
     wordBreak: 'break-word',
     maxWidth: `${TEXT_COL * scale}px`,
+    transition: 'opacity 200ms ease, filter 220ms ease',
   };
 
   const footerStyle = {
@@ -167,6 +169,7 @@ export default function MockDisplay({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: `${6 * scale}px`,
+    transition: 'opacity 200ms ease',
   };
 
   const qrBoxStyle = {
@@ -177,6 +180,14 @@ export default function MockDisplay({
     display: 'grid',
     placeItems: 'center',
     border: `${1 * scale}px solid #222`,
+    transition: 'opacity 200ms ease, transform 220ms ease',
+  };
+
+  // Gesamter Content (Header, Text+QR, Footer) blendet bei SOLD aus
+  const contentWrapStyle = {
+    opacity: isSold ? 0 : 1,
+    filter: isSold ? 'blur(0.5px)' : 'none',
+    transition: 'opacity 200ms ease, filter 220ms ease',
   };
 
   const soldOverlayStyle = {
@@ -184,13 +195,48 @@ export default function MockDisplay({
     inset: 0,
     display: 'grid',
     placeItems: 'center',
-    background: 'rgba(0,0,0,0.6)',
+    // fast vollflächig, kein Durchscheinen mehr
+    background:
+      'linear-gradient(180deg, rgba(0,0,0,0.96), rgba(0,0,0,0.94))',
     color: '#fff',
-    fontWeight: 800,
+    textAlign: 'center',
+    padding: `${12 * scale}px`,
+  };
+
+  const soldBoxStyle = {
+    display: 'grid',
+    gap: `${8 * scale}px`,
+    placeItems: 'center',
+    transform: 'translateY(0)',
+    animation: `sold-in 260ms ease-out`,
+  };
+
+  const soldHeadlineStyle = {
+    fontWeight: 900,
     fontSize: `${28 * scale}px`,
     letterSpacing: `${1.5 * scale}px`,
     textTransform: 'uppercase',
   };
+
+  const soldSubStyle = {
+    fontSize: `${11 * scale}px`,
+    opacity: 0.85,
+  };
+
+  // Inline Keyframes (nur einmal anhängen)
+  useEffect(() => {
+    const id = 'qr2buy-sold-keyframes';
+    if (document.getElementById(id)) return;
+    const style = document.createElement('style');
+    style.id = id;
+    style.innerHTML = `
+      @keyframes sold-in {
+        0% { opacity: 0; transform: translateY(${6 * scale}px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }, [scale]);
 
   return (
     <div style={{ padding: hideChrome ? 0 : 16, display: 'grid', gap: 16 }}>
@@ -238,7 +284,9 @@ export default function MockDisplay({
       <div style={displayStyle} aria-label="ILI9341 Mock Display">
         <div style={bezelStyle} />
         <div style={glassStyle} />
-        <div style={innerStyle}>
+
+        {/* Inhalt, der bei SOLD ausgeblendet wird */}
+        <div style={{ ...innerStyle, ...contentWrapStyle }} aria-hidden={isSold}>
           {/* Header */}
           <div style={headerStyle}>
             qr2buy · v{cfg?.version ?? '—'} ·{' '}
@@ -311,13 +359,45 @@ export default function MockDisplay({
           </div>
         </div>
 
-        {/* SOLD Overlay */}
-        {isSold && <div style={soldOverlayStyle}>VERKAUFT!</div>}
+        {/* SOLD Vollbild-Screen */}
+        {isSold && (
+          <div style={soldOverlayStyle} aria-live="assertive">
+            <div style={soldBoxStyle}>
+              <div
+                style={{
+                  width: `${44 * scale}px`,
+                  height: `${44 * scale}px`,
+                  borderRadius: '50%',
+                  background: '#2f8f6b',
+                  boxShadow: `0 0 ${10 * scale}px rgba(47,143,107,0.6)`,
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+                aria-hidden
+              >
+                <svg
+                  width={24 * scale}
+                  height={24 * scale}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <div style={soldHeadlineStyle}>VERKAUFT!</div>
+              <div style={soldSubStyle}>Vielen Dank für Ihren Einkauf</div>
+            </div>
+          </div>
+        )}
       </div>
 
       {!hideChrome && (
         <small style={{ fontFamily: 'system-ui, sans-serif', opacity: 0.7 }}>
-          Tipps: `?scale=3` größer, `&poll=1000` schneller, `&qr=112` QR-Größe.
+          Tipps: <code>?scale=3</code> größer, <code>&poll=1000</code> schneller, <code>&qr=112</code> QR-Größe.
         </small>
       )}
     </div>

@@ -102,6 +102,8 @@ function FloatingMock({
     ? `https://api.qrserver.com/v1/create-qr-code/?size=${Math.round(120*scale)}x${Math.round(120*scale)}&data=${encodeURIComponent(buyerUrl)}`
     : "";
 
+  const showProductOverlay = Boolean(selectedProduct && buyerUrl && simState.mode === "idle"); // ← nur noch im Idle
+
   return (
     <>
       <div
@@ -170,8 +172,8 @@ function FloatingMock({
         <div style={{ position: "relative", display: "grid", placeItems: "center", padding: "8px 0 12px" }}>
           <MockDisplay deviceId={deviceId} scale={scale} poll={poll} hideChrome />
 
-          {/* Overlay: Produktinfo + QR */}
-          {selectedProduct && buyerUrl && (
+          {/* Overlay: Produktinfo + QR — nur im Idle-Mode */}
+          {showProductOverlay && (
             <div
               style={{
                 position: "absolute",

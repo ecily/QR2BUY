@@ -245,7 +245,7 @@ function Dashboard() {
       es.addEventListener("update", (evt) => {
         try {
           const data = JSON.parse(evt.data || "{}");
-          const next = {
+        const next = {
             text: data?.text ?? preview.text,
             qr: data?.qr ?? preview.qr,
             version: data?.version ?? version,
@@ -520,6 +520,14 @@ function ProductRoute() {
     currency: (p.currency || 'EUR').toUpperCase()
   }).format(p.price);
 
+  // Investoren-Demo Hinweise (Stripe Testdaten)
+  const demo = {
+    card: "4242 4242 4242 4242",
+    expiry: "12/34",
+    cvc: "123",
+    zip: "10001"
+  };
+
   return (
     <main style={styles.main}>
       <Card>
@@ -540,6 +548,50 @@ function ProductRoute() {
           </div>
         </div>
 
+        {/* Demo Panel nur anzeigen, wenn nicht verkauft */}
+        {!isSold && (
+          <div style={styles.demoPanel} aria-label="Investoren-Demo Hinweise">
+            <div style={styles.demoHeader}>
+              <span role="img" aria-label="lab">🧪</span> Investoren-Demo (Testmodus)
+            </div>
+            <p style={styles.muted}>
+              Dieser Checkout nutzt Stripe-<em>Test</em>modus. Felder können aus Sicherheitsgründen nicht automatisch
+              befüllt werden – bitte die Testdaten per Klick kopieren:
+            </p>
+            <div style={styles.demoGrid}>
+              <div style={styles.demoRow}>
+                <span style={styles.demoKey}>Karte</span>
+                <span style={styles.demoVal}>
+                  <code>{demo.card}</code> <CopyInline text={demo.card} title="Kartennummer kopieren" />
+                </span>
+              </div>
+              <div style={styles.demoRow}>
+                <span style={styles.demoKey}>Ablauf</span>
+                <span style={styles.demoVal}>
+                  <code>{demo.expiry}</code> <CopyInline text={demo.expiry} title="Ablauf kopieren" />
+                </span>
+              </div>
+              <div style={styles.demoRow}>
+                <span style={styles.demoKey}>CVC</span>
+                <span style={styles.demoVal}>
+                  <code>{demo.cvc}</code> <CopyInline text={demo.cvc} title="CVC kopieren" />
+                </span>
+              </div>
+              <div style={styles.demoRow}>
+                <span style={styles.demoKey}>PLZ</span>
+                <span style={styles.demoVal}>
+                  <code>{demo.zip}</code> <CopyInline text={demo.zip} title="PLZ kopieren" />
+                </span>
+              </div>
+            </div>
+            {deviceId ? (
+              <div style={{ ...styles.muted, marginTop: 6 }}>
+                Gerät: <code>{deviceId}</code>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {!isSold ? (
           <div style={{ marginTop: 20, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
@@ -555,13 +607,15 @@ function ProductRoute() {
                   setState((s) => ({ ...s, busy: false }));
                 }
               }}
+              title="Weiter zum Stripe Checkout (Testmodus)"
             >
-              {state.busy ? 'Weiterleiten …' : 'Jetzt kaufen'}
+              {state.busy ? 'Weiterleiten …' : 'Jetzt kaufen (Test)'}
             </button>
 
             <button
               style={styles.btnGhost}
               onClick={() => navigate('/')}
+              title="Zur Startseite"
             >
               Abbrechen
             </button>
@@ -572,12 +626,6 @@ function ProductRoute() {
             <Link to="/" style={styles.btnSecondary}>Weitere Angebote</Link>
           </div>
         )}
-
-        {deviceId ? (
-          <p style={{ ...styles.muted, marginTop: 12 }}>
-            Gerät: <code>{deviceId}</code>
-          </p>
-        ) : null}
       </Card>
     </main>
   );
@@ -681,6 +729,39 @@ const styles = {
     fontSize: 12,
     fontWeight: 700,
     letterSpacing: 0.3
+  },
+  /* Demo panel styles */
+  demoPanel: {
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 12,
+    border: '1px solid #e5e7eb',
+    background: '#fafafa'
+  },
+  demoHeader: {
+    fontWeight: 700,
+    marginBottom: 6
+  },
+  demoGrid: {
+    display: 'grid',
+    gap: 8,
+    marginTop: 8
+  },
+  demoRow: {
+    display: 'grid',
+    gridTemplateColumns: '140px 1fr',
+    alignItems: 'center',
+    gap: 8
+  },
+  demoKey: {
+    color: '#475569',
+    fontSize: 13
+  },
+  demoVal: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap'
   }
 };
 
