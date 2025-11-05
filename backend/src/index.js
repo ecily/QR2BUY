@@ -11,7 +11,6 @@ import pino from 'pino';
 import pinoHttp from 'pino-http';
 import 'express-async-errors';
 import dotenv from 'dotenv';
-import { WebSocketServer } from 'ws';
 
 /* Routers */
 import legacyDisplayRouter from './routes/legacyDisplay.js';
@@ -20,6 +19,14 @@ import adminRouter from './routes/admin.js';
 import checkoutRouter from './routes/checkout.js';
 import stripeWebhookRouter from './routes/stripeWebhook.js';
 import publicRouter from './routes/public.js';
+
+/* SSE/WS utilities */
+import {
+  sseHandler,
+  sseBroadcast,
+  wsBroadcast,
+  attachWebSocket
+} from './events.js';
 
 dotenv.config();
 
@@ -150,33 +157,18 @@ mongoose.connection.on('disconnected', () => {
 
 connectMongo();
 
-/* ───────────────── SSE (Server-Sent Events) ───────────────── */
-const sseClients = new Set();
+/* ───────────────── SSE (Server-Sent Events) ─────────────────
+   Robuste Implementierung in ./events.js. Route hier nur anbinden. */
+app.get('/api/events', sseHandler);
 
-function sseBroadcast(event, data) {
-  const payload = `event: ${event}\n` + `data: ${JSON.stringify(data)}\n\n`;
-  for (const res of sseClients) {
-    try {
-      res.write(payload);
-    } catch {
-      // drop quietly
-    }
-  }
-}
-
-app.get('/api/events', (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.write(`event: hello\ndata: ${JSON.stringify({ ok: true, ts: Date.now() })}\n\n`);
-  sseClients.add(res);
-
-  const keepAlive = setInterval(() => res.write(': ping\n\n'), 25000);
-  req.on('close', () => {
-    clearInterval(keepAlive);
-    sseClients.delete(res);
-  });
-});
+// Broadcaster kompatibel für andere Router verfügbar machen
+app.locals.sseBroadcast = sseBroadcast;
+app.set('sseBroadcast', sseBroadcast);
+// Kombinierter Broadcaster (SSE + WS) für Legacy-Nutzer (z. B. legacyDisplay)
+app.locals.broadcast = (type, data) => {
+  try { sseBroadcast(type, data); } catch {}
+  try { wsBroadcast(type, data); } catch {}
+};
 
 /* ───────────────── Health ───────────────── */
 app.get('/api/health', (_req, res) => {
@@ -243,36 +235,8 @@ app.use((err, _req, res, _next) => {
 /* ───────────────── HTTP Server & WS ───────────────── */
 const server = http.createServer(app);
 
-const wss = new WebSocketServer({ server, path: '/ws' });
-const wsClients = new Set();
-
-function wsBroadcast(type, data) {
-  const payload = JSON.stringify({ type, data });
-  for (const ws of wsClients) {
-    if (ws.readyState === 1) {
-      try {
-        ws.send(payload);
-      } catch {
-        // drop silently
-      }
-    }
-  }
-}
-
-/* Gemeinsamer Broadcaster (SSE + WS) */
-function broadcast(type, data) {
-  sseBroadcast(type, data);
-  wsBroadcast(type, data);
-}
-
-/* Für Router verfügbar machen (legacyDisplay nutzt req.app.locals.broadcast) */
-app.locals.broadcast = broadcast;
-
-wss.on('connection', (ws) => {
-  wsClients.add(ws);
-  ws.send(JSON.stringify({ type: 'hello', data: { ok: true, ts: Date.now() } }));
-  ws.on('close', () => wsClients.delete(ws));
-});
+// WebSocket-Server anhängen (Pfad /ws), Heartbeat & Terminate via ./events.js
+attachWebSocket(server);
 
 /* ───────────────── Static (Prod) ───────────────── */
 /* Hinweis: Backend wird separat deployed; der folgende Block ist nur aktiv,

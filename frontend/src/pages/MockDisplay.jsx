@@ -8,7 +8,8 @@ import { ENDPOINTS } from '../config.js';
  * Mock-Display für: Hailege 2.4" ILI9341 (240x320, Portrait)
  * - Pollt /api/config?deviceId=...
  * - Zeigt Text + QR wie auf der Hardware
- * - Bei status=SOLD: Vollbild-"VERKAUFT!"-Screen (Content blendet aus)
+ * - SOLD: Vollbild-"VERKAUFT!"-Screen (Content wird NICHT gerendert)
+ * - RESERVED: Keine QR-Render, gelber Hinweis mit Countdown mm:ss
  *
  * Route: /mock/:deviceId
  * Beispiel: /mock/ESP32-DEMO-001?scale=3
@@ -56,6 +57,29 @@ export default function MockDisplay({
 
   const status = (cfg?.status || '').toUpperCase();
   const isSold = status === 'SOLD' || status === 'VERKAUFT';
+  const isReserved = status === 'RESERVED';
+  const reservedUntil = useMemo(
+    () => (cfg?.reservedUntil ? new Date(cfg.reservedUntil) : null),
+    [cfg?.reservedUntil]
+  );
+
+  // Countdown mm:ss bis reservedUntil
+  const [remainMs, setRemainMs] = useState(0);
+  useEffect(() => {
+    const compute = () =>
+      reservedUntil ? Math.max(0, reservedUntil.getTime() - Date.now()) : 0;
+    setRemainMs(compute());
+    if (!reservedUntil) return;
+    const t = setInterval(() => setRemainMs(compute()), 1000);
+    return () => clearInterval(t);
+  }, [reservedUntil]);
+
+  const mmss = useMemo(() => {
+    const s = Math.floor(remainMs / 1000);
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+  }, [remainMs]);
 
   const lines = useMemo(() => {
     const t = (cfg?.text ?? '').toString();
@@ -150,8 +174,34 @@ export default function MockDisplay({
     letterSpacing: '0.5px',
     color: '#9bb0ff',
     opacity: 0.9,
-    transition: 'opacity 200ms ease',
   };
+
+  const statusChipStyle = (tone) => ({
+    display: 'inline-block',
+    padding: `${1.5 * scale}px ${6 * scale}px`,
+    borderRadius: 999,
+    fontSize: `${9 * scale}px`,
+    fontWeight: 700,
+    letterSpacing: 0.4,
+    background:
+      tone === 'sold'
+        ? '#7f1d1d'
+        : tone === 'res'
+        ? '#78350f'
+        : '#0f5132',
+    color:
+      tone === 'sold'
+        ? '#ffd0d0'
+        : tone === 'res'
+        ? '#ffe8b3'
+        : '#b6f3cf',
+    border:
+      tone === 'sold'
+        ? `${1 * scale}px solid #944`
+        : tone === 'res'
+        ? `${1 * scale}px solid #b45309`
+        : `${1 * scale}px solid #1b7a56`,
+  });
 
   const textAreaStyle = {
     display: 'grid',
@@ -161,7 +211,7 @@ export default function MockDisplay({
     whiteSpace: 'pre',
     wordBreak: 'break-word',
     maxWidth: `${TEXT_COL * scale}px`,
-    transition: 'opacity 200ms ease, filter 220ms ease',
+    opacity: isReserved ? 0.9 : 1,
   };
 
   const footerStyle = {
@@ -169,7 +219,6 @@ export default function MockDisplay({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: `${6 * scale}px`,
-    transition: 'opacity 200ms ease',
   };
 
   const qrBoxStyle = {
@@ -180,14 +229,23 @@ export default function MockDisplay({
     display: 'grid',
     placeItems: 'center',
     border: `${1 * scale}px solid #222`,
-    transition: 'opacity 200ms ease, transform 220ms ease',
+    position: 'relative',
   };
 
-  // Gesamter Content (Header, Text+QR, Footer) blendet bei SOLD aus
-  const contentWrapStyle = {
-    opacity: isSold ? 0 : 1,
-    filter: isSold ? 'blur(0.5px)' : 'none',
-    transition: 'opacity 200ms ease, filter 220ms ease',
+  const reservedPanelStyle = {
+    width: Math.floor(QR_BOX * scale),
+    height: Math.floor(QR_BOX * scale),
+    display: 'grid',
+    placeItems: 'center',
+    borderRadius: `${4 * scale}px`,
+    background:
+      'linear-gradient(180deg, rgba(254,240,138,0.95), rgba(250,204,21,0.95))',
+    color: '#3f2d0c',
+    border: `${1 * scale}px solid #b45309`,
+    boxShadow: `0 ${2 * scale}px ${8 * scale}px rgba(255,200,0,0.25)`,
+    textAlign: 'center',
+    animation: `reserved-pulse 1600ms ease-in-out infinite`,
+    padding: `${6 * scale}px`,
   };
 
   const soldOverlayStyle = {
@@ -195,9 +253,7 @@ export default function MockDisplay({
     inset: 0,
     display: 'grid',
     placeItems: 'center',
-    // fast vollflächig, kein Durchscheinen mehr
-    background:
-      'linear-gradient(180deg, rgba(0,0,0,0.96), rgba(0,0,0,0.94))',
+    background: 'linear-gradient(180deg, rgba(0,0,0,1), rgba(0,0,0,1))',
     color: '#fff',
     textAlign: 'center',
     padding: `${12 * scale}px`,
@@ -208,7 +264,7 @@ export default function MockDisplay({
     gap: `${8 * scale}px`,
     placeItems: 'center',
     transform: 'translateY(0)',
-    animation: `sold-in 260ms ease-out`,
+    animation: `sold-in 300ms ease-out`,
   };
 
   const soldHeadlineStyle = {
@@ -223,16 +279,21 @@ export default function MockDisplay({
     opacity: 0.85,
   };
 
-  // Inline Keyframes (nur einmal anhängen)
+  // Inline Keyframes (einmalig)
   useEffect(() => {
-    const id = 'qr2buy-sold-keyframes';
+    const id = 'qr2buy-anim-keyframes';
     if (document.getElementById(id)) return;
     const style = document.createElement('style');
     style.id = id;
     style.innerHTML = `
       @keyframes sold-in {
-        0% { opacity: 0; transform: translateY(${6 * scale}px); }
-        100% { opacity: 1; transform: translateY(0); }
+        0% { opacity: 0; transform: translateY(${6 * scale}px) scale(0.985); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      @keyframes reserved-pulse {
+        0%   { transform: scale(1); }
+        50%  { transform: scale(1.015); }
+        100% { transform: scale(1); }
       }
     `;
     document.head.appendChild(style);
@@ -285,79 +346,117 @@ export default function MockDisplay({
         <div style={bezelStyle} />
         <div style={glassStyle} />
 
-        {/* Inhalt, der bei SOLD ausgeblendet wird */}
-        <div style={{ ...innerStyle, ...contentWrapStyle }} aria-hidden={isSold}>
-          {/* Header */}
-          <div style={headerStyle}>
-            qr2buy · v{cfg?.version ?? '—'} ·{' '}
-            <span style={{ color: isSold ? '#ffb3b3' : '#8ff0c8' }}>
-              {isSold ? 'SOLD' : (status || 'AVAILABLE')}
-            </span>
-          </div>
-
-          {/* Content */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: `${TEXT_COL * scale}px ${GRID_GAP * scale}px ${QR_BOX * scale}px`,
-              alignItems: 'start',
-            }}
-          >
-            {/* Text */}
-            <div style={textAreaStyle} aria-live="polite">
-              {lines.length ? (
-                lines.map((ln, i) => (
-                  <div key={i} style={{ opacity: 0.95 }}>
-                    {ln}
-                  </div>
-                ))
-              ) : (
-                <div style={{ opacity: 0.5 }}>Warte auf Backend…</div>
-              )}
+        {/* Inhalt NUR rendern, wenn NICHT SOLD */}
+        {!isSold && (
+          <div style={innerStyle}>
+            {/* Header */}
+            <div style={headerStyle}>
+              qr2buy · v{cfg?.version ?? '—'} ·{' '}
+              <span
+                style={
+                  isReserved
+                    ? statusChipStyle('res')
+                    : statusChipStyle('ok')
+                }
+              >
+                {isReserved ? 'RESERVIERT' : (status || 'AVAILABLE')}
+              </span>
             </div>
 
-            {/* Gap */}
-            <div />
-
-            {/* QR-Box */}
-            <div style={qrBoxStyle} aria-hidden={isSold}>
-              {!isSold && cfg?.qr ? (
-                <QRCode
-                  value={String(cfg.qr)}
-                  size={QR_INNER * scale}
-                  style={{ width: 'auto', height: 'auto' }}
-                  viewBox="0 0 256 256"
-                  level="M"
-                  bgColor="#111"
-                  fgColor="#fff"
-                />
-              ) : (
-                !isSold && <div style={{ opacity: 0.5, fontSize: `${10 * scale}px` }}>kein QR</div>
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div style={footerStyle}>
+            {/* Content */}
             <div
               style={{
-                height: `${8 * scale}px`,
-                width: `${8 * scale}px`,
-                borderRadius: '50%',
-                background: err ? '#ff5252' : '#2f8f6b',
-                boxShadow: `0 0 ${6 * scale}px ${err ? '#ff5252' : '#2f8f6b'}`,
+                display: 'grid',
+                gridTemplateColumns: `${TEXT_COL * scale}px ${GRID_GAP * scale}px ${QR_BOX * scale}px`,
+                alignItems: 'start',
               }}
-              title={err ? `Fehler: ${err}` : 'Verbunden'}
-            />
-            <div style={{ fontSize: `${9 * scale}px`, opacity: 0.7 }}>
-              {cfg?.updatedAt ? `updated ${new Date(cfg.updatedAt).toLocaleTimeString()}` : ''}
+            >
+              {/* Text */}
+              <div style={textAreaStyle} aria-live="polite">
+                {lines.length ? (
+                  lines.map((ln, i) => (
+                    <div key={i} style={{ opacity: 0.95 }}>
+                      {ln}
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ opacity: 0.5 }}>Warte auf Backend…</div>
+                )}
+              </div>
+
+              {/* Gap */}
+              <div />
+
+              {/* QR-Box */}
+              <div style={qrBoxStyle} aria-live="polite" aria-atomic="true">
+                {/* RESERVED → KEIN QR, stattdessen gelbe Hinweisfläche */}
+                {isReserved ? (
+                  <div style={reservedPanelStyle}>
+                    <div
+                      style={{
+                        fontWeight: 900,
+                        letterSpacing: 1 * scale,
+                        textTransform: 'uppercase',
+                        fontSize: `${12 * scale}px`,
+                      }}
+                    >
+                      RESERVIERT
+                    </div>
+                    <div
+                      style={{
+                        marginTop: `${4 * scale}px`,
+                        fontSize: `${14 * scale}px`,
+                        fontVariantNumeric: 'tabular-nums',
+                        fontWeight: 800,
+                      }}
+                      aria-label="Countdown bis zur Freigabe"
+                    >
+                      {mmss}
+                    </div>
+                    {reservedUntil && (
+                      <div style={{ marginTop: `${2 * scale}px`, opacity: 0.85, fontSize: `${9 * scale}px` }}>
+                        bis {reservedUntil.toLocaleTimeString()}
+                      </div>
+                    )}
+                  </div>
+                ) : cfg?.qr ? (
+                  <QRCode
+                    value={String(cfg.qr)}
+                    size={QR_INNER * scale}
+                    style={{ width: 'auto', height: 'auto' }}
+                    viewBox="0 0 256 256"
+                    level="M"
+                    bgColor="#111"
+                    fgColor="#fff"
+                  />
+                ) : (
+                  <div style={{ opacity: 0.5, fontSize: `${10 * scale}px` }}>kein QR</div>
+                )}
+              </div>
             </div>
-            <div style={{ fontSize: `${9 * scale}px`, opacity: 0.6, marginLeft: 'auto' }}>
-              Brand: <span style={{ color: '#3b5ccc' }}>#3b5ccc</span> /{' '}
-              <span style={{ color: '#2f8f6b' }}>#2f8f6b</span>
+
+            {/* Footer */}
+            <div style={footerStyle}>
+              <div
+                style={{
+                  height: `${8 * scale}px`,
+                  width: `${8 * scale}px`,
+                  borderRadius: '50%',
+                  background: err ? '#ff5252' : isReserved ? '#b45309' : '#2f8f6b',
+                  boxShadow: `0 0 ${6 * scale}px ${err ? '#ff5252' : isReserved ? '#b45309' : '#2f8f6b'}`,
+                }}
+                title={err ? `Fehler: ${err}` : 'Verbunden'}
+              />
+              <div style={{ fontSize: `${9 * scale}px`, opacity: 0.7 }}>
+                {cfg?.updatedAt ? `updated ${new Date(cfg.updatedAt).toLocaleTimeString()}` : ''}
+              </div>
+              <div style={{ fontSize: `${9 * scale}px`, opacity: 0.6, marginLeft: 'auto' }}>
+                Brand: <span style={{ color: '#3b5ccc' }}>#3b5ccc</span> /{' '}
+                <span style={{ color: '#2f8f6b' }}>#2f8f6b</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* SOLD Vollbild-Screen */}
         {isSold && (

@@ -13,9 +13,8 @@ import ky from "ky";
 import "./App.css";
 import LandingPage from "./pages/LandingPage.jsx";
 import Admin from "./pages/Admin.jsx";
-import { getPublicProductByShort, startCheckoutRedirectByShort } from "./api.js";
+import { getPublicProductByShort } from "./api.js";
 import MockDisplay from "./pages/MockDisplay.jsx";
-import SuccessPage from "./pages/SuccessPage.jsx";
 
 /* -------------------------------------------------------------------------- */
 /* Config: API Base (dev & prod)                                              */
@@ -245,7 +244,7 @@ function Dashboard() {
       es.addEventListener("update", (evt) => {
         try {
           const data = JSON.parse(evt.data || "{}");
-        const next = {
+          const next = {
             text: data?.text ?? preview.text,
             qr: data?.qr ?? preview.qr,
             version: data?.version ?? version,
@@ -548,7 +547,7 @@ function ProductRoute() {
           </div>
         </div>
 
-        {/* Demo Panel nur anzeigen, wenn nicht verkauft */}
+        {/* Demo Panel stets über den CTAs (nur sinnvoll, wenn kaufbar) */}
         {!isSold && (
           <div style={styles.demoPanel} aria-label="Investoren-Demo Hinweise">
             <div style={styles.demoHeader}>
@@ -601,7 +600,17 @@ function ProductRoute() {
                 try {
                   setState((s) => ({ ...s, busy: true }));
                   if (deviceId) localStorage.setItem('qr2buy_deviceId', deviceId);
-                  await startCheckoutRedirectByShort(shortId, { deviceId, quantity: 1 });
+
+                  // Neu: /api/checkout/start (idempotent + Reservierung)
+                  const res = await api
+                    .post("checkout/start", { json: { shortId, deviceId, quantity: 1 } })
+                    .json();
+
+                  if (res?.ok && res?.url) {
+                    window.location.assign(res.url);
+                  } else {
+                    throw new Error(res?.error || "Kein Checkout-Link erhalten.");
+                  }
                 } catch (e) {
                   alert('Checkout konnte nicht gestartet werden: ' + (e.message || e));
                   setState((s) => ({ ...s, busy: false }));
@@ -625,6 +634,136 @@ function ProductRoute() {
             <p style={styles.muted}>Dieser Artikel ist bereits verkauft. Danke fürs Interesse!</p>
             <Link to="/" style={styles.btnSecondary}>Weitere Angebote</Link>
           </div>
+        )}
+      </Card>
+    </main>
+  );
+}
+
+function SuccessRoute() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const sessionId = (searchParams.get("session_id") || "").trim();
+
+  const [state, setState] = useState({
+    loading: true,
+    ok: false,
+    error: "",
+    order: null,
+    product: null,
+    device: null,
+  });
+
+  const verify = async () => {
+    if (!sessionId) {
+      setState({ loading: false, ok: false, error: "session_id fehlt.", order: null, product: null, device: null });
+      return;
+    }
+    setState((s) => ({ ...s, loading: true, error: "" }));
+    try {
+      const res = await api.get("checkout/verify", { searchParams: { session_id: sessionId } }).json();
+      if (res?.ok) {
+        setState({
+          loading: false,
+          ok: true,
+          error: "",
+          order: res.order || null,
+          product: res.product || null,
+          device: res.device || null,
+        });
+      } else {
+        setState({
+          loading: false,
+          ok: false,
+          error: res?.error || "Unbekannter Fehler.",
+          order: null,
+          product: null,
+          device: null,
+        });
+      }
+    } catch (e) {
+      setState({
+        loading: false,
+        ok: false,
+        error:
+          (e?.response?.status === 409 && "Zahlung noch nicht abgeschlossen. Bitte kurz warten und erneut prüfen.") ||
+          (e.message || String(e)),
+        order: null,
+        product: null,
+        device: null,
+      });
+    }
+  };
+
+  useEffect(() => {
+    verify();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
+  return (
+    <main style={styles.main}>
+      <Card>
+        <h1 style={styles.h1}>Vielen Dank!</h1>
+        <p style={{ ...styles.muted, marginTop: 6 }}>
+          Du wirst gleich zur Bestätigung weitergeleitet. Wir prüfen den Bezahlstatus…
+        </p>
+
+        <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <Chip tone={state.loading ? "warn" : state.ok ? "success" : "error"}>
+            {state.loading ? "Prüfe Zahlung…" : state.ok ? "Bezahlung bestätigt" : "Noch nicht bestätigt"}
+          </Chip>
+          {sessionId && <code style={{ opacity: 0.65, fontSize: 12 }}>Session: {sessionId}</code>}
+        </div>
+
+        {!state.loading && !state.ok && (
+          <>
+            <p style={{ ...styles.muted, marginTop: 12 }}>
+              {state.error || "Wir konnten die Zahlung noch nicht bestätigen."}
+            </p>
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button style={styles.btnPrimary} onClick={verify} title="Status erneut prüfen">
+                Erneut prüfen
+              </button>
+              <Link to="/" style={styles.btnSecondary}>
+                Zur Startseite
+              </Link>
+            </div>
+          </>
+        )}
+
+        {state.ok && (
+          <>
+            <p style={{ ...styles.muted, marginTop: 10 }}>
+              Deine Bestellung wurde bestätigt. Das Schaufenster-Display springt auf <strong>VERKAUFT!</strong>.
+            </p>
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 14 }}>
+                {state.product?.name ? <strong>{state.product.name}</strong> : "Artikel"}{" "}
+                {state.product?.price ? (
+                  <span style={{ opacity: 0.75 }}>
+                    •{" "}
+                    {new Intl.NumberFormat("de-AT", {
+                      style: "currency",
+                      currency: (state.product.currency || "EUR").toUpperCase(),
+                    }).format(state.product.price)}
+                  </span>
+                ) : null}
+              </div>
+              {state.product?.shortId && (
+                <div style={{ marginTop: 8 }}>
+                  <Link to={`/p/${state.product.shortId}`} style={styles.btnSecondary}>
+                    Zur Produktseite
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <Link to="/" style={styles.btnPrimary}>
+                Weitere Angebote ansehen
+              </Link>
+            </div>
+          </>
         )}
       </Card>
     </main>
@@ -776,7 +915,7 @@ export default function App() {
       <Route path="/admin" element={<Admin />} />
       <Route path="/mock/:deviceId" element={<MockDisplay />} />
       <Route path="/p/:shortId" element={<ProductRoute />} />
-      <Route path="/success" element={<SuccessPage />} />
+      <Route path="/success" element={<SuccessRoute />} />
       <Route path="/cancel" element={<CancelPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

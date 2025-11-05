@@ -9,18 +9,39 @@ function formatCurrency(amount, currency = 'EUR', locale = 'de-AT') {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: String(currency || 'EUR').toUpperCase()
-    }).format(amount / 100); // Stripe amounts are usually in cents
+    }).format(amount / 100); // Stripe amounts sind Cent
   } catch {
     return `${(amount / 100).toFixed(2)} ${String(currency || 'EUR').toUpperCase()}`;
   }
+}
+
+function CopyInline({ text, label = 'Kopieren', title = 'In Zwischenablage kopieren' }) {
+  const [ok, setOk] = useState(false);
+  const onCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text || '');
+      setOk(true);
+      setTimeout(() => setOk(false), 1200);
+    } catch {/* noop */}
+  };
+  return (
+    <button type="button" onClick={onCopy} title={title} aria-label={title}
+      style={{
+        marginLeft: 8, padding: '6px 10px', borderRadius: 8, border: '1px solid #cbd5e1',
+        background: '#fff', color: '#334155', cursor: 'pointer'
+      }}>
+      {ok ? '✓ Kopiert' : label}
+    </button>
+  );
 }
 
 export default function SuccessPage() {
   const [searchParams] = useSearchParams();
   const sessionId = useMemo(() => searchParams.get('session_id'), [searchParams]);
 
+  // phases: 'no-session' | 'checking' | 'pending' | 'ok' | 'error'
   const [state, setState] = useState({
-    phase: sessionId ? 'checking' : 'no-session', // 'checking' | 'ok' | 'error' | 'no-session'
+    phase: sessionId ? 'checking' : 'no-session',
     tries: 0,
     lastError: null,
     payload: null
@@ -30,7 +51,8 @@ export default function SuccessPage() {
   const timerRef = useRef(null);
   const abortRef = useRef(null);
 
-  const backoffs = useRef([0, 1000, 2000, 4000, 8000, 16000]); // ~31s total
+  // Backoff-Folge (ms)
+  const backoffs = useRef([0, 1500, 3000, 5000, 8000, 13000, 21000]); // ~48,5s
 
   useEffect(() => {
     return () => {
@@ -45,77 +67,83 @@ export default function SuccessPage() {
 
     let attempt = 0;
 
-    const run = async () => {
+    const verifyOnce = async () => {
       if (!isMounted.current) return;
 
-      const wait = backoffs.current[Math.min(attempt, backoffs.current.length - 1)];
-      if (wait > 0) {
-        timerRef.current = setTimeout(run, wait);
-        attempt++; // schedule next attempt after waiting
-        return;
-      }
-      // First attempt executes immediately (wait=0), subsequent ones are scheduled above.
+      // Abort vorheriger Versuch
+      if (abortRef.current) abortRef.current.abort();
+      abortRef.current = new AbortController();
 
       try {
-        // Set phase to checking only for the immediate attempts (cosmetic)
         if (attempt === 0) {
           setState(s => ({ ...s, phase: 'checking', tries: 1, lastError: null }));
         } else {
           setState(s => ({ ...s, tries: s.tries + 1 }));
         }
 
-        // Abort controller per attempt
-        if (abortRef.current) abortRef.current.abort();
-        abortRef.current = new AbortController();
-
         const res = await fetch(
           `${API_BASE}/checkout/verify?session_id=${encodeURIComponent(sessionId)}`,
           { signal: abortRef.current.signal }
         );
 
-        if (!res.ok) {
-          // e.g., 404 while Stripe session is not finalized yet
-          const text = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status} ${res.statusText} ${text}`.trim());
-        }
-
-        const json = await res.json();
-
-        if (json && json.ok) {
-          if (!isMounted.current) return;
-          setState({
-            phase: 'ok',
-            tries: attempt + 1,
-            lastError: null,
-            payload: json
-          });
-          return; // success → stop retries
-        } else {
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.ok) {
+            if (!isMounted.current) return;
+            setState({
+              phase: 'ok',
+              tries: attempt + 1,
+              lastError: null,
+              payload: json
+            });
+            return; // fertig
+          }
+          // ok=false: wie Fehler behandeln
           throw new Error(json?.error || 'Unbekannte Antwort vom Server');
         }
-      } catch (err) {
-        if (!isMounted.current) return;
+
+        // Nicht-200: besondere Behandlung für 409 (= Payment not completed / Webhook pending)
+        const text = await res.text().catch(() => '');
+        const errMsg = `HTTP ${res.status} ${res.statusText} ${text}`.trim();
+
+        if (res.status === 409) {
+          // Noch nicht final – Webhook/Stripe verarbeitet
+          // -> in 'pending' wechseln und weiter versuchen bis Backoff erschöpft
+          setState(s => ({ ...s, phase: 'pending', lastError: errMsg }));
+        } else if (res.status >= 500) {
+          // Serverproblem: retry
+          setState(s => ({ ...s, lastError: errMsg }));
+        } else {
+          // 4xx != 409 → eher dauerhaftes Problem
+          throw new Error(errMsg);
+        }
+
+        // Plan nächster Versuch
         const maxIdx = backoffs.current.length - 1;
         if (attempt >= maxIdx) {
-          // Give control to user after final attempt
-          setState(s => ({
-            ...s,
-            phase: 'error',
-            lastError: String(err || 'Fehler'),
-          }));
+          // genug probiert
+          setState(s => ({ ...s, phase: 'error' }));
           return;
         }
-        // schedule next attempt
-        const nextWait = backoffs.current[Math.min(attempt + 1, maxIdx)];
-        timerRef.current = setTimeout(run, nextWait);
         attempt++;
-        setState(s => ({ ...s, lastError: String(err || 'Fehler') }));
+        timerRef.current = setTimeout(verifyOnce, backoffs.current[attempt]);
+      } catch (e) {
+        if (!isMounted.current) return;
+        const maxIdx = backoffs.current.length - 1;
+        setState(s => ({ ...s, lastError: String(e || 'Fehler') }));
+        if (attempt >= maxIdx) {
+          setState(s => ({ ...s, phase: 'error' }));
+          return;
+        }
+        attempt++;
+        timerRef.current = setTimeout(verifyOnce, backoffs.current[attempt]);
       }
     };
 
-    run();
+    // Starte erste Runde sofort (backoffs[0] = 0)
+    timerRef.current = setTimeout(verifyOnce, backoffs.current[0]);
 
-    // restart if sessionId changes
+    // Cleanup bei neuem sessionId
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
       if (abortRef.current) abortRef.current.abort();
@@ -126,42 +154,32 @@ export default function SuccessPage() {
     if (!sessionId) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     if (abortRef.current) abortRef.current.abort();
+    backoffs.current = [0, 1500, 3000, 5000, 8000, 13000, 21000];
     setState({ phase: 'checking', tries: 0, lastError: null, payload: null });
-    // trigger effect by tweaking searchParams (no-op) or call a local runner:
-    // simplest: force a reload to re-run the effect cleanly
-    // but we avoid full reload; instead, bump a dummy key by updating state:
-    // We'll mimic initial mount by toggling sessionId via history replace (no change).
-    const url = new URL(window.location.href);
-    window.history.replaceState({}, '', url.toString());
-    // kick a fresh run by updating a backoff array (cheap trick)
-    backoffs.current = [0, 1000, 2000, 4000, 8000, 16000];
-    // Start a new run quickly:
-    setTimeout(() => {
-      // re-run the effect body manually by changing a benign state:
-      // Instead, we will simply perform a one-off verify attempt now:
-      oneOffVerify(sessionId);
-    }, 0);
-  };
 
-  const oneOffVerify = async (sid) => {
-    try {
-      if (abortRef.current) abortRef.current.abort();
-      abortRef.current = new AbortController();
-      setState(s => ({ ...s, phase: 'checking', lastError: null, tries: s.tries + 1 }));
-      const res = await fetch(
-        `${API_BASE}/checkout/verify?session_id=${encodeURIComponent(sid)}`,
-        { signal: abortRef.current.signal }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (json?.ok) {
-        setState(s => ({ ...s, phase: 'ok', payload: json }));
-      } else {
-        throw new Error(json?.error || 'Unbekannte Antwort');
+    // One-off sofort
+    (async () => {
+      try {
+        abortRef.current = new AbortController();
+        setState(s => ({ ...s, phase: 'checking', tries: s.tries + 1, lastError: null }));
+        const res = await fetch(
+          `${API_BASE}/checkout/verify?session_id=${encodeURIComponent(sessionId)}`,
+          { signal: abortRef.current.signal }
+        );
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status} ${res.statusText} ${t}`.trim());
+        }
+        const json = await res.json();
+        if (json?.ok) {
+          setState(s => ({ ...s, phase: 'ok', payload: json }));
+        } else {
+          throw new Error(json?.error || 'Unbekannte Antwort');
+        }
+      } catch (e) {
+        setState(s => ({ ...s, phase: 'error', lastError: String(e || 'Fehler') }));
       }
-    } catch (e) {
-      setState(s => ({ ...s, phase: 'error', lastError: String(e || 'Fehler') }));
-    }
+    })();
   };
 
   const { phase, payload, lastError, tries } = state;
@@ -174,20 +192,21 @@ export default function SuccessPage() {
       <div
         style={{
           width: '100%',
-          maxWidth: 680,
+          maxWidth: 720,
           background: 'white',
           borderRadius: 12,
+          border: '1px solid #e5e7eb',
           boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
           padding: '24px 20px'
         }}
       >
-        <h1 style={{ marginTop: 0, marginBottom: 12 }}>Vielen Dank – Zahlung eingegangen</h1>
+        <h1 style={{ marginTop: 0, marginBottom: 12 }}>Vielen Dank – Zahlung</h1>
 
         {phase === 'no-session' && (
           <>
             <p>Es fehlt die <code>session_id</code> in der URL. Diese Seite wird normalerweise von Stripe nach dem Kauf aufgerufen.</p>
-            <p>
-              <Link to="/">Zur Startseite</Link>
+            <p style={{ marginTop: 12 }}>
+              <Link to="/" style={btnGhost}>Zur Startseite</Link>
             </p>
           </>
         )}
@@ -196,15 +215,40 @@ export default function SuccessPage() {
           <>
             <p>Wir bestätigen deinen Kauf … bitte einen Moment Geduld.</p>
             <small style={{ opacity: 0.7 }}>Versuch: {tries || 1}</small>
-            <div style={{ marginTop: 16 }}>
-              <button onClick={onManualRetry} style={btnStyle}>Erneut prüfen</button>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button onClick={onManualRetry} style={btnPrimary}>Erneut prüfen</button>
+              {sessionId && (
+                <span style={{ marginLeft: 12, fontSize: 13 }}>
+                  Session: <code>{sessionId}</code> <CopyInline text={sessionId} />
+                </span>
+              )}
+            </div>
+          </>
+        )}
+
+        {phase === 'pending' && (
+          <>
+            <p style={{ color: '#a16207', fontWeight: 600, marginBottom: 8 }}>
+              Bestätigung läuft noch (Webhook)
+            </p>
+            <p style={{ marginTop: 0 }}>
+              Deine Zahlung wurde verarbeitet, die endgültige Bestätigung vom Server steht noch aus. Wir prüfen automatisch weiter.
+            </p>
+            <small style={{ opacity: 0.7 }}>Versuch: {tries}</small>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button onClick={onManualRetry} style={btnPrimary}>Jetzt erneut prüfen</button>
+              {sessionId && (
+                <span style={{ marginLeft: 12, fontSize: 13 }}>
+                  Session: <code>{sessionId}</code> <CopyInline text={sessionId} />
+                </span>
+              )}
             </div>
           </>
         )}
 
         {phase === 'ok' && (
           <>
-            <p style={{ color: '#2f8f6b', fontWeight: 600, marginBottom: 8 }}>
+            <p style={{ color: '#2f8f6b', fontWeight: 700, marginBottom: 8 }}>
               Kauf bestätigt ✔
             </p>
 
@@ -218,7 +262,10 @@ export default function SuccessPage() {
               }}
             >
               <div style={{ display: 'grid', gap: 6 }}>
-                <div><strong>Produkt:</strong> {product?.name || '—'}{product?.shortId ? ` (/${product.shortId})` : ''}</div>
+                <div>
+                  <strong>Produkt:</strong> {product?.name || '—'}
+                  {product?.shortId ? ` (/p/${product.shortId})` : ''}
+                </div>
                 <div>
                   <strong>Betrag:</strong>{' '}
                   {order?.amount != null
@@ -230,15 +277,19 @@ export default function SuccessPage() {
                 {device?.deviceId && (
                   <div><strong>Gerät:</strong> {device.deviceId}</div>
                 )}
-                {payload?.order?.sessionId && (
-                  <div><strong>Session:</strong> {payload.order.sessionId}</div>
+                {(payload?.order?.sessionId || sessionId) && (
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <strong>Session:&nbsp;</strong>
+                    <code>{payload?.order?.sessionId || sessionId}</code>
+                    <CopyInline text={payload?.order?.sessionId || sessionId} />
+                  </div>
                 )}
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {product?.shortId && (
-                <a href={`/p/${product.shortId}`} style={btnStyle}>Zur Produktseite</a>
+                <a href={`/p/${product.shortId}`} style={btnPrimary}>Zur Produktseite</a>
               )}
               <Link to="/" style={btnGhost}>Zur Startseite</Link>
             </div>
@@ -247,8 +298,8 @@ export default function SuccessPage() {
 
         {phase === 'error' && (
           <>
-            <p style={{ color: '#b00020', fontWeight: 600, marginBottom: 8 }}>
-              Bestätigung noch nicht möglich
+            <p style={{ color: '#b00020', fontWeight: 700, marginBottom: 8 }}>
+              Bestätigung aktuell nicht möglich
             </p>
             {lastError && (
               <pre
@@ -265,8 +316,13 @@ export default function SuccessPage() {
               </pre>
             )}
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <button onClick={onManualRetry} style={btnStyle}>Erneut prüfen</button>
+              <button onClick={onManualRetry} style={btnPrimary}>Erneut prüfen</button>
               <Link to="/" style={btnGhost}>Später erneut öffnen</Link>
+              {sessionId && (
+                <span style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center' }}>
+                  Session: <code style={{ marginLeft: 6 }}>{sessionId}</code> <CopyInline text={sessionId} />
+                </span>
+              )}
             </div>
           </>
         )}
@@ -275,7 +331,7 @@ export default function SuccessPage() {
   );
 }
 
-const btnStyle = {
+const btnPrimary = {
   display: 'inline-block',
   background: '#3b5ccc',
   color: '#fff',

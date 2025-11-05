@@ -1,16 +1,23 @@
-// C:\ecily\ecily_landing\backend\src\routes\stripeWebhook.js
+// C:\QR\backend\src\routes\stripeWebhook.js
 import { Router } from 'express';
 import Stripe from 'stripe';
-import { Product, Device, Order, STATUS } from '../models.js';
+import { Product, Device, Order, STATUS, ORDER_STATUS } from '../models.js';
 
 const router = Router();
 
 /**
  * WICHTIG:
- * In src/index.js MUSS VOR dem JSON-Parser stehen:
+ * In eurer Server-Bootstrap-Datei (z. B. src/index.js) MUSS VOR dem JSON-Parser stehen:
+ *
  *   app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
- * Danach erst: app.use(express.json())
+ *
+ * Danach erst:
+ *   app.use(express.json());
+ *
+ * Sonst schlägt die Signaturprüfung fehl.
  */
+
+/* ───────── Helpers ───────── */
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -18,77 +25,198 @@ function getStripe() {
   return new Stripe(key, { apiVersion: '2024-06-20' });
 }
 
-async function markSoldAndLog({ session, log }) {
+function tryBroadcast(req, event, data) {
+  // Optionaler Broadcaster:
+  const app = req?.app;
+  const candidates = [
+    app?.locals?.broadcast,      // (event, data)
+    app?.locals?.sseBroadcast,   // (event, data)
+    app?.get?.('sseBroadcast'),  // (event, data)
+  ].filter(Boolean);
+  const fn = candidates.find((x) => typeof x === 'function');
+  if (fn) {
+    try {
+      fn(event, data);
+    } catch (e) {
+      (req?.log || console).warn?.('[sse] broadcast failed: ' + e.message);
+    }
+  }
+}
+
+const now = () => new Date();
+
+/* ───────── Core Ops ───────── */
+
+/**
+ * Idempotent: markiert Produkt/Device als SOLD und aktualisiert Order auf PAID.
+ * - Nutzt session.metadata (productId, deviceId)
+ * - Räumt Reservierungsmarker (reservedUntil, meta.reservedBy) am Produkt auf
+ */
+async function finalizePaidFromSession(req, session) {
+  const log = req.log || console;
   const meta = session?.metadata || {};
   const productId = meta.productId || null;
-  const deviceIdFromMeta = meta.deviceId || null;
+  const deviceIdMeta = meta.deviceId || '';
 
   if (!productId) {
-    log?.warn?.('[stripe] session missing productId');
-    return;
+    log.warn?.('[stripe] session missing productId');
+    return { ok: false, status: 400, reason: 'missing productId' };
   }
 
   const product = await Product.findById(productId);
   if (!product) {
-    log?.warn?.('[stripe] product not found', { productId });
-    return;
+    log.warn?.('[stripe] product not found', { productId });
+    return { ok: false, status: 404, reason: 'product not found' };
   }
 
-  // Produkt auf SOLD setzen
+  // Produkt SOLD (idempotent) + Reservierung aufräumen
   if (product.status !== STATUS.SOLD) {
     product.status = STATUS.SOLD;
-    await product.save();
   }
+  if ('reservedUntil' in product) product.reservedUntil = undefined;
+  try {
+    if (product.meta && product.meta.reservedBy) delete product.meta.reservedBy;
+  } catch {}
+  await product.save();
 
-  // Gerät (falls verlinkt/mitgegeben) auf SOLD setzen
+  // Gerät SOLD (falls vorhanden)
   let device = null;
   if (product.deviceId) {
     device = await Device.findById(product.deviceId);
-  } else if (deviceIdFromMeta) {
-    device = await Device.findOne({ deviceId: deviceIdFromMeta });
+  } else if (deviceIdMeta) {
+    device = await Device.findOne({ deviceId: String(deviceIdMeta) });
   }
   if (device && device.status !== STATUS.SOLD) {
     device.status = STATUS.SOLD;
     await device.save();
   }
 
-  // Order-Log (idempotent via session.id)
-  const amount =
-    Number.isFinite(+session?.amount_total) ? Math.round(+session.amount_total / 100) : product.price;
+  // Order idempotent upserten/aktualisieren
+  const amountTotal = Number(session?.amount_total ?? 0); // Cent
   const currency = String(session?.currency || product.currency || 'EUR').toUpperCase();
+  const customerEmail = session?.customer_details?.email || '';
+  const paymentIntentId =
+    session?.payment_intent?.id ||
+    (typeof session?.payment_intent === 'string' ? session.payment_intent : '');
 
-  try {
-    await Order.updateOne(
-      { sessionId: session.id },
-      {
-        $setOnInsert: {
-          sessionId: session.id,
-          paymentIntentId: session.payment_intent || null,
-          productId: product._id,
-          deviceId: device ? device._id : null,
-          status: session.status || 'completed',
-          amount,
-          currency,
-          raw: session
-        }
-      },
-      { upsert: true }
-    );
-  } catch (e) {
-    log?.error?.('[stripe] order log upsert failed: ' + e.message);
+  const update = {
+    productId: product._id,
+    deviceId: deviceIdMeta || undefined, // String deviceId (wie im Checkout-Start)
+    status: ORDER_STATUS.PAID,
+    amount: amountTotal, // Cent
+    currency,
+    customerEmail,
+    paymentIntentId,
+    paymentStatus:
+      session?.payment_status ||
+      session?.status ||
+      (session?.payment_intent?.status ? `pi:${session.payment_intent.status}` : 'unknown'),
+    raw: {
+      id: session.id,
+      mode: session.mode,
+      payment_status: session.payment_status,
+      status: session.status,
+    },
+    paidAt: now(),
+    reservedUntil: null,
+    updatedAt: now(),
+  };
+
+  await Order.findOneAndUpdate(
+    { sessionId: session.id },
+    {
+      $set: update,
+      $setOnInsert: { sessionId: session.id, createdAt: now() },
+    },
+    { new: true, upsert: true }
+  );
+
+  // Broadcasts
+  const ts = new Date().toISOString();
+  tryBroadcast(req, 'product:update', {
+    productId: String(product._id),
+    shortId: product.shortId,
+    status: product.status,
+    updatedAt: ts,
+  });
+  if (device) {
+    tryBroadcast(req, 'device:update', {
+      deviceId: device.deviceId || String(device._id),
+      status: device.status,
+      updatedAt: ts,
+    });
+  }
+  // "version" an alle (MockDisplay/App) für UI-Refresh
+  tryBroadcast(req, 'version', { updatedAt: ts, version: Date.now() });
+
+  log.info?.('[stripe] finalized PAID', {
+    sessionId: session.id,
+    productId: String(product._id),
+    deviceId: device?.deviceId || deviceIdMeta || null,
+  });
+
+  return { ok: true };
+}
+
+/**
+ * Rollback einer Reservierung, wenn die Session bei Stripe EXPIRED ist.
+ * Setzt Produkt zurück auf AVAILABLE (falls nicht bereits SOLD) und markiert Order als EXPIRED.
+ */
+async function expireReservationFromSession(req, session) {
+  const log = req.log || console;
+  const meta = session?.metadata || {};
+  const productId = meta.productId || null;
+
+  if (!productId) return;
+
+  const product = await Product.findById(productId);
+  if (!product) return;
+
+  // Nur zurücksetzen, wenn nicht bereits verkauft
+  if (product.status !== STATUS.SOLD) {
+    product.status = STATUS.AVAILABLE;
+    if ('reservedUntil' in product) product.reservedUntil = undefined;
+    try {
+      if (product.meta && product.meta.reservedBy) delete product.meta.reservedBy;
+    } catch {}
+    await product.save();
+
+    const ts = new Date().toISOString();
+    tryBroadcast(req, 'product:update', {
+      productId: String(product._id),
+      shortId: product.shortId,
+      status: product.status,
+      updatedAt: ts,
+    });
+    tryBroadcast(req, 'version', { updatedAt: ts, version: Date.now() });
   }
 
-  log?.info?.('[stripe] marked SOLD', {
+  // Order auf EXPIRED setzen (idempotent)
+  await Order.findOneAndUpdate(
+    { sessionId: session.id },
+    {
+      $set: {
+        status: ORDER_STATUS.EXPIRED,
+        paymentStatus: 'expired',
+        updatedAt: now(),
+      },
+      $setOnInsert: { sessionId: session.id, createdAt: now() },
+    },
+    { upsert: true }
+  );
+
+  log.info?.('[stripe] reservation expired', {
+    sessionId: session.id,
     productId: String(product._id),
-    deviceId: device ? device.deviceId : null,
-    sessionId: session.id
   });
 }
 
+/* ───────── Route ───────── */
+
 router.post('/webhook', async (req, res) => {
   const log = req.log || console;
-  let stripe;
 
+  let stripe;
   try {
     stripe = getStripe();
   } catch (e) {
@@ -104,13 +232,14 @@ router.post('/webhook', async (req, res) => {
   // Verifiziere Signatur in Prod (und Dev, wenn Secret gesetzt)
   if (secret) {
     try {
+      // req.body ist Buffer dank express.raw()
       event = stripe.webhooks.constructEvent(req.body, signature, secret);
     } catch (err) {
       log.warn('[stripe] signature verification failed: ' + err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
   } else {
-    // Dev-Fallback ohne Secret (nicht in Production!)
+    // Dev-Fallback ohne Secret (niemals in Production!)
     if (process.env.NODE_ENV === 'production') {
       log.error('[stripe] STRIPE_WEBHOOK_SECRET missing in production');
       return res.status(500).json({ ok: false, error: 'Webhook secret missing' });
@@ -127,19 +256,20 @@ router.post('/webhook', async (req, res) => {
       case 'checkout.session.completed':
       case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object;
-        await markSoldAndLog({ session, log });
+        await finalizePaidFromSession(req, session);
         break;
       }
       case 'checkout.session.expired': {
-        // Optional: hier könnte man wieder auf AVAILABLE setzen.
-        // Wir lassen es bewusst manuell/über Admin.
+        const session = event.data.object;
+        await expireReservationFromSession(req, session);
         break;
       }
       default:
-        // andere Events ignorieren
+        // ignorieren
         break;
     }
 
+    // Stripe erwartet 2xx möglichst schnell; keine lange Arbeit hier.
     return res.json({ received: true });
   } catch (e) {
     log.error('[stripe] webhook handler error: ' + e.message);

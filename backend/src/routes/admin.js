@@ -10,14 +10,55 @@ function toNumber(n, def = 0) {
   return Number.isFinite(v) ? v : def;
 }
 
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function minutesFromNow(mins) {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() + mins);
+  return d;
+}
+
+function parseReservedUntil({ reservedUntil, reservedMinutes }) {
+  if (reservedUntil) {
+    const dt = new Date(reservedUntil);
+    if (!isNaN(dt)) return dt;
+  }
+  const mins = clamp(Number(reservedMinutes || process.env.RESERVE_MINUTES || 7) || 7, 2, 20);
+  return minutesFromNow(mins);
+}
+
 async function makeUniqueShortId(len = 6) {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  // loop until unique
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     let s = '';
     for (let i = 0; i < len; i++) s += alphabet[Math.floor(Math.random() * alphabet.length)];
     const exists = await Product.findOne({ shortId: s });
     if (!exists) return s;
   }
+}
+
+function broadcaster(req) {
+  const app = req?.app;
+  const cands = [app?.locals?.broadcast, app?.locals?.sseBroadcast, app?.get?.('sseBroadcast')].filter(Boolean);
+  const fn = cands.find((f) => typeof f === 'function');
+  return (event, payload) => {
+    if (!fn) return;
+    try {
+      fn(event, payload);
+    } catch {
+      /* ignore */
+    }
+  };
+}
+
+async function findProductByIdOrShort({ productId, productShortId }) {
+  if (productId) return Product.findById(productId);
+  if (productShortId) return Product.findOne({ shortId: String(productShortId).toLowerCase() });
+  return null;
 }
 
 /* ───────── Products ───────── */
@@ -71,15 +112,43 @@ router.get('/products/:id', async (req, res, next) => {
 
 router.patch('/products/:id', async (req, res, next) => {
   try {
+    const b = req.body || {};
     const data = {};
-    if (req.body.name != null) data.name = String(req.body.name).trim();
-    if (req.body.price != null) data.price = toNumber(req.body.price);
-    if (req.body.currency != null) data.currency = String(req.body.currency).toUpperCase();
-    if (req.body.status && [STATUS.AVAILABLE, STATUS.SOLD].includes(req.body.status)) data.status = req.body.status;
-    if (req.body.imageUrl != null) data.imageUrl = String(req.body.imageUrl);
+
+    if (b.name != null) data.name = String(b.name).trim();
+    if (b.price != null) data.price = toNumber(b.price);
+    if (b.currency != null) data.currency = String(b.currency).toUpperCase();
+    if (b.imageUrl !== undefined) data.imageUrl = b.imageUrl == null ? null : String(b.imageUrl);
+
+    // Status-Handling inkl. RESERVED
+    if (b.status && [STATUS.AVAILABLE, STATUS.RESERVED, STATUS.SOLD].includes(b.status)) {
+      data.status = b.status;
+
+      if (b.status === STATUS.AVAILABLE || b.status === STATUS.SOLD) {
+        data.reservedUntil = null; // aufräumen
+      }
+
+      if (b.status === STATUS.RESERVED) {
+        data.reservedUntil = parseReservedUntil({
+          reservedUntil: b.reservedUntil,
+          reservedMinutes: b.reservedMinutes
+        });
+      }
+    }
 
     const p = await Product.findByIdAndUpdate(req.params.id, { $set: data }, { new: true });
     if (!p) return res.status(404).json({ ok: false, error: 'not found' });
+
+    // Broadcast
+    const push = broadcaster(req);
+    push('product:update', {
+      productId: String(p._id),
+      shortId: p.shortId,
+      status: p.status,
+      reservedUntil: p.reservedUntil,
+      updatedAt: new Date().toISOString()
+    });
+
     res.json({ ok: true, product: p });
   } catch (err) {
     next(err);
@@ -102,6 +171,15 @@ router.delete('/products/:id', async (req, res, next) => {
 
     await p.deleteOne();
 
+    // Broadcast (Produkt gelöscht → Statusinfo)
+    const push = broadcaster(req);
+    push('product:update', {
+      productId: String(p._id),
+      shortId: p.shortId,
+      deleted: true,
+      updatedAt: new Date().toISOString()
+    });
+
     res.json({ ok: true, deleted: true });
   } catch (err) {
     next(err);
@@ -118,6 +196,14 @@ router.post('/devices', async (req, res, next) => {
       deviceId: String(deviceId).trim(),
       name: name ? String(name).trim() : null,
       deviceSecret: deviceSecret ? String(deviceSecret) : null
+    });
+
+    // Broadcast
+    const push = broadcaster(req);
+    push('device:update', {
+      deviceId: d.deviceId,
+      status: d.status,
+      updatedAt: new Date().toISOString()
     });
 
     res.status(201).json({ ok: true, device: d });
@@ -138,13 +224,23 @@ router.get('/devices', async (_req, res, next) => {
 
 router.patch('/devices/:id', async (req, res, next) => {
   try {
+    const b = req.body || {};
     const data = {};
-    if (req.body.name != null) data.name = String(req.body.name).trim();
-    if (req.body.status && [STATUS.AVAILABLE, STATUS.SOLD].includes(req.body.status)) data.status = req.body.status;
-    if (req.body.deviceSecret != null) data.deviceSecret = String(req.body.deviceSecret);
+    if (b.name != null) data.name = String(b.name).trim();
+    if (b.status && [STATUS.AVAILABLE, STATUS.RESERVED, STATUS.SOLD].includes(b.status)) data.status = b.status;
+    if (b.deviceSecret != null) data.deviceSecret = String(b.deviceSecret);
 
     const d = await Device.findByIdAndUpdate(req.params.id, { $set: data }, { new: true });
     if (!d) return res.status(404).json({ ok: false, error: 'not found' });
+
+    // Broadcast
+    const push = broadcaster(req);
+    push('device:update', {
+      deviceId: d.deviceId,
+      status: d.status,
+      updatedAt: new Date().toISOString()
+    });
+
     res.json({ ok: true, device: d });
   } catch (err) {
     next(err);
@@ -173,6 +269,20 @@ router.post('/link', async (req, res, next) => {
 
     product.deviceId = device._id;
     await product.save();
+
+    // Broadcast
+    const push = broadcaster(req);
+    push('product:update', {
+      productId: String(product._id),
+      shortId: product.shortId,
+      status: product.status,
+      updatedAt: new Date().toISOString()
+    });
+    push('device:update', {
+      deviceId: device.deviceId,
+      status: device.status,
+      updatedAt: new Date().toISOString()
+    });
 
     res.json({ ok: true, device, product });
   } catch (err) {
@@ -205,27 +315,137 @@ router.post('/unlink', async (req, res, next) => {
       await product.save();
     }
 
+    // Broadcast
+    const push = broadcaster(req);
+    if (product) {
+      push('product:update', {
+        productId: String(product._id),
+        shortId: product.shortId,
+        status: product.status,
+        updatedAt: new Date().toISOString()
+      });
+    }
+    if (device) {
+      push('device:update', {
+        deviceId: device.deviceId,
+        status: device.status,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
     res.json({ ok: true, device, product });
   } catch (err) {
     next(err);
   }
 });
 
-/* ───────── Status Override ───────── */
+/* ───────── Status Override (erweitert) ───────── */
 router.post('/override/status', async (req, res, next) => {
   try {
-    const { deviceId, productId, status } = req.body || {};
-    if (!status || ![STATUS.AVAILABLE, STATUS.SOLD].includes(status)) {
+    const { deviceId, productId, status, reservedUntil, reservedMinutes } = req.body || {};
+    if (!status || ![STATUS.AVAILABLE, STATUS.RESERVED, STATUS.SOLD].includes(status)) {
       return res.status(400).json({ ok: false, error: 'valid status required' });
     }
 
+    const push = broadcaster(req);
+
     let device = null;
-    if (deviceId) device = await Device.findOneAndUpdate({ deviceId }, { $set: { status } }, { new: true });
+    if (deviceId) {
+      device = await Device.findOneAndUpdate(
+        { deviceId },
+        { $set: { status } },
+        { new: true }
+      );
+      if (device) {
+        push('device:update', {
+          deviceId: device.deviceId,
+          status: device.status,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
 
     let product = null;
-    if (productId) product = await Product.findByIdAndUpdate(productId, { $set: { status } }, { new: true });
+    if (productId) {
+      const updates = { status };
+      if (status === STATUS.AVAILABLE || status === STATUS.SOLD) {
+        updates.reservedUntil = null;
+      }
+      if (status === STATUS.RESERVED) {
+        updates.reservedUntil = parseReservedUntil({ reservedUntil, reservedMinutes });
+      }
+      product = await Product.findByIdAndUpdate(productId, { $set: updates }, { new: true });
+      if (product) {
+        push('product:update', {
+          productId: String(product._id),
+          shortId: product.shortId,
+          status: product.status,
+          reservedUntil: product.reservedUntil,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
 
     res.json({ ok: true, device, product });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/* ───────── Demo Reset: SOLD/RESERVED → AVAILABLE (inkl. Cleanup) ─────────
+   Body erlaubt eine der Varianten:
+   - { productId }
+   - { productShortId }
+   - { deviceId }  // ermittelt verlinktes Produkt automatisch
+*/
+router.post('/demo/reset', async (req, res, next) => {
+  try {
+    const { deviceId, productId, productShortId } = req.body || {};
+    if (!deviceId && !productId && !productShortId) {
+      return res.status(400).json({ ok: false, error: 'deviceId or productId|productShortId required' });
+    }
+
+    const push = broadcaster(req);
+    let product = await findProductByIdOrShort({ productId, productShortId });
+
+    let device = null;
+    if (deviceId) {
+      device = await Device.findOne({ deviceId: String(deviceId).trim() });
+      if (!product && device?.productId) {
+        product = await Product.findById(device.productId);
+      }
+    } else if (!device && product?.deviceId) {
+      device = await Device.findById(product.deviceId);
+    }
+
+    if (!product && !device) {
+      return res.status(404).json({ ok: false, error: 'target not found' });
+    }
+
+    // Produkt resetten
+    if (product) {
+      const set = { status: STATUS.AVAILABLE, reservedUntil: null };
+      product = await Product.findByIdAndUpdate(product._id, { $set: set }, { new: true });
+      push('product:update', {
+        productId: String(product._id),
+        shortId: product.shortId,
+        status: product.status,
+        reservedUntil: product.reservedUntil,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Device resetten (falls vorhanden)
+    if (device) {
+      device = await Device.findByIdAndUpdate(device._id, { $set: { status: STATUS.AVAILABLE } }, { new: true });
+      push('device:update', {
+        deviceId: device.deviceId,
+        status: device.status,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    res.json({ ok: true, product: product || null, device: device || null });
   } catch (err) {
     next(err);
   }
