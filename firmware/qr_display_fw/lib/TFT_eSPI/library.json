@@ -1,0 +1,9 @@
+{
+  "name": "TFT_eSPI",
+  "version": "2.5.43",
+  "build": {
+    "flags": [
+      "-Ilib/TFT_eSPI"
+    ]
+  }
+}

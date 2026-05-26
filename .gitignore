@@ -1,0 +1,19 @@
+
+# PlatformIO / firmware local build artifacts
+firmware/**/.pio/
+firmware/**/.vscode/.browse.c_cpp.db*
+firmware/**/.vscode/c_cpp_properties.json
+firmware/**/.vscode/launch.json
+firmware/**/.vscode/ipch/
+
+# Firmware secrets
+firmware/**/src/secrets.h
+firmware/**/include/secrets.h
+firmware/**/src/credentials.h
+firmware/**/include/credentials.h
+firmware/**/src/wifi_config.h
+firmware/**/include/wifi_config.h
+
+# Local VS Code / workspace files for firmware
+firmware/**/.vscode/
+firmware/**/*.code-workspace
