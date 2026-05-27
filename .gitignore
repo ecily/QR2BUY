@@ -6,6 +6,9 @@ firmware/**/.vscode/c_cpp_properties.json
 firmware/**/.vscode/launch.json
 firmware/**/.vscode/ipch/
 
+# Node / backend local dependencies
+backend/node_modules/
+
 # Firmware secrets
 firmware/**/src/secrets.h
 firmware/**/include/secrets.h

@@ -1,8 +1,204 @@
 // C:\Users\Lenovo\Documents\PlatformIO\Projects\qr_display_fw\src\main.cpp
 #include <Arduino.h>
+#include <TFT_eSPI.h>
+
+TFT_eSPI tft;
+
+#if defined(QR2BUY_TFT_DIAG) || defined(QR2BUY_QR_DIAG)
+
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
+void printTftBuildConfig(){
+  Serial.println("[TFT DIAG] expected build flags:");
+#ifdef USER_SETUP_LOADED
+  Serial.println("  USER_SETUP_LOADED=yes");
+#else
+  Serial.println("  USER_SETUP_LOADED=no");
+#endif
+#ifdef ILI9341_DRIVER
+  Serial.println("  driver=ILI9341");
+#else
+  Serial.println("  driver=unknown");
+#endif
+#ifdef TFT_PARALLEL_8_BIT
+  Serial.println("  bus=TFT_PARALLEL_8_BIT");
+#endif
+#ifdef ESP32_PARALLEL
+  Serial.println("  ESP32_PARALLEL=yes");
+#endif
+#ifdef TFT_WIDTH
+  Serial.println("  TFT_WIDTH=" STR(TFT_WIDTH));
+#endif
+#ifdef TFT_HEIGHT
+  Serial.println("  TFT_HEIGHT=" STR(TFT_HEIGHT));
+#endif
+#ifdef TFT_MISO
+  Serial.println("  TFT_MISO=" STR(TFT_MISO));
+#endif
+#ifdef TFT_MOSI
+  Serial.println("  TFT_MOSI=" STR(TFT_MOSI));
+#endif
+#ifdef TFT_SCLK
+  Serial.println("  TFT_SCLK=" STR(TFT_SCLK));
+#endif
+#ifdef TFT_CS
+  Serial.println("  TFT_CS=" STR(TFT_CS));
+#endif
+#ifdef TFT_DC
+  Serial.println("  TFT_DC=" STR(TFT_DC));
+#endif
+#ifdef TFT_RST
+  Serial.println("  TFT_RST=" STR(TFT_RST));
+#endif
+#ifdef TFT_WR
+  Serial.println("  TFT_WR=" STR(TFT_WR));
+#endif
+#ifdef TFT_RD
+  Serial.println("  TFT_RD=" STR(TFT_RD));
+#endif
+#ifdef TFT_D0
+  Serial.println("  TFT_D0=" STR(TFT_D0));
+#endif
+#ifdef TFT_D1
+  Serial.println("  TFT_D1=" STR(TFT_D1));
+#endif
+#ifdef TFT_D2
+  Serial.println("  TFT_D2=" STR(TFT_D2));
+#endif
+#ifdef TFT_D3
+  Serial.println("  TFT_D3=" STR(TFT_D3));
+#endif
+#ifdef TFT_D4
+  Serial.println("  TFT_D4=" STR(TFT_D4));
+#endif
+#ifdef TFT_D5
+  Serial.println("  TFT_D5=" STR(TFT_D5));
+#endif
+#ifdef TFT_D6
+  Serial.println("  TFT_D6=" STR(TFT_D6));
+#endif
+#ifdef TFT_D7
+  Serial.println("  TFT_D7=" STR(TFT_D7));
+#endif
+#ifdef SPI_FREQUENCY
+  Serial.println("  SPI_FREQUENCY=" STR(SPI_FREQUENCY));
+#endif
+#ifdef SPI_READ_FREQUENCY
+  Serial.println("  SPI_READ_FREQUENCY=" STR(SPI_READ_FREQUENCY));
+#endif
+}
+
+#endif
+
+#ifdef QR2BUY_TFT_DIAG
+
+void drawDiagStep(uint8_t step){
+  switch(step){
+    case 0:
+      Serial.println("[TFT DIAG] draw black");
+      tft.fillScreen(TFT_BLACK);
+      break;
+    case 1:
+      Serial.println("[TFT DIAG] draw red");
+      tft.fillScreen(TFT_RED);
+      break;
+    case 2:
+      Serial.println("[TFT DIAG] draw green");
+      tft.fillScreen(TFT_GREEN);
+      break;
+    case 3:
+      Serial.println("[TFT DIAG] draw blue");
+      tft.fillScreen(TFT_BLUE);
+      break;
+    default:
+      Serial.println("[TFT DIAG] draw text TFT OK");
+      tft.fillScreen(TFT_BLACK);
+      tft.setTextDatum(MC_DATUM);
+      tft.setTextColor(TFT_WHITE, TFT_BLACK);
+      tft.drawString("TFT OK", tft.width() / 2, tft.height() / 2, 4);
+      break;
+  }
+}
+
+void setup(){
+  Serial.begin(115200);
+  delay(300);
+  Serial.println("TFT DIAG START");
+  printTftBuildConfig();
+
+  tft.init();
+  tft.setRotation(0);
+  drawDiagStep(0);
+}
+
+void loop(){
+  static uint8_t step = 0;
+  static uint32_t lastDrawMs = millis();
+
+  if(millis() - lastDrawMs >= 2000UL){
+    lastDrawMs = millis();
+    step = (step + 1) % 5;
+    drawDiagStep(step);
+  }
+}
+
+#elif defined(QR2BUY_QR_DIAG)
+
+#include <qrcode.h>
+
+static const char* QR_DIAG_URL = "https://qr2buy.com/p/demo";
+
+void drawQrDiag(){
+  Serial.println("[QR DIAG] draw QR https://qr2buy.com/p/demo");
+
+  tft.fillScreen(TFT_WHITE);
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(TFT_BLACK, TFT_WHITE);
+  tft.drawString("QR2BUY QR TEST", tft.width() / 2, 24, 2);
+
+  QRCode qr;
+  static uint8_t buf[400];
+  qrcode_initText(&qr, buf, 4, 0, QR_DIAG_URL);
+
+  int maxW = tft.width() - 24;
+  int maxH = tft.height() - 76;
+  int scale = min(maxW / qr.size, maxH / qr.size);
+  if(scale < 2) scale = 2;
+
+  int size = qr.size * scale;
+  int x0 = (tft.width() - size) / 2;
+  int y0 = 56 + ((tft.height() - 56 - size) / 2);
+
+  tft.fillRect(x0 - 6, y0 - 6, size + 12, size + 12, TFT_WHITE);
+  for(int y = 0; y < qr.size; y++){
+    for(int x = 0; x < qr.size; x++){
+      if(qrcode_getModule(&qr, x, y)){
+        tft.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, TFT_BLACK);
+      }
+    }
+  }
+}
+
+void setup(){
+  Serial.begin(115200);
+  delay(300);
+  Serial.println("QR DIAG START");
+  printTftBuildConfig();
+
+  tft.init();
+  tft.setRotation(0);
+  drawQrDiag();
+}
+
+void loop(){
+  delay(1000);
+}
+
+#else
+
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <TFT_eSPI.h>
 #include <ArduinoJson.h>
 #include <qrcode.h>
 #include "secrets.h"
@@ -47,8 +243,6 @@ static const int Y_TEXT   = 114;     // Haupttextzeile
 static const int Y_QR     = 222;     // QR zentriert mit Luft
 static const int QR_BAND_H = 180;    // Höhe des QR-Bereichs
 
-TFT_eSPI tft;
-
 // ───────── Laufende Zustände ─────────
 uint32_t lastHealth=0,lastConfig=0;
 int curHttpCode=0; uint32_t curLatencyMs=0;
@@ -77,11 +271,11 @@ void drawHeaderStatic(){
   tft.fillRect(0,0,tft.width(),40,TXT_HEADER);
   tft.setTextDatum(MC_DATUM);
   tft.setTextColor(TFT_WHITE,TXT_HEADER);
-  int16_t w=tft.textWidth("ecily.com - QR PROTOTYP",2);
+  int16_t w=tft.textWidth("qr2buy.com - QR PROTOTYP",2);
   if(w<tft.width()-8)
-    tft.drawString("ecily.com - QR PROTOTYP",tft.width()/2,24,2);
+    tft.drawString("qr2buy.com - QR PROTOTYP",tft.width()/2,24,2);
   else{
-    tft.drawString("ecily.com",tft.width()/2,16,2);
+    tft.drawString("qr2buy.com",tft.width()/2,16,2);
     tft.drawString("QR PROTOTYP",tft.width()/2,32,2);
   }
 }
@@ -346,3 +540,5 @@ void loop(){
     updateQR(); updateText();
   }
 }
+
+#endif

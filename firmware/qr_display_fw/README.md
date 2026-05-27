@@ -1,117 +1,226 @@
 # qr2buy ESP32 display firmware
 
-Project path: `firmware/qr_display_fw`
+Alpha hardware milestone reached on 2026-05-27:
 
-This is the PlatformIO firmware for the qr2buy display prototype. It connects an ESP32 to WiFi, polls the qr2buy backend, renders a product QR code on an ILI9341 TFT, and shows `VERKAUFT!` when the backend reports `SOLD`.
+- `esp32dev_spi_cs5_rst4_tft_diag` shows visible display output.
+- `esp32dev_spi_cs5_rst4_qr_diag` shows a QR code.
+- The QR code scans successfully with a phone.
+- Working hardware mode: SPI with `CS=5`, `RST=4`, `MOSI=23`, `MISO=19`, `SCLK=18`, `DC=15`.
+- Test URL: `https://qr2buy.com/p/demo`.
+- `https://qr2buy.com/p/demo` does not need to be live for this milestone; the success condition is a scanable QR code on the TFT.
 
-## PlatformIO
+No WiFi, backend, Stripe, MongoDB, secrets, or live qr2buy flow is needed for the display diagnostics.
 
-- Environment: `esp32dev`
-- Platform: `espressif32`
-- Board: `esp32dev`
-- Framework: `arduino`
-- Main file: `src/main.cpp`
-
-Useful commands from this directory:
-
-```bash
-pio run
-pio run --target upload
-pio device monitor
-```
-
-`platformio.ini` currently sets `upload_port = COM5` and `monitor_port = COM5`. These are local machine settings and may need to be changed or removed on another laptop.
-
-## Local secrets
-
-The firmware includes `src/secrets.h`. This file is intentionally not versioned.
-
-Create it locally from the example:
+Project path:
 
 ```bash
-copy src\secrets.example.h src\secrets.h
+cd /c/coding/qr2buy/firmware/qr_display_fw
 ```
 
-Then replace the placeholders in `src/secrets.h`.
+PlatformIO path used on this machine:
 
-Expected defines:
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe
+```
 
-- `WIFI_SSID`
-- `WIFI_PASS`
-- `BACKEND_URL`
-- `HEALTH_INTERVAL_MS`
-- `CONFIG_URL`
-- `CONFIG_INTERVAL_MS`
-- `EVENTS_HOST`
-- `EVENTS_PORT`
-- `EVENTS_PATH`
-
-Do not commit real WiFi data, IPs, tokens, API keys, or private secrets.
-
-## Backend expectation
-
-The primary firmware path is polling:
+Current USB serial port:
 
 ```text
-GET /api/config?deviceId=ESP32-DEMO-001
+COM3
 ```
 
-The backend is expected to return JSON with at least:
+## Working reference: SPI prototype
 
-- `text`
-- `qr`
-- `status`
+This is the confirmed working alpha hardware path. Use this first for the SPI prototype.
 
-The backend currently also returns `ok`, `deviceId`, `version`, and `updatedAt`.
+Build, upload, and monitor the color/text diagnostic:
 
-Expected status values:
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_rst4_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_rst4_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
 
-- `AVAILABLE`
-- `SOLD`
+Expected display output:
 
-When `status` is `SOLD`, or when `text` is `VERKAUFT!`, the firmware clears the QR display area and shows `VERKAUFT!`.
+```text
+black -> red -> green -> blue -> white text -> color bars with QR2BUY DISPLAY OK
+```
 
-The firmware also opens an SSE stream at `/api/events`, but polling `CONFIG_URL` is the reliable baseline for the current demo.
+After visible TFT output, build, upload, and monitor the confirmed QR diagnostic:
 
-## Current hardware assumptions
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_rst4_qr_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_rst4_qr_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
 
-Known from the current configuration:
+Expected display output:
 
-- ESP32 dev board (`esp32dev`)
-- ILI9341 TFT
-- 240x320 display
-- TFT_eSPI
-- QRCode library renders the QR code locally
-- no touch, button, or controllable LED behavior is implemented
+```text
+QR2BUY QR TEST
+QR code for https://qr2buy.com/p/demo
+```
 
-## TFT configuration notes
+Expected serial start:
 
-The configuration most likely used by the current build is the `build_flags` block in `platformio.ini`, because it defines `USER_SETUP_LOADED` and the TFT pins directly.
+```text
+QR DIAG START
+url=https://qr2buy.com/p/demo
+```
 
-Current `platformio.ini` SPI assumptions:
+Scan with a phone. A successful scan proves QR rendering and TFT output; the target URL may still return a non-live page.
 
-- `TFT_MISO=19`
-- `TFT_MOSI=23`
-- `TFT_SCLK=18`
-- `TFT_CS=5`
-- `TFT_DC=15`
-- `TFT_RST=4`
-- `SPI_FREQUENCY=8000000`
+## Fallback: parallel prototype, direct 8080 driver
 
-Known conflicts to resolve before treating the hardware setup as stable:
+Use this only for the parallel prototype. It bypasses TFT_eSPI completely and drives the legacy 8-bit bus directly, including GPIO32/GPIO33 via the ESP32 high-GPIO registers.
 
-- `src/TFT_eSPI_Setup.h` describes an SPI setup with `TFT_CS=-1` and backlight fixed to 3V3.
-- `lib/TFT_eSPI/User_Setup.h` describes an 8-bit parallel setup with a different pinout.
-- Do not change TFT pins until the real wiring is confirmed.
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_direct8080_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_direct8080_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
 
-## Git safety
+Expected serial start:
 
-The repository ignore rules protect local firmware artifacts and secrets, including:
+```text
+DIRECT8080 TFT DIAG START
+mode=direct ESP32 8080 parallel, no TFT_eSPI
+note=GPIO32/GPIO33 are handled via GPIO.out1 registers
+```
 
-- `firmware/**/.pio/`
-- `firmware/**/.vscode/`
-- `firmware/**/*.code-workspace`
-- `firmware/**/src/secrets.h`
-- `firmware/**/include/secrets.h`
+Expected display output:
 
-Keep `src/secrets.example.h` versioned. Keep `src/secrets.h` local only.
+```text
+black -> red -> green -> blue -> white -> color bars
+```
+
+Abort this test after about 45 seconds if the display stays solid white and the serial monitor keeps printing `draw=...`.
+
+## Parallel QR test after visible direct 8080 output
+
+Only flash this after the direct color test visibly works.
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_direct8080_qr_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_direct8080_qr_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+Expected display output:
+
+```text
+white background with black QR code for https://qr2buy.com/p/demo
+```
+
+Expected serial start:
+
+```text
+DIRECT8080 QR DIAG START
+url=https://qr2buy.com/p/demo
+qr_size=33
+```
+
+Scan with a phone. If it scans, the parallel display bus is proven good enough for alpha hardware work.
+
+## If direct 8080 stays white
+
+Try the TFT_eSPI legacy environment next. It uses the same reconstructed legacy pinout but still has known GPIO32/GPIO33 shift warnings in TFT_eSPI.
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+Expected display output:
+
+```text
+black -> red -> green -> blue -> white text -> color bars with QR2BUY DISPLAY OK
+```
+
+If it is still white, test the older common TFT_eSPI Setup14-style pinout. This only helps if the physical wiring actually matches that pinout.
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_setup14_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_setup14_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+If you intentionally rewire only legacy data lines D4/D5 away from GPIO33/GPIO32 to GPIO17/GPIO16, use this:
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_data_safe_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_parallel_legacy_data_safe_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+## SPI fallback variants
+
+If the SPI display has CS tied to GND:
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_nocs_rst4_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_nocs_rst4_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+If reset is not wired:
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_norst_tft_diag
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_norst_tft_diag --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+## Environment matrix
+
+| Environment | Purpose | Pins |
+| --- | --- | --- |
+| `esp32dev_spi_cs5_rst4_tft_diag` | Confirmed working SPI color/text test | MISO19 MOSI23 SCLK18 CS5 DC15 RST4 |
+| `esp32dev_spi_cs5_rst4_qr_diag` | Confirmed working SPI QR test | MISO19 MOSI23 SCLK18 CS5 DC15 RST4 |
+| `esp32dev_parallel_legacy_direct8080_tft_diag` | First parallel color test, no TFT_eSPI | RST4 CS15 DC2 WR21 RD22 D0=12 D1=13 D2=26 D3=25 D4=33 D5=32 D6=27 D7=14 |
+| `esp32dev_parallel_legacy_direct8080_qr_diag` | Direct QR test after color works | same as direct 8080 TFT |
+| `esp32dev_parallel_legacy_tft_diag` | TFT_eSPI legacy test | same legacy pins, known GPIO32/GPIO33 warnings |
+| `esp32dev_parallel_legacy_qr_diag` | TFT_eSPI QR on legacy pins | same legacy pins |
+| `esp32dev_parallel_setup14_tft_diag` | TFT_eSPI Setup14-style fallback | CS33 DC15 RST32 WR4 RD2 D0=12 D1=13 D2=26 D3=25 D4=17 D5=16 D6=27 D7=14 |
+| `esp32dev_parallel_legacy_data_safe_tft_diag` | Rewired legacy-control variant with safe data pins | RST4 CS15 DC2 WR21 RD22 D4=17 D5=16 |
+| `esp32dev_spi_nocs_rst4_tft_diag` | SPI when CS is tied to GND | MISO19 MOSI23 SCLK18 CS=-1 DC15 RST4 |
+| `esp32dev_spi_cs5_norst_tft_diag` | SPI when reset is not wired | MISO19 MOSI23 SCLK18 CS5 DC15 RST=-1 |
+
+## Build status checked on 2026-05-27
+
+All of these built successfully locally before the hardware test:
+
+```text
+esp32dev_spi_cs5_rst4_tft_diag                SUCCESS, hardware visible
+esp32dev_spi_cs5_rst4_qr_diag                 SUCCESS, hardware scanable QR
+esp32dev_parallel_legacy_direct8080_tft_diag  SUCCESS
+esp32dev_parallel_legacy_direct8080_qr_diag   SUCCESS
+esp32dev_parallel_legacy_tft_diag             SUCCESS
+esp32dev_parallel_legacy_qr_diag              SUCCESS
+esp32dev_parallel_setup14_tft_diag            SUCCESS
+esp32dev_parallel_legacy_data_safe_tft_diag   SUCCESS
+esp32dev_spi_nocs_rst4_tft_diag               SUCCESS
+esp32dev_spi_cs5_norst_tft_diag               SUCCESS
+esp32dev                                      SUCCESS
+```
+
+Known warning:
+
+```text
+esp32dev_parallel_legacy_tft_diag: left shift count >= width of type
+```
+
+That warning comes from TFT_eSPI's ESP32 parallel GPIO masks with data pins on GPIO32/GPIO33. The direct 8080 diagnostic exists specifically to bypass this.
+
+## Commit safety
+
+Do not commit local firmware artifacts or secrets:
+
+```text
+firmware/**/.pio/
+firmware/**/.vscode/
+firmware/**/src/secrets.h
+firmware/**/*.code-workspace
+```

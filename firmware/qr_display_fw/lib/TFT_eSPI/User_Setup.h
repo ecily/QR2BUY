@@ -1,3 +1,7 @@
+// Legacy reconstructed parallel setup.
+// Note: TFT_D4=33 and TFT_D5=32 trigger TFT_eSPI ESP32 mask warnings.
+// Use esp32dev_parallel_legacy_direct8080_tft_diag to test this wiring without TFT_eSPI.
+
 // ==== Display-Treiber ====
 #define ILI9341_DRIVER        // Dein Controller
 
