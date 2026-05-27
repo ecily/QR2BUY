@@ -26,7 +26,8 @@ dotenv.config();
 /* ───────────────── Env & Config ───────────────── */
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/qr2buy';
+// MONGO_URL has priority; MONGODB_URI is supported for Atlas-style env naming.
+const MONGO_URL = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/qr2buy';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || true;
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
@@ -65,7 +66,7 @@ app.use(express.json({ limit: '1mb' }));
 /* ───────────────── MongoDB ───────────────── */
 mongoose
   .connect(MONGO_URL)
-  .then(() => logger.info({ msg: '[db] connected', url: MONGO_URL }))
+  .then(() => logger.info({ msg: '[db] connected' }))
   .catch((err) => {
     logger.error({ msg: '[db] connection error', err: err.message });
     process.exit(1);

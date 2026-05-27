@@ -5,11 +5,15 @@ import { Product, Device, STATUS } from '../models.js';
 
 dotenv.config();
 
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/qr2buy';
+// MONGO_URL has priority; MONGODB_URI is supported for Atlas-style env naming.
+const MONGO_URL = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/qr2buy';
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST || 'localhost';
 const API_BASE_URL = process.env.API_BASE_URL || `http://${HOST}:${PORT}`;
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || 'http://localhost:5173';
+const DEMO_DEVICE_ID = process.env.DEMO_DEVICE_ID || 'demo-device';
+const DEMO_PRODUCT_NAME = process.env.DEMO_PRODUCT_NAME || 'Demo Produkt';
+const DEMO_PRODUCT_SHORT_ID = process.env.DEMO_PRODUCT_SHORT_ID || 'demo';
 
 function randShortId() {
   // 6-stellig, [a-z0-9]
@@ -29,25 +33,31 @@ async function ensureUniqueShortId() {
 }
 
 async function main() {
-  console.log('[seed] connecting:', MONGO_URL);
+  console.log('[seed] connecting to MongoDB');
   await mongoose.connect(MONGO_URL);
   console.log('[seed] connected');
 
   // 1) Produkt anlegen/ersetzen
-  let shortId = await ensureUniqueShortId();
+  let shortId = DEMO_PRODUCT_SHORT_ID;
   const productPayload = {
     shortId,
-    name: 'Demo Produkt',
+    name: DEMO_PRODUCT_NAME,
     price: 19.99,
     currency: 'EUR',
     status: STATUS.AVAILABLE,
     imageUrl: null
   };
 
-  // Falls bereits Demo existiert (gleicher Name), ersetze sie, aber behalte ggf. shortId
-  const existingDemo = await Product.findOne({ name: 'Demo Produkt' });
+  // Falls bereits Demo existiert, aktualisieren und bevorzugt den stabilen shortId nutzen.
+  const existingDemo =
+    (await Product.findOne({ shortId: DEMO_PRODUCT_SHORT_ID })) ||
+    (await Product.findOne({ name: DEMO_PRODUCT_NAME }));
   if (existingDemo) {
-    shortId = existingDemo.shortId || shortId;
+    const shortIdOwner = await Product.findOne({ shortId: DEMO_PRODUCT_SHORT_ID });
+    shortId =
+      !shortIdOwner || shortIdOwner._id.equals(existingDemo._id)
+        ? DEMO_PRODUCT_SHORT_ID
+        : existingDemo.shortId || (await ensureUniqueShortId());
     existingDemo.set({ ...productPayload, shortId });
     await existingDemo.save();
     console.log('[seed] product updated:', existingDemo._id.toString(), 'shortId=', existingDemo.shortId);
@@ -60,7 +70,7 @@ async function main() {
   const product = await Product.findOne({ shortId });
 
   // 2) Device anlegen/ersetzen
-  const deviceId = 'ESP32-DEMO-001';
+  const deviceId = DEMO_DEVICE_ID;
   let device = await Device.findOne({ deviceId });
   if (device) {
     device.set({
