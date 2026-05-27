@@ -9,6 +9,8 @@ firmware/**/.vscode/ipch/
 # Node / backend local dependencies
 backend/node_modules/
 backend/.env
+backend/.env.*
+backend/.env.example
 
 # Firmware secrets
 firmware/**/src/secrets.h
