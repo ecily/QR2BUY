@@ -49,7 +49,7 @@ Admin nutzt `ADMIN_USER`/`ADMIN_PASS`; in Nicht-Production existiert ein Dev-Fal
 
 Die API-Basis kommt aus `VITE_API_BASE` und fällt lokal auf `/api` zurück. Routen: `/`, `/p/:shortId`, `/admin`. Die Produktseite lädt öffentliche Produktdaten, zeigt Status/Preis und startet Checkout; Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für den Dashboard-Status genutzt.
 
-Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist initial pitchbar umgesetzt: DE/EN-Locale-Erkennung und manueller Switch, lokale Demo mit Kauf/Reservierung/Bestand/Status sowie responsive Breakpoints für Mobile bis Desktop. Der Frontend-Build ist erfolgreich und alle sechs produktiven Landing-/Produkt-/API-URLs liefern nach dem Deploy HTTP 200. Visuelles User-Feedback bleibt als nächster Schärfungsschritt offen.
+Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist initial pitchbar umgesetzt und nach der zweiten Fragerunde auf den USP geschärft: Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein; qr2buy wird als Vertrauenssystem zwischen Käufer und Händler erklärt. Die Seite präzisiert, dass Stripe der Zahlungsdienstleister ist und qr2buy erst nach bestätigter Zahlung reagiert. DE/EN-Locale-Erkennung, manueller Switch, lokale Demo mit Kauf-/Reservierungssimulation sowie responsive Breakpoints bleiben erhalten. Der Frontend-Build ist erfolgreich und alle sechs produktiven Landing-/Produkt-/API-URLs liefern HTTP 200. Visuelles User-Feedback bleibt als nächster Schärfungsschritt offen.
 
 ## Firmware und Hardware
 
@@ -78,12 +78,13 @@ Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr2buy-frontend`, S
 
 ## Nächste konkrete Schritte
 
-1. Landing Page nach User-Feedback weiter schärfen.
+1. Landing Page nach User-Abnahme weiter schärfen.
 2. Demo-Produktseite optisch prüfen.
 3. Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
 4. SOLD-/Reservieren-/Kaufen-Demo priorisieren.
 5. Stripe-Testcheckout inklusive Webhook und `SOLD`-Status verifizieren.
-6. Christbaum-Subseite später als schlanke DE/EN-Subseite prüfen.
+6. Demo-Journey, Stripe, SOLD und Reservierung technisch vertiefen.
+7. Christbaum-Subseite später als schlanke DE/EN-Subseite prüfen.
 
 ## Arbeitsregeln für zukünftige Codex-Aufgaben
 

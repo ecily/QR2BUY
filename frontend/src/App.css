@@ -234,12 +234,17 @@ body {
 .landing-hero__grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(420px, 1.05fr); align-items: center; gap: 72px; min-height: 660px; padding: 72px 0 92px; }
 .landing-hero h1 { max-width: 650px; margin: 19px 0 22px; color: var(--landing-ink); font-size: clamp(3.2rem, 6vw, 5.8rem); font-weight: 820; letter-spacing: -.075em; line-height: .93; }
 .landing-hero__lead { max-width: 560px; margin: 0; color: var(--landing-muted); font-size: 18px; line-height: 1.65; }
+.landing-hero__trust { max-width: 560px; margin: 17px 0 0; padding-left: 16px; border-left: 2px solid var(--landing-copper); color: var(--landing-ink); font-size: 14px; font-weight: 650; line-height: 1.6; }
 .landing-hero__actions { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 30px; }
 .landing-hero__note { display: flex; align-items: center; gap: 8px; margin: 22px 0 0; color: var(--landing-muted); font-size: 12px; font-weight: 700; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #6c9d68; box-shadow: 0 0 0 5px rgba(108,157,104,.15); }
-.landing-hero__points { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 34px; }
-.landing-hero__points span { display: inline-flex; align-items: center; gap: 7px; color: var(--landing-muted); font-size: 12px; font-weight: 650; }
-.landing-hero__points b { color: var(--landing-copper); font-size: 14px; }
+.landing-hero__badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.landing-hero__badges span { padding: 7px 10px; border: 1px solid var(--landing-line); border-radius: 999px; color: var(--landing-muted); font-size: 10px; font-weight: 800; }
+.landing-hero__audience { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 580px; margin-top: 30px; }
+.landing-hero__audience > div { padding: 13px 15px; border-left: 2px solid var(--landing-pine); background: #f3ede2; }
+.landing-hero__audience small, .landing-hero__audience strong { display: block; }
+.landing-hero__audience small { margin-bottom: 5px; color: var(--landing-copper); font-size: 10px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.landing-hero__audience strong { color: var(--landing-ink); font-size: 12px; line-height: 1.45; }
 .hero-visual { position: relative; min-height: 430px; display: grid; place-items: center; }
 .hero-visual__glow { position: absolute; width: 80%; height: 80%; border-radius: 50%; background: #e5d3bf; filter: blur(34px); opacity: .65; }
 .hero-window { position: relative; z-index: 1; width: min(100%, 560px); min-height: 405px; overflow: hidden; border: 7px solid #253a31; border-radius: 18px; background: #dcc2a2; box-shadow: 18px 23px 0 rgba(23,37,31,.08), 0 30px 55px rgba(23,37,31,.2); transform: rotate(2deg); }
@@ -317,6 +322,10 @@ body {
 .demo-button--secondary { color: #e9f1e6; border-color: rgba(255,255,255,.3); background: transparent; }
 .demo-notice { display: flex; gap: 8px; margin: 17px 0 0; color: #b8cbbb; font-size: 10px; line-height: 1.5; }
 .demo-notice span { display: grid; flex: 0 0 15px; place-items: center; width: 15px; height: 15px; border: 1px solid #b8cbbb; border-radius: 50%; font-size: 9px; }
+.demo-journey { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; color: #c6d8c4; font-size: 9px; font-weight: 800; }
+.demo-journey span { display: inline-flex; align-items: center; gap: 6px; }
+.demo-journey b { display: grid; place-items: center; width: 17px; height: 17px; border: 1px solid rgba(255,255,255,.3); border-radius: 50%; color: #fff; font-size: 9px; }
+.demo-journey i { margin: 0 2px; color: #e0a577; font-size: 12px; font-style: normal; }
 .landing-pain { background: var(--landing-cream); }
 .scenario-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .scenario-card { min-height: 220px; padding: 25px; border: 1px solid var(--landing-line); border-radius: 18px; background: rgba(255,253,248,.6); }
@@ -390,6 +399,8 @@ body {
   .landing-hero__grid { min-height: 0; padding: 55px 0 70px; }
   .landing-hero h1 { font-size: clamp(3rem, 15vw, 4.5rem); }
   .landing-hero__lead { font-size: 16px; }
+  .landing-hero__trust { font-size: 13px; }
+  .landing-hero__audience { grid-template-columns: 1fr; gap: 8px; }
   .landing-hero__points { display: grid; gap: 9px; }
   .hero-visual { min-height: 300px; transform: scale(.92); margin: -5px -4% -10px; width: 108%; }
   .hero-window { min-height: 290px; }

@@ -32,6 +32,18 @@ qr2buy verbindet physisches Produkt, digitales QR-Preisschild, Produktseite, Kau
 
 qr2buy connects the physical product, a digital QR price tag, a product page, buying or reserving, collection or delivery and a visible live status. It is not a regular QR-code generator and requires no app: the phone camera is enough.
 
+### Geschärfte Kernbotschaft / Sharpened core message
+
+Nach der zweiten Fragerunde steht nicht der QR-Code, sondern Vertrauen im Mittelpunkt: **Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein.** Ein Mensch sieht ein Produkt, scannt ohne App, wird verlässlich zur Zahlung geführt und erhält gemeinsam mit dem Händler erst nach bestätigter Zahlung Klarheit. Das digitale Preisschild reagiert sichtbar.
+
+After the second round of questions, trust – not the QR code – is the center of the message: **Buying and selling should not depend on opening hours.** A person sees a product, scans without an app, is guided reliably to payment and gets clarity together with the seller only after payment is confirmed. The digital price display reacts visibly.
+
+## Payment precision / Zahlungspräzisierung
+
+qr2buy ist keine Bank und gibt keine Garantieversprechen zu Käuferrechten oder Zahlungen ab. Stripe ist der Zahlungsdienstleister. Die Landingpage formuliert deshalb vorsichtig: Die Zahlung wird professionell abgewickelt; qr2buy reagiert erst nach bestätigter Zahlung und informiert dann Käufer, Verkäufer und Preisschild über den bestätigten Status.
+
+qr2buy is not a bank and makes no guarantee claims about buyer rights or payments. Stripe is the payment service provider. The landing page therefore uses precise language: payment is handled professionally; qr2buy reacts only after confirmed payment and then informs the buyer, seller and display of the confirmed status.
+
 ## Tonalität / Tone
 
 Klar, menschlich, startup-tauglich, kleinunternehmerfreundlich, kompetent und sympathisch. Keine übertriebenen Umsatzversprechen, keine erfundenen Compliance- oder Feature-Zusagen und keine fertige Preistabelle. Die MVP-/Pilotphase wird offen benannt.
@@ -53,8 +65,8 @@ Mobile-first with complete states for mobile, tablet, laptop and desktop. Naviga
 ## Landingpage-Struktur / Page structure
 
 1. Header mit typografischer qr2buy-Wortmarke, Navigation und DE/EN-Schalter.
-2. Hero mit „Dein Schaufenster verkauft weiter.“, USP, MVP-Hinweis und zwei CTAs.
-3. Interaktive Demo mit stilisiertem Preisschild, QR-Link auf `/p/demo`, Produktwahl, Kaufen, Reservieren und Statuswechsel.
+2. Hero mit „Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein.“, Trust-Text, Live-Beweisen, Käufer-/Verkäufer-Aussage und zwei CTAs.
+3. Interaktive Demo mit stilisiertem Preisschild, QR-Link auf `/p/demo`, Produktwahl, Kauf-/Reservierungssimulation und Statuswechsel.
 4. Pain-/Need-Karten für Ladenschluss, volle Geschäfte und Einzelstücke.
 5. USP-Abschnitt „Mehr als ein QR-Code“.
 6. Drei Schritte: Anbringen, Scannen, Handeln.
@@ -65,9 +77,9 @@ Mobile-first with complete states for mobile, tablet, laptop and desktop. Naviga
 
 ## Demo-Konzept / Demo concept
 
-Die Demo ist bewusst frontend-seitig simuliert. Sie verändert nur lokalen React-State und ruft keine Kauf-, Reservierungs- oder Stripe-API auf. Der Hinweis „keine echte Bestellung, keine Zahlung“ ist direkt am Demo-Modul sichtbar.
+Die Demo ist bewusst frontend-seitig simuliert. Sie verändert nur lokalen React-State und ruft keine Kauf-, Reservierungs- oder Stripe-API auf. Der Hinweis „keine echte Bestellung, keine Zahlung“ ist direkt am Demo-Modul sichtbar. Die Journey wird als Interesse → Scan → Bestätigung → Preisschild reagiert dargestellt.
 
-The demo is intentionally frontend-only. It changes local React state and calls no purchase, reservation or Stripe API. The notice “no real order, no payment” is visible beside the demo controls.
+The demo is intentionally frontend-only. It changes local React state and calls no purchase, reservation or Stripe API. The notice “no real order, no payment” is visible beside the demo controls. The journey is shown as interest → scan → confirmation → display reacts.
 
 Sichtbare Zustände / visible states:
 
@@ -123,7 +135,7 @@ The seasonal use case can later become a small subpage: `/de/use-cases/christbau
 - `/` zeigt die neue Landingpage nach Deploy.
 - Browser-Locale wählt plausibel DE oder EN; der Switch funktioniert jederzeit.
 - Hero, Demo, Karten, Partner-CTA und Footer sind auf Mobile, Tablet, Laptop und Desktop nutzbar.
-- Demo: Produkt wählen, kaufen, reservieren, Status am Mockup ändern, Bestand bei Lagerware reduzieren und Einzelstück als reserviert/verkauft zeigen.
+- Demo: Produkt wählen, Kauf simulieren, Reservierung simulieren, Status am Mockup ändern, Bestand bei Lagerware reduzieren und Einzelstück als reserviert/verkauft zeigen.
 - Demo-Hinweis ist klar sichtbar; keine echte Zahlung oder Bestellung wird ausgelöst.
 - QR-Fläche und CTA führen zu `/p/demo`.
 - `/p/demo`, `/api/health` und `/api/public/products/by-short/demo` bleiben unverändert funktionsfähig.

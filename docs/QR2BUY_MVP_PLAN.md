@@ -30,11 +30,11 @@ Mehrmandantenfähigkeit, rollenbasierte Auth, OTA-Firmware-Updates, vollwertiges
 9. **Erledigt:** Landing Page initial pitchbar machen: klare Headline, USP, Schaufenster-/Auslagen-Commerce, sichtbarer Demo-Flow, verständliche Darstellung von Hardware + QR + Produktseite und MVP-taugliche Optik.
 10. **Erledigt:** DE/EN mit Browser-Locale-Fallback und manuellem Switch ergänzen.
 11. **Erledigt:** Responsive CSS für Mobile, Tablet, Laptop und Desktop ergänzen und strukturell prüfen.
-12. **P0:** Landing Page nach User-Feedback schärfen.
-13. **P1:** Demo-Produktseite optisch prüfen.
-14. **P1:** Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
-15. **P1:** SOLD-/Reservieren-/Kaufen-Demo priorisieren.
-16. **P1:** Stripe-Testcheckout, Webhook-Signatur und `SOLD`-Status abnehmen.
+12. **Erledigt:** Hero, Einstieg und USP nach der zweiten Fragerunde auf Vertrauen, bestätigte Zahlung sowie Käufer-/Verkäufer-Klarheit schärfen.
+13. **P0:** Landing Page nach User-Abnahme weiter schärfen.
+14. **P1:** Demo-Produktseite optisch prüfen.
+15. **P1:** Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
+16. **P1:** Demo-Journey, Stripe-Testcheckout, Webhook-Signatur, SOLD und Reservierung technisch vertiefen.
 17. **P2:** Backend-Minimaltests für Health, Public, Config und Checkout ergänzen.
 18. **P2:** Geräteauthentifizierung und Secret-Speicherung vor Live-Betrieb härten.
 
