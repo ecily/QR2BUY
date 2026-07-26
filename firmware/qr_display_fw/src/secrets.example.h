@@ -6,6 +6,10 @@
 #define WIFI_SSID "YOUR_WIFI_SSID"
 #define WIFI_PASS "YOUR_WIFI_PASSWORD"
 
+// Online qr2buy config endpoint used by static_app.cpp.
+// This URL is public, but keep device-specific secrets out of this file.
+#define QR2BUY_CONFIG_URL "https://lionfish-app-zidqr.ondigitalocean.app/api/config?deviceId=demo-device"
+
 // Backend health endpoint used by healthPing().
 #define BACKEND_URL "http://192.168.x.x:3001/api/health"
 #define HEALTH_INTERVAL_MS 15000UL
