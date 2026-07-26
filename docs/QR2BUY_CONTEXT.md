@@ -49,7 +49,7 @@ Admin nutzt `ADMIN_USER`/`ADMIN_PASS`; in Nicht-Production existiert ein Dev-Fal
 
 Die API-Basis kommt aus `VITE_API_BASE` und fällt lokal auf `/api` zurück. Routen: `/`, `/p/:shortId`, `/admin`. Die Produktseite lädt öffentliche Produktdaten, zeigt Status/Preis und startet Checkout; Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für den Dashboard-Status genutzt.
 
-Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist initial pitchbar umgesetzt: DE/EN-Locale-Erkennung und manueller Switch, lokale Demo mit Kauf/Reservierung/Bestand/Status sowie responsive Breakpoints für Mobile bis Desktop. Der Frontend-Build ist erfolgreich; eine visuelle Live-Abnahme folgt nach Deploy und User-Feedback.
+Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist initial pitchbar umgesetzt: DE/EN-Locale-Erkennung und manueller Switch, lokale Demo mit Kauf/Reservierung/Bestand/Status sowie responsive Breakpoints für Mobile bis Desktop. Der Frontend-Build ist erfolgreich und alle sechs produktiven Landing-/Produkt-/API-URLs liefern nach dem Deploy HTTP 200. Visuelles User-Feedback bleibt als nächster Schärfungsschritt offen.
 
 ## Firmware und Hardware
 

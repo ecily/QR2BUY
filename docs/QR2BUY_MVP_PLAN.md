@@ -40,7 +40,7 @@ Mehrmandantenfähigkeit, rollenbasierte Auth, OTA-Firmware-Updates, vollwertiges
 
 ## Produktionsstatus
 
-Die gemeinsame DigitalOcean-App ist live. `qr2buy.com` ist technisch produktiv erreichbar; Frontend, `/p/demo`, `/api` und das Demo-Produkt funktionieren same-origin. Die Landingpage ist initial pitchbar, zweisprachig und mit einer frontend-seitigen Demo versehen. Der Wildcard-DNS-Record zeigt noch auf den alten Host und wird später geprüft. Mail-/MX-/TXT-/NS-Records wurden nicht verändert. Norton Safe Web war ein lokales Reputationsthema, kein App-Fehler.
+Die gemeinsame DigitalOcean-App ist live. `qr2buy.com` ist technisch produktiv erreichbar; Frontend, `/p/demo`, `/api` und das Demo-Produkt funktionieren same-origin. Die Landingpage ist initial pitchbar, zweisprachig und mit einer frontend-seitigen Demo versehen. Der Deploy wurde live geprüft: Root, Produktseite, beide API-Endpunkte sowie die `www`-Varianten liefern HTTP 200. Der Wildcard-DNS-Record zeigt noch auf den alten Host und wird später geprüft. Mail-/MX-/TXT-/NS-Records wurden nicht verändert. Norton Safe Web war ein lokales Reputationsthema, kein App-Fehler.
 
 ## Letzte Domain-Prüfung
 
