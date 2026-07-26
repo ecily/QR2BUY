@@ -20,18 +20,28 @@ Mehrmandantenfähigkeit, rollenbasierte Auth, OTA-Firmware-Updates, vollwertiges
 ## Priorisierte Aufgaben
 
 1. **Erledigt:** Online-Config-Firmware committen und pushen (`367f548`).
-2. **P0:** Domain/DNS/HTTPS/Routing auf DigitalOcean fertigstellen.
-3. **P0:** Danach `https://qr2buy.com/p/demo` prüfen, `/api` same-origin prüfen und das Demo-Produkt auf der Produktseite mit Status `AVAILABLE` prüfen.
-4. **P0:** DigitalOcean App Platform, Backend-Service und Frontend-Static-Site korrekt routen.
-5. **P0:** SPA-Fallback für `/` und `/p/*` einrichten.
-6. **P0:** Stripe-Testcheckout, Webhook-Signatur und `SOLD`-Status abnehmen.
-7. **P1:** Firmware-App mit realer Demo-Config und Hardware-Demo testen.
-8. **P1:** Backend-Minimaltests für Health, Public, Config und Checkout ergänzen.
-9. **P1:** Geräteauthentifizierung und Secret-Speicherung vor Live-Betrieb härten.
+2. **Erledigt:** Gemeinsame DigitalOcean-App mit Frontend und Backend herstellen.
+3. **Erledigt:** Backend-Routing unter `/api` mit Preserve Full Path.
+4. **Erledigt:** SPA-Catchall `index.html` aktivieren.
+5. **Erledigt:** `qr2buy.com` und `www.qr2buy.com` als aktive Custom Domains einrichten.
+6. **Erledigt:** `/p/demo` live erreichbar machen.
+7. **Erledigt:** API same-origin unter `/api` live erreichbar machen.
+8. **Erledigt:** Demo-Produkt mit Status `AVAILABLE` live erreichbar machen.
+9. **P0:** Landing Page initial pitchbar machen: klare Headline, USP, Schaufenster-/Auslagen-Commerce, sichtbarer Demo-Flow, verständliche Darstellung von Hardware + QR + Produktseite und MVP-taugliche Optik.
+10. **P1:** Demo-Produktseite optisch prüfen.
+11. **P1:** Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
+12. **P1:** SOLD-/Reservieren-/Kaufen-Demo priorisieren.
+13. **P1:** Stripe-Testcheckout, Webhook-Signatur und `SOLD`-Status abnehmen.
+14. **P2:** Backend-Minimaltests für Health, Public, Config und Checkout ergänzen.
+15. **P2:** Geräteauthentifizierung und Secret-Speicherung vor Live-Betrieb härten.
+
+## Produktionsstatus
+
+Die gemeinsame DigitalOcean-App ist live. `qr2buy.com` ist technisch produktiv erreichbar; Frontend, `/p/demo`, `/api` und das Demo-Produkt funktionieren same-origin. Der Wildcard-DNS-Record zeigt noch auf den alten Host und wird später geprüft. Mail-/MX-/TXT-/NS-Records wurden nicht verändert. Norton Safe Web war ein lokales Reputationsthema, kein App-Fehler.
 
 ## Letzte Domain-Prüfung
 
-Am 2026-07-26 lösten `qr2buy.com` und `www.qr2buy.com` lokal weiterhin auf `91.227.204.35` auf. HTTP zeigte den bestehenden nginx/Apache-Host; `/p/demo` war 404. HTTPS und die DO-Backend-URL konnten aus der lokalen Windows-curl-Umgebung wegen TLS-/Verbindungsfehlern nicht belastbar geprüft werden. Der Frontend-Build war erfolgreich. Eine DigitalOcean App Spec ist im Repo nicht vorhanden.
+Der frühere lokale Befund mit `91.227.204.35` ist durch die aktive DigitalOcean-Domain-Konfiguration ersetzt. Die final bestätigten Live-URLs sind in der Produktionsabnahme dokumentiert.
 
 Für die Aufschaltung manuell in DigitalOcean konfigurieren: `qr-frontend` aus `frontend` mit `npm ci && npm run build`, Output `dist`, Route `/` und SPA-Fallback auf `index.html`; `qr-backend` aus `backend` unter Route `/api`, Path Prefix erhalten, Healthcheck `/api/health`, Port `8080`. DNS-Ziele für Apex und `www` ausschließlich aus dem DigitalOcean-Domain-Dialog übernehmen.
 

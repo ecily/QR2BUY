@@ -2,7 +2,7 @@
 
 ## Zusammenfassung
 
-Das Repo enthält einen schlanken, technisch weit fortgeschrittenen MVP-Kern: Express/MongoDB-Backend, React/Vite-Frontend, funktionierenden SPI-TFT-/QR-Pfad und Online-Geräte-Config. Der größte Blocker ist die noch nicht sauber verbundene öffentliche Domain inklusive Deployment-Routing. Stripe und der öffentliche Kauf müssen end-to-end verifiziert werden.
+Das Repo enthält einen schlanken MVP-Kern mit Express/MongoDB-Backend, React/Vite-Frontend, funktionierendem SPI-TFT-/QR-Pfad und Online-Geräte-Config. Der DigitalOcean-/Domain-Livegang ist erfolgreich abgeschlossen. Stripe und der öffentliche Kauf müssen end-to-end weiterhin verifiziert werden.
 
 ## Geprüfte Bereiche und Dateien
 
@@ -16,7 +16,7 @@ Risiken: ungeschützte/optionale Geräte-Secret-Prüfung, Klartext-Device-Secret
 
 ## Frontend-Befunde
 
-React Router stellt `/`, `/p/:shortId` und `/admin` bereit. API-Aufrufe laufen über `VITE_API_BASE` bzw. `/api`. Die Produktseite lädt öffentliche Daten und startet Checkout; Admin verwaltet Produkte/Geräte und deren Verknüpfung. Vite-Build ist vorhanden. Für getrenntes Static Hosting fehlt ein SPA-Fallback für `/p/*`.
+React Router stellt `/`, `/p/:shortId` und `/admin` bereit. API-Aufrufe laufen über `VITE_API_BASE` bzw. `/api`. Die Produktseite lädt öffentliche Daten und startet Checkout; Admin verwaltet Produkte/Geräte und deren Verknüpfung. Vite-Build und produktiver SPA-Fallback sind vorhanden; `/p/demo` ist live erreichbar.
 
 ## Firmware-Befunde
 
@@ -34,7 +34,15 @@ Bewertung: Repository-Hygiene grün; Produktionsauthentifizierung und Geräte-Se
 
 ## Deployment-Befunde
 
-Keine DigitalOcean App Spec, YAML/YML, `static.json`, `_redirects`, `netlify.toml` oder `vercel.json` gefunden. Zielarchitektur bleibt: Domain/WWW auf DigitalOcean App Platform, Frontend Static Site mit SPA-Fallback, `/api/*` Backend-Service, HTTPS aktiv. Firmware darf kurzfristig direkt die DO-Backend-URL verwenden.
+Die gemeinsame DigitalOcean-App enthält `qr2buy-backend` als Web Service unter `/api` mit Preserve Full Path und Healthcheck `/api/health` sowie `qr2buy-frontend` als Static Site unter `/` mit SPA-Catchall `index.html`. `qr2buy.com` ist Primary Domain, `www.qr2buy.com` ist aktiv. Der alte Apex-Record wurde ersetzt; der Wildcard-Record zeigt noch auf den alten Host. Eine App Spec ist nicht im Repo abgelegt.
+
+## Produktionsabschluss
+
+Grün: `qr2buy.com` live, `www.qr2buy.com` live, `/p/demo` live, `/api/health` live und Demo-Product-Endpoint live.
+
+Gelb: Wildcard-DNS zeigt noch alt; alte separate `qr-frontend`-App wahrscheinlich noch vorhanden und später auf Bereinigung zu prüfen; Norton Safe Web bleibt ein lokales Reputationsthema; Landing Page ist noch nicht pitchbar genug.
+
+Rot: Stripe-End-to-End sowie SOLD-/Checkout-/Reservation-Flow sind weiterhin offen.
 
 ## Build-/Test-Befunde
 
@@ -45,10 +53,10 @@ Keine DigitalOcean App Spec, YAML/YML, `static.json`, `_redirects`, `netlify.tom
 
 ## Ampel
 
-- **Grün:** Repo-Scope und Secret-Ignorierung; Backend-Health/Public-API; Frontend-Build; SPI-Firmware-Build und dokumentierter scanbarer QR-Pfad.
-- **Gelb:** fehlende automatisierte Backend-Tests; Legacy/SSE/WS-Zusatzpfade; Basic Auth/Dev-Fallback; optionaler Device-Secret-Schutz; fehlende Deployment-Dateien.
-- **Rot:** öffentliche Domain/DNS/HTTPS/Routing nicht fertig; echter Stripe-/Webhook-/SOLD-End-to-End-Nachweis offen.
+- **Grün:** Repo-Scope und Secret-Ignorierung; Backend-Health/Public-API; Frontend-Build; SPI-Firmware-Build; Domain, www, `/p/demo`, `/api/health` und Demo-Product-Endpoint live.
+- **Gelb:** Wildcard-DNS alt; mögliche alte separate Frontend-App; Norton-Reputationsthema; Landing Page noch nicht pitchbar; Legacy/SSE/WS-Zusatzpfade; Basic Auth/Dev-Fallback; optionaler Device-Secret-Schutz; fehlende automatisierte Backend-Tests.
+- **Rot:** echter Stripe-/Webhook-/SOLD-/Checkout-/Reservation-End-to-End-Nachweis offen.
 
 ## Empfehlungen
 
-Zuerst Domain und Deployment-Routing fertigstellen, inklusive SPA-Fallback. Danach Demo-QR über die öffentliche Domain prüfen und Stripe-Testkauf mit Webhook durchspielen. Erst nach diesen Abnahmetests die Firmware-Konfiguration für die Demo festziehen; Security-Härtung und Tests folgen vor Produktion.
+Nächster Produktfokus ist eine initial pitchbare Landing Page. Danach Demo-Produktseite, alte separate Frontend-App/Kosten und SOLD-/Reservieren-/Kaufen-Demo prüfen. Stripe-End-to-End, Security-Härtung und automatisierte Tests folgen vor Produktion.

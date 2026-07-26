@@ -24,8 +24,9 @@ Pilot-Use-Case ist Schaufenster-/Auslagen-Commerce. Die Firmware darf kurzfristi
 - Frontend ist eine React/Vite-SPA mit Landingpage, Admin-Ansicht und Produktroute `/p/:shortId`.
 - Firmware hat einen funktionierenden SPI-Pfad und einen Online-Config-App-Pfad.
 - Hardware-Referenz: ESP32, SPI, CS GPIO5, RST GPIO4, DC GPIO15, MOSI GPIO23, MISO GPIO19, SCLK GPIO18, COM3.
-- `qr2buy.com` zeigt noch nicht korrekt auf die DigitalOcean-App; DNS/Domain/HTTPS/Routing bleiben MVP-Punkte.
-- Letzte lokale Domain-Prüfung: `qr2buy.com` und `www.qr2buy.com` lösen weiterhin auf `91.227.204.35` auf. HTTP liefert dort `nginx/1.6.2`; `/p/demo` ist 404. HTTPS/DO-HTTPS waren aus der lokalen Windows-curl-Umgebung wegen TLS-/Verbindungsfehlern nicht verifizierbar.
+- qr2buy.com ist technisch live.
+- Gemeinsame DigitalOcean-App: `qr2buy-backend` als Web Service und `qr2buy-frontend` als Static Site.
+- Erfolgreiche Live-Tests: `https://qr2buy.com/`, `https://qr2buy.com/p/demo`, `https://qr2buy.com/api/health`, `https://qr2buy.com/api/public/products/by-short/demo`, `https://www.qr2buy.com/` und `https://www.qr2buy.com/p/demo`.
 
 ## Backend
 
@@ -48,7 +49,7 @@ Admin nutzt `ADMIN_USER`/`ADMIN_PASS`; in Nicht-Production existiert ein Dev-Fal
 
 Die API-Basis kommt aus `VITE_API_BASE` und fällt lokal auf `/api` zurück. Routen: `/`, `/p/:shortId`, `/admin`. Die Produktseite lädt öffentliche Produktdaten, zeigt Status/Preis und startet Checkout; Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für den Dashboard-Status genutzt.
 
-Vite erzeugt `frontend/dist`. Für eine getrennte Static Site müssen `/` und `/p/*` per SPA-Fallback auf `index.html` zeigen; eine solche Deployment-Datei fehlt derzeit im Repo.
+Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Eine Deployment-Datei ist nicht im Repo erforderlich, da die Konfiguration in DigitalOcean aktiv gesetzt ist.
 
 ## Firmware und Hardware
 
@@ -60,28 +61,28 @@ Die Firmware-Online-Config ist mit `367f548 firmware: fetch qr config from backe
 
 ## Datenbank, Atlas und Deployment
 
-MongoDB Atlas ist als Online-Datenbank vorgesehen; konkrete URIs und ENV-Werte werden nicht dokumentiert. Das Backend läuft online auf DigitalOcean. Im Repo fehlt eine DigitalOcean App Spec sowie eine explizite Static-Site-/SPA-Rewrite-Konfiguration.
+MongoDB Atlas ist als Online-Datenbank vorgesehen; konkrete URIs und ENV-Werte werden nicht dokumentiert. Das Backend läuft online auf DigitalOcean. Die gemeinsame App verwendet Backend-Route `/api` mit Preserve Full Path und Healthcheck `/api/health`; die Frontend-Static-Site läuft auf `/` mit SPA-Catchall `index.html`.
 
 Zielarchitektur: `qr2buy.com` und `www.qr2buy.com` auf DigitalOcean App Platform, `/` und `/p/*` auf Frontend Static Site mit SPA-Fallback, `/api/*` auf Backend Web Service, HTTPS aktiv. Firmware kann vorübergehend die direkte Backend-DO-URL nutzen.
 
-Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr-frontend`, Source Directory `frontend`, Build `npm ci && npm run build`, Output `dist`, Route `/`, SPA-Catch-all auf `index.html`. Backend-Komponente `qr-backend`, Source Directory `backend`, Route `/api` mit erhaltenem Path Prefix, Healthcheck `/api/health`, Port `8080`. Eine App Spec ist im Repo nicht vorhanden. Die exakten DNS-Zielwerte müssen aus dem DigitalOcean-Domain-Dialog übernommen werden.
+Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr2buy-frontend`, Source Directory `frontend`, Build `npm ci && npm run build`, Output `dist`, Route `/`, SPA-Catchall `index.html`. Backend-Komponente `qr2buy-backend`, Source Directory `backend`, Route `/api` mit Preserve Full Path, Healthcheck `/api/health`, Port `8080`. Custom Domains sind aktiv: `qr2buy.com` als Primary und `www.qr2buy.com`. DNS: `@` zeigt auf die beiden DigitalOcean-A-Records `162.159.140.98` und `172.66.0.96`; `www` ist ein CNAME auf die DigitalOcean-App. Der alte `@`-Record `91.227.204.35` wurde ersetzt. Der Wildcard-Record `*` zeigt noch auf `91.227.204.35` und ist später zu prüfen. Mail-/MX-/TXT-/NS-Records blieben unverändert.
 
 ## Risiken und offene MVP-Tasks
 
-1. **Rot:** Domain/DNS/HTTPS/Routing ist noch nicht korrekt produktiv verbunden.
+1. **Grün:** Domain/DNS/HTTPS/Routing und Same-Origin-API sind technisch live.
 2. **Rot:** Stripe-Live-Konfiguration und echter End-to-End-Kauf müssen mit sicheren Server-ENV-Werten verifiziert werden.
 3. **Gelb:** Device-Config auto-provisioniert Geräte; Secret-Prüfung greift nur bei mitgesendetem Header, und Device-Secrets liegen unverschlüsselt im Modell.
 4. **Gelb:** Admin-Basic-Auth und der Dev-Fallback sind für ein internes MVP brauchbar, aber nicht als endgültige Produktionsauthentifizierung.
-5. **Gelb:** Deployment-/SPA-Fallback-Konfiguration fehlt im Repo.
+5. **Gelb:** Wildcard-DNS zeigt noch auf den alten Host; eine alte separate Frontend-App ist später auf Bereinigung zu prüfen.
 6. **Grün:** Backend-Health, Demo-Public-Flow, SPI-Display und scanbarer QR-Diagnosepfad sind vorhanden.
 
 ## Nächste konkrete Schritte
 
-1. DigitalOcean Routing, Domain, DNS und HTTPS für Frontend/API festlegen und verifizieren.
-2. SPA-Fallback für `/p/*` und `/` im Deployment einrichten.
-3. Demo-Produkt auf der öffentlichen Domain öffnen und QR-Scan bis Produktseite testen.
-4. Stripe-Testcheckout inklusive Webhook und `SOLD`-Status verifizieren.
-5. Erst danach Firmware auf die öffentliche Config-/Produkt-URL umstellen und Hardware-Demo durchführen.
+1. Landing Page initial pitchbar machen: klare Headline, USP, Schaufenster-/Auslagen-Commerce, sichtbarer Demo-Flow und verständliche Darstellung von Hardware, QR und Produktseite.
+2. Demo-Produktseite optisch prüfen.
+3. Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
+4. SOLD-/Reservieren-/Kaufen-Demo priorisieren.
+5. Stripe-Testcheckout inklusive Webhook und `SOLD`-Status verifizieren.
 
 ## Arbeitsregeln für zukünftige Codex-Aufgaben
 
@@ -94,4 +95,4 @@ Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr-frontend`, Sourc
 
 ## Letzter bekannter Git-Status
 
-Branch `main` ist nach dem Firmware-Commit mit `origin/main` synchron. Aktueller Git-Status: ausschließlich `docs/` ist untracked.
+Branch `main` ist mit `origin/main` synchron. Der erfolgreiche Livegang und die Doku wurden zuletzt in `1cfbb9f` dokumentiert; vor diesem Doku-Update war der Working Tree sauber.
