@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 
 const DEMO_URL = "/p/demo";
+const ECILY_STARTUP_URL = "https://ecily.com/de/start-up";
 
 const copy = {
   de: {
     nav: { demo: "Demo", useCases: "Für wen?", partner: "Partner werden", about: "Hinter qr2buy" },
-    eyebrow: "Vertrauen nach dem Scan",
+    eyebrow: "Ein ecily.com Projekt",
     hero: "Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein.",
     heroText: "qr2buy macht Produkte im Schaufenster sofort kaufbar oder reservierbar – ohne App, direkt am Handy und mit verlässlicher Rückmeldung nach bestätigter Zahlung.",
     heroTrust: "Erst wenn die Zahlung bestätigt ist, informiert qr2buy Käufer, Verkäufer und das digitale Preisschild. So wird aus Interesse ein klarer, nachvollziehbarer Kaufmoment.",
     buyerLabel: "Für Käufer",
     buyerText: "Sehen. Scannen. Sicher kaufen oder reservieren.",
     sellerLabel: "Für Händler",
-    sellerText: "Nach Hause gehen – und sichtbare Produkte trotzdem weiter verkaufen.",
-    heroBadges: ["Live-System", "Hardware-Prototyp", "Demo-Ablauf mit Zahlungslogik"],
+    sellerText: "Nach Hause gehen – und trotzdem weiter verkaufen, auch am Wochenende.",
+    heroBadges: ["Live MVP", "Hardware-Prototyp", "Demo-Ablauf"],
     demoCta: "Demo ansehen",
-    partnerCta: "Partner werden",
+    partnerCta: "Mit ecily über qr2buy sprechen",
     pilotNote: "Funktionierender MVP · Pilotphase",
     heroPoints: ["Kein App-Zwang", "Kauf oder Reservierung", "Bestandsschutz am Display"],
     demoEyebrow: "Interaktive Demo",
@@ -33,6 +34,8 @@ const copy = {
     reset: "Demo-Status zurücksetzen",
     demoNotice: "Demo-Modus: keine echte Bestellung, keine Zahlung.",
     demoJourney: ["Interesse", "Scan", "Bestätigung", "Preisschild reagiert"],
+    demoCompleteTitle: "Ein Produkt. Ein Scan. Eine klare Rückmeldung.",
+    demoCompleteText: "Du hast gerade gesehen, wie qr2buy funktioniert. Wenn du das Potential siehst und mitbauen willst, sprich mit ecily.",
     selected: "Ausgewählt",
     scenariosEyebrow: "Warum das zählt",
     scenariosTitle: "Wenn Interesse da ist, soll der Kauf nicht warten.",
@@ -50,15 +53,24 @@ const copy = {
     casesEyebrow: "Für lokale Verkaufsflächen",
     casesTitle: "Ein System, viele Situationen.",
     cases: [["Boutique", "Einzelstücke im Schaufenster"], ["Buchhandlung", "Lagerware trotz voller Kassa"], ["Galerie", "Originale und limitierte Stücke"], ["Pop-up", "Verkaufen ohne zusätzliche Infrastruktur"], ["Saisonaler Stand", "Abholung oder Lieferung sichtbar machen"]],
+    marketEyebrow: "Die Marktchance",
+    marketTitle: "Verkaufen wird unabhängig von Öffnungszeiten.",
+    marketText: "Wenn Menschen etwas genau jetzt sehen und haben wollen, muss der Kaufmoment nicht bis morgen warten. Kleine Händler können so Chancen zurückholen, die sonst an große Onlineplattformen verloren gehen. Bevor ein Kunde später bei Amazon kauft, kann der lokale Händler den Kaufmoment direkt abschließen.",
+    hardwareEyebrow: "Hardware, die zum Handel passt",
+    hardwareTitle: "Leistbare digitale Preisschilder statt Papier.",
+    hardwareText: "Papier ist billig, aber statisch. Tablets sind dynamisch, aber zu teuer. qr2buy setzt auf einfache, robuste und leistbare Display-Hardware – mit Produktname, Preis, Status, QR und kurzer Info im Mittelpunkt.",
+    adminEyebrow: "Nicht nur Frontend",
+    adminTitle: "Produktseite, Händlerbereich, Datenbank und Preisschild greifen zusammen.",
+    adminText: "Der geschützte Händlerbereich im Demo-MVP zeigt, wohin qr2buy wächst: Produkte, Preise, Bestand und Preisschild-Anzeige an einem Ort verwalten – ohne Enterprise-Versprechen, aber mit einem konkreten Fundament.",
     partnerEyebrow: "Gemeinsam in den Markt",
     partnerTitle: "Technik steht. Jetzt suchen wir Menschen, die mitbauen wollen.",
-    partnerText: "ecily arbeitet an digitalen Produktideen. qr2buy ist live, hat einen Hardware-Prototyp und zeigt einen konkreten Demo-Ablauf. Gesucht werden Menschen, die Verantwortung für Markt, Vertrieb, Pilotkunden und Wachstum übernehmen.",
+    partnerText: "ecily arbeitet an mehreren digitalen Produktideen. qr2buy ist live, technisch funktionsfähig, hat einen Hardware-Prototyp und zeigt einen konkreten Demo-Ablauf. Gesucht werden Menschen, die Verantwortung für Markt, Vertrieb, Pilotkunden und Wachstum übernehmen.",
     equity: "Equity-basiertes Partnering möglich",
-    talk: "Über Partnerschaft sprechen",
+    talk: "Mit ecily über qr2buy sprechen",
     pilotEyebrow: "Pilotphase",
     pilotTitle: "Hast du ein Schaufenster, eine Auslage oder eine saisonale Verkaufsfläche?",
     pilotText: "Wenn du ein Schaufenster, eine Auslage oder eine saisonale Verkaufsfläche hast, testen wir gemeinsam, ob deine sichtbaren Produkte auch außerhalb deiner Anwesenheit kaufbar werden.",
-    pilotCta: "Pilot anfragen",
+    pilotCta: "Mit ecily über qr2buy sprechen",
     aboutEyebrow: "Hinter qr2buy",
     aboutText: "qr2buy entsteht aus langjähriger Management-, Business- und Produktentwicklungserfahrung. Der MVP ist live und wird jetzt mit Pilotpartnern weiter geschärft.",
     footer: "QR-Commerce für sichtbare Produkte.",
@@ -66,17 +78,17 @@ const copy = {
   },
   en: {
     nav: { demo: "Demo", useCases: "Who for?", partner: "Become a partner", about: "About qr2buy" },
-    eyebrow: "Trust after the scan",
+    eyebrow: "An ecily.com project",
     hero: "Buying and selling should not depend on opening hours.",
     heroText: "qr2buy makes products in shop windows instantly buyable or reservable – no app required, directly on the phone, with reliable feedback after confirmed payment.",
     heroTrust: "Only after payment is confirmed does qr2buy notify the buyer, the seller and the digital price display. Interest becomes a clear, traceable purchase moment.",
     buyerLabel: "For buyers",
     buyerText: "See it. Scan it. Secure it.",
     sellerLabel: "For sellers",
-    sellerText: "Go home – and keep selling visible products.",
-    heroBadges: ["Live system", "Hardware prototype", "Payment-flow demo"],
+    sellerText: "Go home – and keep selling, even at the weekend.",
+    heroBadges: ["Live MVP", "Hardware prototype", "Demo flow"],
     demoCta: "See the demo",
-    partnerCta: "Become a partner",
+    partnerCta: "Talk to ecily about qr2buy",
     pilotNote: "Working MVP · Pilot phase",
     heroPoints: ["No app required", "Buy or reserve", "Inventory-aware display"],
     demoEyebrow: "Interactive demo",
@@ -94,6 +106,8 @@ const copy = {
     reset: "Reset demo status",
     demoNotice: "Demo mode: no real order, no payment.",
     demoJourney: ["Interest", "Scan", "Confirmation", "Display reacts"],
+    demoCompleteTitle: "One product. One scan. Clear feedback.",
+    demoCompleteText: "You have just seen how qr2buy works. If you see the potential and want to help build it, talk to ecily.",
     selected: "Selected",
     scenariosEyebrow: "Why it matters",
     scenariosTitle: "When interest is there, the purchase should not have to wait.",
@@ -107,15 +121,24 @@ const copy = {
     casesEyebrow: "For local selling spaces",
     casesTitle: "One system, many situations.",
     cases: [["Boutique", "One-off pieces in the window"], ["Bookshop", "Stock moving despite a busy till"], ["Gallery", "Originals and limited editions"], ["Pop-up", "Sell without extra infrastructure"], ["Seasonal stand", "Make collection or delivery clear"]],
+    marketEyebrow: "The opportunity",
+    marketTitle: "Selling becomes independent of opening hours.",
+    marketText: "When people see something and want it right now, the purchase does not have to wait until tomorrow. Small retailers can recover opportunities that might otherwise move to large online platforms. Before a customer later buys on Amazon, a local retailer can close that moment directly.",
+    hardwareEyebrow: "Hardware that fits retail",
+    hardwareTitle: "Affordable digital price displays instead of paper.",
+    hardwareText: "Paper is cheap but static. Tablets are dynamic but too expensive. qr2buy aims for simple, robust and affordable display hardware – with the product, price, status, QR and short information in focus.",
+    adminEyebrow: "Not just frontend",
+    adminTitle: "Product page, merchant area, database and display work together.",
+    adminText: "The protected merchant area in the demo MVP shows where qr2buy is going: manage products, prices, stock and display content in one place – without enterprise claims, but with a concrete foundation.",
     partnerEyebrow: "Build the market together",
     partnerTitle: "The technology is here. Now we are looking for people who want to build the market.",
-    partnerText: "ecily is working on several digital product ideas. qr2buy is live, has a hardware prototype and demonstrates a concrete flow. We are looking for people ready to take responsibility for market, sales, pilot customers and growth.",
+    partnerText: "ecily is working on several digital product ideas. qr2buy is live, technically working, has a hardware prototype and demonstrates a concrete flow. We are looking for people ready to take responsibility for market, sales, pilot customers and growth.",
     equity: "Equity-based partnering possible",
-    talk: "Talk about partnering",
+    talk: "Talk to ecily about qr2buy",
     pilotEyebrow: "Pilot phase",
     pilotTitle: "Do you have a window, display area or seasonal selling space?",
     pilotText: "If you have a shop window, display area or seasonal selling space, we can test together whether your visible products can be bought even when you are not there.",
-    pilotCta: "Ask about a pilot",
+    pilotCta: "Talk to ecily about qr2buy",
     aboutEyebrow: "About qr2buy",
     aboutText: "qr2buy grows from years of management, business and product development experience. The MVP is live and now being sharpened with pilot partners.",
     footer: "QR commerce for products in the real world.",
@@ -194,6 +217,7 @@ function ProductDemo({ lang, t }) {
           <div className="demo-actions"><button className="demo-button demo-button--primary" onClick={() => act("sold")} disabled={state.status === "sold"}>{t.buy}</button><button className="demo-button demo-button--secondary" onClick={() => act("reserved")} disabled={state.status !== "available"}>{t.reserve}</button></div>
           <div className="demo-journey" aria-label={t.demoEyebrow}>{t.demoJourney.map((step, index) => <span key={step}><b>{index + 1}</b>{step}{index < t.demoJourney.length - 1 && <i>→</i>}</span>)}</div>
           <p className="demo-notice"><span>i</span>{t.demoNotice}</p>
+          {state.status !== "available" && <div className="demo-complete"><strong>{t.demoCompleteTitle}</strong><p>{t.demoCompleteText}</p><a className="demo-complete__link" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.talk} <span>↗</span></a></div>}
         </div>
       </div>
     </div>
@@ -206,7 +230,7 @@ export default function LandingPage() {
   const t = copy[lang];
 
   useEffect(() => {
-    document.title = lang === "de" ? "qr2buy – Dein Schaufenster verkauft weiter." : "qr2buy – Your window keeps selling.";
+    document.title = lang === "de" ? "qr2buy – Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein." : "qr2buy – Buying and selling should not depend on opening hours.";
     document.documentElement.lang = lang;
   }, [lang]);
 
@@ -216,12 +240,14 @@ export default function LandingPage() {
     <main>
       <section className="landing-hero"><div className="landing-shell landing-hero__grid"><div className="landing-hero__copy"><span className="landing-eyebrow">{t.eyebrow}</span><h1>{t.hero}</h1><p className="landing-hero__lead">{t.heroText}</p><p className="landing-hero__trust">{t.heroTrust}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href="#demo">{t.demoCta}<span>↗</span></a><a className="landing-button landing-button--outline" href="#partner">{t.partnerCta}</a></div><p className="landing-hero__note"><span className="live-dot" />{t.pilotNote}</p><div className="landing-hero__badges">{t.heroBadges.map((badge) => <span key={badge}>{badge}</span>)}</div><div className="landing-hero__audience"><div><small>{t.buyerLabel}</small><strong>{t.buyerText}</strong></div><div><small>{t.sellerLabel}</small><strong>{t.sellerText}</strong></div></div></div><div className="hero-visual"><div className="hero-visual__glow" /><div className="hero-window"><div className="hero-window__bar"><span /><span /><span /><em>window / 01</em></div><div className="hero-window__scene"><div className="hero-window__shelf"><div className="hero-object hero-object--bag" /><div className="hero-object hero-object--book" /><div className="hero-object hero-object--print" /></div><div className="hero-tag"><span>qr2buy</span><strong>STADTLICHTER</strong><b>24,90 €</b><small>scan to shop</small></div><div className="hero-window__caption">CONFIRMED PAYMENT <span>→</span> DISPLAY REACTS</div></div></div></div></div></section>
       <ProductDemo lang={lang} t={t} />
+      <section className="landing-section landing-proof"><div className="landing-shell landing-proof__grid"><article className="proof-card proof-card--hardware"><span className="landing-eyebrow">{t.hardwareEyebrow}</span><h2>{t.hardwareTitle}</h2><p>{t.hardwareText}</p></article><article className="proof-card proof-card--admin"><span className="landing-eyebrow">{t.adminEyebrow}</span><h2>{t.adminTitle}</h2><p>{t.adminText}</p></article></div></section>
+      <section className="landing-section landing-market"><div className="landing-shell landing-market__inner"><span className="landing-eyebrow">{t.marketEyebrow}</span><h2>{t.marketTitle}</h2><p>{t.marketText}</p></div></section>
       <section className="landing-section landing-pain"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.scenariosEyebrow}</span><h2>{t.scenariosTitle}</h2></div><div className="scenario-grid">{t.scenarios.map(([title, text], index) => <article className="scenario-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
       <section className="landing-section landing-why"><div className="landing-shell landing-why__grid"><div><span className="landing-eyebrow">{t.whyEyebrow}</span><h2>{t.whyTitle}</h2><p className="landing-copy">{t.whyText}</p><a className="text-link" href="#how">{t.stepsEyebrow} <span>→</span></a></div><div className="why-list">{t.whyItems.map((item, index) => <div key={item}><span>0{index + 1}</span><strong>{item}</strong></div>)}</div></div></section>
       <section className="landing-section landing-steps" id="how"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.stepsEyebrow}</span><h2>Scan. Entscheiden. Weiter.</h2></div><div className="steps-grid">{t.steps.map(([number, title, text]) => <article key={number}><span className="step-number">{number}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
       <section className="landing-section landing-cases" id="use-cases"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.casesEyebrow}</span><h2>{t.casesTitle}</h2></div><div className="case-grid">{t.cases.map(([title, text], index) => <div className={`case-card case-card--${index + 1}`} key={title}><span>0{index + 1}</span><strong>{title}</strong><small>{text}</small></div>)}</div></div></section>
-      <section className="landing-section landing-partner" id="partner"><div className="landing-shell landing-partner__grid"><div className="partner-card"><span className="partner-card__stamp">MVP · LIVE</span><div className="partner-card__monogram">AF</div><span>Andreas Franz / ecily</span><small>Technical founder · product · business</small></div><div><span className="landing-eyebrow">{t.partnerEyebrow}</span><h2>{t.partnerTitle}</h2><p className="landing-copy">{t.partnerText}</p><p className="equity-note">{t.equity}</p><a className="landing-button landing-button--primary" href="mailto:andreas.franz@ecily.com?subject=qr2buy%20Partnerschaft">{t.talk}<span>↗</span></a></div></div></section>
-      <section className="landing-section landing-pilot"><div className="landing-shell landing-pilot__inner"><span className="landing-eyebrow">{t.pilotEyebrow}</span><h2>{t.pilotTitle}</h2><p>{t.pilotText}</p><a className="landing-button landing-button--dark" href="mailto:andreas.franz@ecily.com?subject=qr2buy%20Pilotanfrage">{t.pilotCta}<span>↗</span></a></div></section>
+      <section className="landing-section landing-partner" id="partner"><div className="landing-shell landing-partner__grid"><div className="partner-card"><span className="partner-card__stamp">MVP · LIVE</span><div className="partner-card__monogram">AF</div><span>Andreas Franz / ecily</span><small>Technical founder · product · business</small></div><div><span className="landing-eyebrow">{t.partnerEyebrow}</span><h2>{t.partnerTitle}</h2><p className="landing-copy">{t.partnerText}</p><p className="equity-note">{t.equity}</p><a className="landing-button landing-button--primary" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.talk}<span>↗</span></a></div></div></section>
+      <section className="landing-section landing-pilot"><div className="landing-shell landing-pilot__inner"><span className="landing-eyebrow">{t.pilotEyebrow}</span><h2>{t.pilotTitle}</h2><p>{t.pilotText}</p><a className="landing-button landing-button--dark" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.pilotCta}<span>↗</span></a></div></section>
       <section className="landing-section landing-about" id="about"><div className="landing-shell landing-about__grid"><div><span className="landing-eyebrow">{t.aboutEyebrow}</span><h2>Technik, die beim echten Produkt anfängt.</h2></div><p className="landing-copy">{t.aboutText}</p></div></section>
     </main>
     <footer className="landing-footer"><div className="landing-shell landing-footer__inner"><div><Logo /><p>{t.footer}</p></div><div className="landing-footer__links"><a href="#demo">{t.nav.demo}</a><a href="#partner">{t.nav.partner}</a><a href="mailto:andreas.franz@ecily.com">Kontakt</a></div><span>© {new Date().getFullYear()} qr2buy</span></div></footer>

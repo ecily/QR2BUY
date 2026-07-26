@@ -132,6 +132,16 @@ The seasonal use case can later become a small subpage: `/de/use-cases/christbau
 
 ## Abnahmekriterien / Acceptance criteria
 
+### Zweite Vertrauensschärfung / Second trust refinement
+
+Die aktuelle Landingpage führt mit „Ein ecily.com Projekt“ und der Kernbotschaft „Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein.“ ein. Die primäre Aktion ist die Demo; die Partner-CTAs verweisen auf `https://ecily.com/de/start-up`. Nach einer simulierten Kauf- oder Reservierungsaktion folgt ein klarer Abschluss-CTA zu ecily.
+
+The current landing page leads with “An ecily.com project” and the core message “Buying and selling should not depend on opening hours.” The primary action is the demo; partner CTAs link to `https://ecily.com/de/start-up`. After a simulated purchase or reservation, the demo provides a clear closing CTA to ecily.
+
+Zusätzlich belegt die Seite die technische Richtung mit leistbarer, robuster Display-Hardware, einem geschützten Händlerbereich im Demo-MVP sowie dem Zusammenspiel von Produktseite, Backend, Datenbank und Display. Eine separate Marktchance nennt Amazon genau einmal außerhalb des Hero-Bereichs. Diese Aussagen bleiben auf MVP-/Prototyp-Niveau und versprechen keine Enterprise-Reife.
+
+The page also shows the technical direction through affordable, robust display hardware, a protected merchant area in the demo MVP, and the connection between product page, backend, database and display. A separate opportunity section mentions Amazon once outside the hero. These statements remain at MVP/prototype level and do not claim enterprise readiness.
+
 - `/` zeigt die neue Landingpage nach Deploy.
 - Browser-Locale wählt plausibel DE oder EN; der Switch funktioniert jederzeit.
 - Hero, Demo, Karten, Partner-CTA und Footer sind auf Mobile, Tablet, Laptop und Desktop nutzbar.

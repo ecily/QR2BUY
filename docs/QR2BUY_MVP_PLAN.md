@@ -40,6 +40,8 @@ Mehrmandantenfähigkeit, rollenbasierte Auth, OTA-Firmware-Updates, vollwertiges
 
 ## Produktionsstatus
 
+Die Landingpage wurde nach der zweiten Fragerunde weiter auf Vertrauen und Öffnungszeiten ausgerichtet. ecily-Partnerlink, Demo-Abschluss, leistbare Display-Hardware, geschützter Händlerbereich sowie das Zusammenspiel von Produktseite, Backend, Datenbank und Display sind sichtbar. Nach der optischen Abnahme ist der nächste priorisierte Schritt die weitere technische Vertiefung von Demo-Journey, Stripe-Testcheckout, Webhook, SOLD und Reservierung.
+
 Die gemeinsame DigitalOcean-App ist live. `qr2buy.com` ist technisch produktiv erreichbar; Frontend, `/p/demo`, `/api` und das Demo-Produkt funktionieren same-origin. Die Landingpage ist initial pitchbar, zweisprachig und mit einer frontend-seitigen Demo versehen. Der Deploy wurde live geprüft: Root, Produktseite, beide API-Endpunkte sowie die `www`-Varianten liefern HTTP 200. Der Wildcard-DNS-Record zeigt noch auf den alten Host und wird später geprüft. Mail-/MX-/TXT-/NS-Records wurden nicht verändert. Norton Safe Web war ein lokales Reputationsthema, kein App-Fehler.
 
 ## Letzte Domain-Prüfung

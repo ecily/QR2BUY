@@ -97,4 +97,8 @@ Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr2buy-frontend`, S
 
 ## Letzter bekannter Git-Status
 
+Die Landingpage wurde in der zweiten Vertrauensrunde weiter geschärft: Öffnungszeiten, bestätigte Zahlung sowie klare Rückmeldung für Käufer, Verkäufer und Display stehen im Zentrum. Hero und Demo verlinken die Partneransprache zu `https://ecily.com/de/start-up`; zusätzlich dokumentiert die Seite leistbare Display-Hardware, den geschützten Händlerbereich im Demo-MVP und die technische Verbindung von Produktseite, Backend, Datenbank und Display. Amazon wird nur einmal in einem separaten Marktabschnitt erwähnt.
+
+The landing page was refined in the second trust round: opening hours, confirmed payment and clear feedback for buyer, seller and display are central. Hero and demo partner CTAs link to `https://ecily.com/de/start-up`; the page also documents affordable display hardware, the protected merchant area in the demo MVP and the technical connection between product page, backend, database and display. Amazon is mentioned only once in a separate market section.
+
 Branch `main` ist mit `origin/main` synchron. Der erfolgreiche Livegang und die Doku wurden zuletzt in `1cfbb9f` dokumentiert; vor diesem Doku-Update war der Working Tree sauber.
