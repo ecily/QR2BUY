@@ -21,7 +21,7 @@ Pilot-Use-Case ist Schaufenster-/Auslagen-Commerce. Die Firmware darf kurzfristi
 
 - Backend ist als Express/Mongoose-Service vorhanden; Health-Endpunkt online: `https://lionfish-app-zidqr.ondigitalocean.app/api/health`.
 - Öffentlicher Demo-Produkt-Endpunkt ist implementiert und extern als funktionierend bekannt: `/api/public/products/by-short/demo`.
-- Frontend ist eine React/Vite-SPA mit Landingpage, Admin-Ansicht und Produktroute `/p/:shortId`.
+- Frontend ist eine React/Vite-SPA mit zweisprachiger Landingpage, lokaler Demo, Admin-Ansicht und Produktroute `/p/:shortId`.
 - Firmware hat einen funktionierenden SPI-Pfad und einen Online-Config-App-Pfad.
 - Hardware-Referenz: ESP32, SPI, CS GPIO5, RST GPIO4, DC GPIO15, MOSI GPIO23, MISO GPIO19, SCLK GPIO18, COM3.
 - qr2buy.com ist technisch live.
@@ -49,7 +49,7 @@ Admin nutzt `ADMIN_USER`/`ADMIN_PASS`; in Nicht-Production existiert ein Dev-Fal
 
 Die API-Basis kommt aus `VITE_API_BASE` und fällt lokal auf `/api` zurück. Routen: `/`, `/p/:shortId`, `/admin`. Die Produktseite lädt öffentliche Produktdaten, zeigt Status/Preis und startet Checkout; Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für den Dashboard-Status genutzt.
 
-Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Eine Deployment-Datei ist nicht im Repo erforderlich, da die Konfiguration in DigitalOcean aktiv gesetzt ist.
+Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist initial pitchbar umgesetzt: DE/EN-Locale-Erkennung und manueller Switch, lokale Demo mit Kauf/Reservierung/Bestand/Status sowie responsive Breakpoints für Mobile bis Desktop. Der Frontend-Build ist erfolgreich; eine visuelle Live-Abnahme folgt nach Deploy und User-Feedback.
 
 ## Firmware und Hardware
 
@@ -78,11 +78,12 @@ Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr2buy-frontend`, S
 
 ## Nächste konkrete Schritte
 
-1. Landing Page initial pitchbar machen: klare Headline, USP, Schaufenster-/Auslagen-Commerce, sichtbarer Demo-Flow und verständliche Darstellung von Hardware, QR und Produktseite.
+1. Landing Page nach User-Feedback weiter schärfen.
 2. Demo-Produktseite optisch prüfen.
 3. Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
 4. SOLD-/Reservieren-/Kaufen-Demo priorisieren.
 5. Stripe-Testcheckout inklusive Webhook und `SOLD`-Status verifizieren.
+6. Christbaum-Subseite später als schlanke DE/EN-Subseite prüfen.
 
 ## Arbeitsregeln für zukünftige Codex-Aufgaben
 
