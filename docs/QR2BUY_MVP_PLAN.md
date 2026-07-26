@@ -29,6 +29,12 @@ Mehrmandantenfähigkeit, rollenbasierte Auth, OTA-Firmware-Updates, vollwertiges
 8. **P1:** Backend-Minimaltests für Health, Public, Config und Checkout ergänzen.
 9. **P1:** Geräteauthentifizierung und Secret-Speicherung vor Live-Betrieb härten.
 
+## Letzte Domain-Prüfung
+
+Am 2026-07-26 lösten `qr2buy.com` und `www.qr2buy.com` lokal weiterhin auf `91.227.204.35` auf. HTTP zeigte den bestehenden nginx/Apache-Host; `/p/demo` war 404. HTTPS und die DO-Backend-URL konnten aus der lokalen Windows-curl-Umgebung wegen TLS-/Verbindungsfehlern nicht belastbar geprüft werden. Der Frontend-Build war erfolgreich. Eine DigitalOcean App Spec ist im Repo nicht vorhanden.
+
+Für die Aufschaltung manuell in DigitalOcean konfigurieren: `qr-frontend` aus `frontend` mit `npm ci && npm run build`, Output `dist`, Route `/` und SPA-Fallback auf `index.html`; `qr-backend` aus `backend` unter Route `/api`, Path Prefix erhalten, Healthcheck `/api/health`, Port `8080`. DNS-Ziele für Apex und `www` ausschließlich aus dem DigitalOcean-Domain-Dialog übernehmen.
+
 ## Abnahmekriterien
 
 - `https://qr2buy.com/` und `https://qr2buy.com/p/demo` liefern die SPA.

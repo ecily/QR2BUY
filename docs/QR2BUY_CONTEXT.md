@@ -25,6 +25,7 @@ Pilot-Use-Case ist Schaufenster-/Auslagen-Commerce. Die Firmware darf kurzfristi
 - Firmware hat einen funktionierenden SPI-Pfad und einen Online-Config-App-Pfad.
 - Hardware-Referenz: ESP32, SPI, CS GPIO5, RST GPIO4, DC GPIO15, MOSI GPIO23, MISO GPIO19, SCLK GPIO18, COM3.
 - `qr2buy.com` zeigt noch nicht korrekt auf die DigitalOcean-App; DNS/Domain/HTTPS/Routing bleiben MVP-Punkte.
+- Letzte lokale Domain-Prüfung: `qr2buy.com` und `www.qr2buy.com` lösen weiterhin auf `91.227.204.35` auf. HTTP liefert dort `nginx/1.6.2`; `/p/demo` ist 404. HTTPS/DO-HTTPS waren aus der lokalen Windows-curl-Umgebung wegen TLS-/Verbindungsfehlern nicht verifizierbar.
 
 ## Backend
 
@@ -62,6 +63,8 @@ Die Firmware-Online-Config ist mit `367f548 firmware: fetch qr config from backe
 MongoDB Atlas ist als Online-Datenbank vorgesehen; konkrete URIs und ENV-Werte werden nicht dokumentiert. Das Backend läuft online auf DigitalOcean. Im Repo fehlt eine DigitalOcean App Spec sowie eine explizite Static-Site-/SPA-Rewrite-Konfiguration.
 
 Zielarchitektur: `qr2buy.com` und `www.qr2buy.com` auf DigitalOcean App Platform, `/` und `/p/*` auf Frontend Static Site mit SPA-Fallback, `/api/*` auf Backend Web Service, HTTPS aktiv. Firmware kann vorübergehend die direkte Backend-DO-URL nutzen.
+
+Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr-frontend`, Source Directory `frontend`, Build `npm ci && npm run build`, Output `dist`, Route `/`, SPA-Catch-all auf `index.html`. Backend-Komponente `qr-backend`, Source Directory `backend`, Route `/api` mit erhaltenem Path Prefix, Healthcheck `/api/health`, Port `8080`. Eine App Spec ist im Repo nicht vorhanden. Die exakten DNS-Zielwerte müssen aus dem DigitalOcean-Domain-Dialog übernommen werden.
 
 ## Risiken und offene MVP-Tasks
 
