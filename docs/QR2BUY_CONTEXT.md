@@ -50,9 +50,9 @@ Admin nutzt `ADMIN_USER`/`ADMIN_PASS`; in Nicht-Production existiert ein Dev-Fal
 
 Die API-Basis ist same-origin `/api`. Routen: `/`, `/p/:shortId`, `/demo/p/:productKey`, `/admin`, `/dashboard`, `/success` und `/cancel`. Die reale Produktseite lädt öffentliche Produktdaten und startet den bestehenden Checkout. Die getrennte Demo-Produktseite lädt ausschließlich den serverseitigen Demo-Katalog. Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für das Legacy-Dashboard genutzt; die Live-Demo besitzt sessiongebundene SSE-Kanäle.
 
-Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist pitchbar umgesetzt und auf den USP geschärft: Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein; qr2buy wird als Vertrauenssystem zwischen Käufer und Händler erklärt. Die Seite präzisiert, dass Stripe der Zahlungsdienstleister ist und qr2buy erst nach bestätigter Zahlung reagiert. DE/EN-Locale-Erkennung, manueller Switch, session-isolierte Live-Demo und responsive Breakpoints sind vorhanden. Der frühere Live-Nachweis der sechs produktiven Landing-/Produkt-/API-URLs stammt vom 26. Juli 2026; die neue Live-Demo ist lokal implementiert und noch nicht deployed.
+Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist pitchbar umgesetzt und auf den USP geschärft: Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein; qr2buy wird als Vertrauenssystem zwischen Käufer und Händler erklärt. Die Seite präzisiert, dass Stripe der Zahlungsdienstleister ist und qr2buy erst nach bestätigter Zahlung reagiert. DE/EN-Locale-Erkennung, manueller Switch, session-isolierte Live-Demo und responsive Breakpoints sind vorhanden. Die neue Live-Demo ist seit dem 1. September 2026 auf `qr2buy.com` deployed.
 
-## Session-isolierte Live-Demo (implementiert, Deploy vorbereitet)
+## Session-isolierte Live-Demo (produktiv deployed)
 
 Die bisher rein lokale Landingpage-Simulation wurde durch einen getrennten End-to-End-Demo-Pfad ersetzt. Jede geöffnete Frontpage erzeugt ein kryptografisch zufälliges Token; MongoDB speichert nur dessen SHA-256-Hash. Das Token verbindet den scanbaren QR-Code und `/demo/p/:productKey` genau mit dieser Frontpage-Session. Vier Demo-Produkte und ihre Preise kommen aus einem serverseitigen Katalog. Demo-Aktionen importieren oder verändern weder `Product` noch `Device` oder `Order`.
 
@@ -98,7 +98,9 @@ Manuelle Stripe-Sandbox-Konfiguration: In den Testmodus-Branding-Einstellungen B
 
 Produktions-Webhook: Im Stripe-Sandbox-Dashboard muss ein öffentlicher Endpoint `https://qr2buy.com/api/demo/stripe/webhook` für `checkout.session.completed` und `checkout.session.async_payment_succeeded` bestehen. Dessen eigenes Signing Secret gehört als `STRIPE_DEMO_WEBHOOK_SECRET` ins Backend. Das von `stripe listen` ausgegebene lokale CLI-Secret ist für diesen öffentlichen Endpoint nicht gültig und darf in Production nicht verwendet werden.
 
-Aktueller Nachweis: Die Cross-Device-Abnahme mit Smartphone-QR-Scan, mobiler Produktseite, Stripe-Testcheckout, signiertem Webhook, Rückmeldung auf Smartphone, Frontpage und simuliertem Hardwaredisplay sowie Reservierungs-, Zahlungs- und Reset-Zuständen war erfolgreich. Vor Deploy sind 20 Backend-Tests, vollständige Backend-Syntaxprüfung, sicherer Production-Start-Smoke, 5 Frontend-Tests, Frontend-Lint und Produktionsbuild grün; Backend- und Frontend-Audit melden jeweils 0 Schwachstellen. Die neue Mobile-UX, der fiktive Demo-Bestand, `PAID → SOLD` und der Mailtransport benötigen nach Deploy noch öffentliche Smoke- beziehungsweise visuelle Browserabnahme und einen echten Zustelltest nach separater qr2buy-SMTP-Konfiguration.
+Aktueller Nachweis: Die Cross-Device-Abnahme mit Smartphone-QR-Scan, mobiler Produktseite, Stripe-Testcheckout, signiertem Webhook, Rückmeldung auf Smartphone, Frontpage und simuliertem Hardwaredisplay sowie Reservierungs-, Zahlungs- und Reset-Zuständen war erfolgreich. Commit `a3b8c64` brachte die Demo auf `main`; `51f361b` härtete anschließend die validierte öffentliche Checkout-Origin ab. Am 1. September 2026 ab 18:10 Uhr MESZ waren Root, beide Mobile-Sprachrouten, Same-Origin- und direkter Backend-Healthcheck öffentlich erreichbar. Session-Erzeugung, vier `READY`-Produkte, öffentliche HTTPS-QR-Ziele mit Token ausschließlich im Fragment, session- und produktisolierte Reservierung per SSE, automatischer 20-Sekunden-Reset und Stripe-Sandbox-Checkout-Erzeugung waren live grün. Der Checkout lieferte ausschließlich eine HTTPS-Stripe-URL mit `cs_test_`; ein unsignierter Webhook wurde mit 400 abgewiesen.
+
+Abschlussprüfung: 21 Backend-Tests, vollständige Backend-Syntaxprüfung, sicherer Production-Start-Smoke, 5 Frontend-Tests, Frontend-Lint, Produktionsbuild und `git diff --check` sind grün. Backend- und Frontend-Audit melden jeweils 0 Schwachstellen; seitdem wurden keine Abhängigkeiten geändert. Im ausgelieferten Build sind DE/EN, `aria-live` und `prefers-reduced-motion` vorhanden. In der Abschlusssitzung war kein steuerbarer Browser verfügbar; die erneute visuelle Desktop-/Mobile-Abnahme bleibt deshalb manuell. Ohne neue Testzahlung wurden außerdem weder die Herkunft des öffentlichen Dashboard-Webhook-Secrets noch der live signierte `PAID → SOLD`-Pfad erneut bewiesen. SMTP bleibt optional und benötigt nach vollständiger separater qr2buy-Konfiguration einen echten Zustelltest.
 
 ## Firmware und Hardware
 
@@ -119,7 +121,7 @@ Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr2buy-frontend`, S
 ## Risiken und offene MVP-Tasks
 
 1. **Grün:** Domain/DNS/HTTPS/Routing und Same-Origin-API sind technisch live.
-2. **Rot:** Stripe-Live-Konfiguration und echter End-to-End-Kauf müssen mit sicheren Server-ENV-Werten verifiziert werden.
+2. **Gelb:** Der Stripe-Sandbox-Checkout wird live erzeugt; öffentlicher Dashboard-Webhook, signierter `PAID → SOLD`-Pfad und optionale SMTP-Zustellung müssen nach der Deploy-Korrektur noch einmal manuell ohne Live-Zahlung verifiziert werden. Das Projekt akzeptiert absichtlich keine Stripe-Live-Keys oder Live-Events.
 3. **Gelb:** Device-Config auto-provisioniert Geräte; Secret-Prüfung greift nur bei mitgesendetem Header, und Device-Secrets liegen unverschlüsselt im Modell.
 4. **Gelb:** Admin-Basic-Auth und der Dev-Fallback sind für ein internes MVP brauchbar, aber nicht als endgültige Produktionsauthentifizierung.
 5. **Gelb:** Wildcard-DNS zeigt noch auf den alten Host; eine alte separate Frontend-App ist später auf Bereinigung zu prüfen.
@@ -131,7 +133,7 @@ Konkrete DigitalOcean-Konfiguration: Static-Site-Komponente `qr2buy-frontend`, S
 2. Demo-Produktseite optisch prüfen.
 3. Alte separate `qr-frontend`-App und mögliche Kostenbereinigung prüfen.
 4. SOLD-/Reservieren-/Kaufen-Demo priorisieren.
-5. Stripe-Testcheckout inklusive Webhook und `SOLD`-Status verifizieren.
+5. Öffentlichen Stripe-Sandbox-Webhook inklusive `PAID → SOLD` nach Deploy erneut verifizieren und sicherstellen, dass dessen Dashboard-Secret statt eines lokalen CLI-Secrets gesetzt ist.
 6. Demo-Journey, Stripe, SOLD und Reservierung technisch vertiefen.
 7. Christbaum-Subseite später als schlanke DE/EN-Subseite prüfen.
 
