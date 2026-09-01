@@ -6,42 +6,53 @@ import {
   getDemoProduct,
   reserveDemoProduct
 } from '../api.js';
+import { copyStripeTestCard, prepareStripeRedirect } from '../demoCheckoutTransition.js';
 import { blocksDemoActions } from '../demoDisplayState.js';
 
 const copy = {
   de: {
     demo: 'Live-Demo · keine echte Zahlung',
-    safeCore: 'Das ist eine sichere Live-Demo. Garantiert keine Abbuchung und keine echte Bestellung.',
+    scanContext: 'Du hast den QR-Code eines qr2buy-Verkaufsschilds gescannt. Beim echten physischen Schild funktioniert der Ablauf genauso – direkt am Produkt und ohne App.',
+    scanSafety: 'In dieser Demo wird garantiert nichts abgebucht und keine echte Bestellung ausgelöst.',
+    safeCore: 'Nur Demo – keine Abbuchung und keine echte Bestellung.',
     noOrder: 'Es entsteht keine echte Bestellung, Reservierung oder Lieferung.',
     browser: 'Keine App · kein Benutzerkonto',
     actionTrust: ['Keine echte Bestellung', 'Keine Abbuchung'],
     available: 'Verfügbar',
     demoStock: 'Fiktiver Demo-Bestand: {stock}',
-    buy: 'Kaufen & liefern lassen',
-    reserve: 'Zur Abholung reservieren',
-    testTitle: 'Bereit für den sicheren Testcheckout?',
-    sandbox: 'Der Checkout läuft ausschließlich in der Stripe-Sandbox.',
-    testText: 'Verwende bitte nur die angezeigte Stripe-Testkarte. Gib keine echten Karten- oder Zahlungsdaten ein.',
-    testData: 'Für Name und Lieferadresse kannst du beliebige erfundene Testdaten verwenden.',
-    emailOptional: 'Eine echte E-Mail-Adresse ist nicht erforderlich. Möchtest du zusätzlich die Demo-Bestätigung und den Demo-Beleg erhalten, verwende eine erreichbare Adresse. Wir nutzen sie ausschließlich für diese eine Demo-Nachricht – ohne Marketing, Newsletter oder spätere Kontaktaufnahme.',
+    realAction: 'Im echten Einsatz kaufst oder reservierst du hier. Auf dieser öffentlichen Seite testest du nur den Ablauf.',
+    buy: 'Testkauf starten',
+    buyHint: 'Mit Stripe-Testkarte · garantiert keine Abbuchung',
+    reserve: 'Demo-Reservierung testen',
+    reserveHint: 'Keine echte Reservierung',
+    testTitle: 'Ein letzter Demo-Schritt',
+    checkpointSafety: 'Offizielle Stripe-Testkarte · garantiert keine Abbuchung',
+    sandbox: 'Stripe bleibt vollständig im Testmodus.',
+    testText: 'Bei Stripe verwendest du ausschließlich Testdaten. Es wird garantiert nichts abgebucht.',
+    testData: 'Ablauf: 12/34 · CVC: 123 · beliebige Testadresse',
+    emailOptional: 'Eine echte E-Mail-Adresse brauchst du nur, wenn du auch die Demo-Bestätigung erhalten möchtest.',
     cardLabel: 'Stripe-Testkarte',
     cardValue: '4242 4242 4242 4242',
-    cardDetails: ['Beliebiges zukünftiges Ablaufdatum', 'Beliebige dreistellige CVC', 'Beliebiger Testname', 'Beliebige Testadresse'],
+    cardDetails: ['Ablauf 12/34', 'CVC 123', 'Beliebige Testadresse'],
     copy: 'Kopieren',
     copied: 'Kopiert',
-    continue: 'Sicheren Testcheckout öffnen',
-    back: 'Zurück zum Produkt',
+    continue: 'Testkarte kopieren & Stripe öffnen',
+    continueAfterCopy: 'Danach Stripe öffnen',
+    copyFailed: 'Kopieren war nicht möglich. Markiere die Testkarte manuell.',
+    copySuccess: 'Testkarte kopiert. Stripe wird geöffnet.',
+    back: 'Zurück',
     loading: 'Live-Demo wird geladen …',
     waiting: 'Stripe bestätigt die Testzahlung serverseitig. Das kann einen Moment dauern.',
-    paid: 'Testzahlung erfolgreich',
-    noCharge: 'Garantiert keine Abbuchung',
-    noDelivery: 'Keine echte Bestellung oder Lieferung',
-    hardware: 'Das simulierte Hardwaredisplay zeigt die Bestätigung jetzt ebenfalls live an.',
+    paid: 'Demo erfolgreich · 0 € abgebucht',
+    noCharge: 'Keine echte Bestellung.',
+    successCycle: 'Das simulierte Verkaufsschild hat reagiert. Im echten Einsatz würde jetzt das physische Schild direkt beim Produkt aktualisiert.',
+    hardware: 'Dein Smartphone hat den Testkauf über Stripe bestätigt und den vollständigen Demo-Cycle ausgelöst.',
     orderNumber: 'Demo-Auftragsnummer',
     mailAccepted: 'Deine Demo-Bestätigung und dein Demo-Beleg wurden an {email} gesendet.',
     mailNotConfirmed: 'Die Testzahlung war erfolgreich; für die Demo-E-Mail wurde keine Zustellung bestätigt.',
     reserved: 'Für dich reserviert',
     reservedDetail: 'Zur Abholung vorgemerkt – ausschließlich innerhalb dieser Live-Demo.',
+    reservationHardware: 'Die Frontpage zeigt den neuen Status sofort. Im echten Einsatz aktualisiert sich das physische Schild direkt beim Produkt.',
     reset: 'Diese Demo wird in {seconds} Sekunden zurückgesetzt.',
     soldLabel: 'Verkauft',
     soldTitle: 'Diese Tanne wurde schon verkauft.',
@@ -60,37 +71,47 @@ const copy = {
   },
   en: {
     demo: 'Live demo · no real payment',
-    safeCore: 'This is a safe live demo. Guaranteed no charge and no real order.',
+    scanContext: 'You scanned the QR code of a qr2buy sales display. The real physical display works the same way – right at the product and without an app.',
+    scanSafety: 'This demo never creates a real charge or a real order.',
+    safeCore: 'Demo only – no charge and no real order.',
     noOrder: 'No real order, reservation or delivery is created.',
     browser: 'No app · no user account',
     actionTrust: ['No real order', 'No charge'],
     available: 'Available',
     demoStock: 'Fictional demo stock: {stock}',
-    buy: 'Buy & have it delivered',
-    reserve: 'Reserve for collection',
-    testTitle: 'Ready for the secure test checkout?',
-    sandbox: 'Checkout runs exclusively in the Stripe sandbox.',
-    testText: 'Use only the Stripe test card shown below. Never enter real card or payment details.',
-    testData: 'Use any fictional test details for the name and shipping address.',
-    emailOptional: 'A real email address is not required. If you would also like the demo confirmation and demo receipt, use an address you can access. We use it only for this single demo message – no marketing, newsletter or later contact.',
+    realAction: 'In real use, this is where you buy or reserve. On this public page, you are only testing the flow.',
+    buy: 'Start test purchase',
+    buyHint: 'With Stripe test card · guaranteed no charge',
+    reserve: 'Try demo reservation',
+    reserveHint: 'No real reservation',
+    testTitle: 'One last demo step',
+    checkpointSafety: 'Official Stripe test card · guaranteed no charge',
+    sandbox: 'Stripe remains fully in test mode.',
+    testText: 'Use test data only in Stripe. Nothing will be charged.',
+    testData: 'Expiry: 12/34 · CVC: 123 · any test address',
+    emailOptional: 'You only need a real email address if you would also like to receive the demo confirmation.',
     cardLabel: 'Stripe test card',
     cardValue: '4242 4242 4242 4242',
-    cardDetails: ['Any future expiry date', 'Any three-digit CVC', 'Any test name', 'Any test address'],
+    cardDetails: ['Expiry 12/34', 'CVC 123', 'Any test address'],
     copy: 'Copy',
     copied: 'Copied',
-    continue: 'Open secure test checkout',
-    back: 'Back to product',
+    continue: 'Copy test card & open Stripe',
+    continueAfterCopy: 'Then open Stripe',
+    copyFailed: 'Copying was not possible. Select the test card manually.',
+    copySuccess: 'Test card copied. Opening Stripe.',
+    back: 'Back',
     loading: 'Loading the live demo …',
     waiting: 'Stripe is confirming the test payment on the server. This can take a moment.',
-    paid: 'Test payment successful',
-    noCharge: 'Guaranteed no charge',
-    noDelivery: 'No real order or delivery',
-    hardware: 'The simulated hardware display is now showing the confirmation live as well.',
+    paid: 'Demo successful · €0 charged',
+    noCharge: 'No real order.',
+    successCycle: 'The simulated sales display responded. In real use, the physical display right beside the product would now update.',
+    hardware: 'Your smartphone confirmed the test purchase through Stripe and triggered the complete demo cycle.',
     orderNumber: 'Demo order number',
     mailAccepted: 'Your demo confirmation and demo receipt were sent to {email}.',
     mailNotConfirmed: 'The test payment succeeded; delivery of the demo email was not confirmed.',
     reserved: 'Reserved for you',
     reservedDetail: 'Set aside for collection – only within this live demo.',
+    reservationHardware: 'The front page shows the new status immediately. In real use, the physical display beside the product updates.',
     reset: 'This demo resets in {seconds} seconds.',
     soldLabel: 'Sold',
     soldTitle: 'This tree has already been sold.',
@@ -135,6 +156,7 @@ export default function DemoProductPage() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [clipboardStatus, setClipboardStatus] = useState('idle');
   const [seconds, setSeconds] = useState(20);
   const cancelSent = useRef(false);
   const t = copy[lang];
@@ -203,7 +225,7 @@ export default function DemoProductPage() {
     finally { setBusy(false); }
   }
 
-  async function checkout() {
+  async function openCheckout() {
     if (busy) return;
     setBusy(true); setError('');
     try {
@@ -213,9 +235,33 @@ export default function DemoProductPage() {
   }
 
   async function copyCard() {
-    await navigator.clipboard.writeText('4242424242424242');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    const success = await copyStripeTestCard(navigator.clipboard?.writeText
+      ? (value) => navigator.clipboard.writeText(value)
+      : null);
+    setClipboardStatus(success ? 'success' : 'error');
+    setCopied(success);
+    if (success) setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function copyAndOpenCheckout() {
+    if (busy) return;
+    setBusy(true); setError(''); setClipboardStatus('idle');
+    try {
+      const result = await prepareStripeRedirect({
+        writeText: navigator.clipboard?.writeText ? (value) => navigator.clipboard.writeText(value) : null,
+        createCheckout: () => createDemoCheckout(token, productKey, lang)
+      });
+      if (!result.copied) {
+        setClipboardStatus('error');
+        setBusy(false);
+        return;
+      }
+      setClipboardStatus('success');
+      window.location.assign(result.checkout.url);
+    } catch (requestError) {
+      setError(friendlyError(requestError, t));
+      setBusy(false);
+    }
   }
 
   if (!data && !error) return <main className="demo-product-page"><div className="demo-mobile-card demo-mobile-card--loading" role="status"><span className="demo-loader" />{t.loading}</div></main>;
@@ -230,11 +276,12 @@ export default function DemoProductPage() {
   return <main className="demo-product-page">
     <div className="demo-mobile-topbar">
       <Link to="/" className="landing-logo"><span className="landing-logo__mark" aria-hidden="true"><i /><i /><i /><i /></span><span>qr2buy</span></Link>
-      <div className="language-switch" aria-label="Language"><button className={lang === 'de' ? 'is-active' : ''} onClick={() => setLang('de')}>DE</button><button className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')}>EN</button></div>
+      <div className="language-switch" aria-label="Language"><button className={lang === 'de' ? 'is-active' : ''} onClick={() => setLang('de')} aria-pressed={lang === 'de'}>DE</button><button className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')} aria-pressed={lang === 'en'}>EN</button></div>
     </div>
 
     <article className={`demo-mobile-card ${completed ? 'is-complete' : ''}`}>
       <span className="demo-live-badge">{t.demo}</span>
+      <div className="demo-scan-context"><p>{t.scanContext}</p><strong>{t.scanSafety}</strong></div>
       <ProductVisual color={product.color} name={name} />
       <div className="demo-mobile-product-copy">
         <div className={`demo-product-availability demo-product-availability--${String(status || 'ready').toLowerCase()}`}><span />{status === 'SOLD' ? t.soldLabel : status === 'RESERVED' ? t.reservedLabel : t.available}</div>
@@ -244,7 +291,7 @@ export default function DemoProductPage() {
 
       {status === 'PAID' ? <div className="demo-mobile-success" role="status" aria-live="polite" aria-atomic="true">
         <div className="demo-success-icon" aria-hidden="true">✓</div><h2>{t.paid}</h2>
-        <strong className="demo-success-assurance">{t.noCharge}</strong><p>{t.noDelivery}</p>
+        <strong className="demo-success-assurance">{t.noCharge}</strong><p>{t.successCycle}</p>
         <dl><div><dt>{t.orderNumber}</dt><dd>{data.state.demoOrderNumber}</dd></div><div><dt>{lang === 'de' ? 'Produkt' : 'Product'}</dt><dd>{name}</dd></div></dl>
         <p>{t.hardware}</p>
         {data.state.mailStatus === 'ACCEPTED' && data.state.maskedEmail && <p className="demo-mail-status demo-mail-status--accepted">{t.mailAccepted.replace('{email}', data.state.maskedEmail)}</p>}
@@ -254,23 +301,27 @@ export default function DemoProductPage() {
         <strong>{t.soldLabel}</strong><h2>{t.soldTitle}</h2><p>{t.soldMore}</p><p>{t.soldWish}</p><Link to="/#demo">{t.chooseAnother}</Link>
       </div> : status === 'RESERVED' ? <div className="demo-mobile-unavailable demo-mobile-unavailable--reserved" role="status" aria-live="polite">
         <strong>{t.reservedLabel}</strong><h2>{permanentReservation ? t.treeReserved : t.reserved}</h2><p>{permanentReservation ? t.treeReservedMore : t.reservedDetail}</p>
+        <p>{t.reservationHardware}</p>
         {resetAt && <p className="demo-reset-note">{t.reset.replace('{seconds}', seconds)}</p>}<Link to="/#demo">{t.chooseAnother}</Link>
       </div> : view === 'checkout' ? <div className="demo-checkout-notice">
-        <span className="demo-sandbox-label">Stripe Sandbox</span><h2>{t.testTitle}</h2><strong>{t.safeCore}</strong><p>{t.sandbox}</p><p>{t.testText}</p><p>{t.testData}</p>
+        <span className="demo-sandbox-label">Stripe Sandbox</span><h2>{t.testTitle}</h2><p className="demo-checkpoint-safety">{t.checkpointSafety}</p><strong>{t.testText}</strong><p>{t.sandbox}</p>
         <div className="demo-test-card"><small>{t.cardLabel}</small><div><code>{t.cardValue}</code><button onClick={copyCard}>{copied ? t.copied : t.copy}</button></div><ul>{t.cardDetails.map((detail) => <li key={detail}>{detail}</li>)}</ul></div>
+        <p className="demo-test-data">{t.testData}</p>
         <p className="demo-email-note">{t.emailOptional}</p>
-        <button className="demo-commerce-button demo-commerce-button--primary" onClick={checkout} disabled={busy}>{busy ? t.loading : t.continue}</button>
+        <p className={`demo-clipboard-status demo-clipboard-status--${clipboardStatus}`} role="status" aria-live="polite">{clipboardStatus === 'error' ? t.copyFailed : clipboardStatus === 'success' ? t.copySuccess : ''}</p>
+        {clipboardStatus === 'error'
+          ? <button className="demo-commerce-button demo-commerce-button--primary" onClick={openCheckout} disabled={busy}>{busy ? t.loading : t.continueAfterCopy}</button>
+          : <button className="demo-commerce-button demo-commerce-button--primary" onClick={copyAndOpenCheckout} disabled={busy}>{busy ? t.loading : t.continue}</button>}
         <button className="demo-commerce-button demo-commerce-button--text" onClick={() => setView('product')} disabled={busy}>{t.back}</button>
       </div> : <div className="demo-commerce-actions">
         {checkoutReturn === 'return' && status === 'CHECKOUT_STARTED' && <p className="demo-waiting" role="status" aria-live="polite">{t.waiting}</p>}
         {checkoutReturn === 'cancelled' && <p className="demo-cancelled" role="status">{t.cancelled}</p>}
-        <div className="demo-action-trust"><strong>{t.safeCore}</strong><span>{t.browser}</span>{t.actionTrust.map((item) => <span key={item}>✓ {item}</span>)}</div>
-        <button className="demo-commerce-button demo-commerce-button--primary" onClick={() => setView('checkout')} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}>{checkoutReturn === 'cancelled' ? t.retry : t.buy}</button>
-        <button className="demo-commerce-button demo-commerce-button--secondary" onClick={reserve} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}>{t.reserve}</button>
+        <p className="demo-real-action">{t.realAction}</p>
+        <button className="demo-commerce-button demo-commerce-button--primary demo-commerce-button--stacked" onClick={() => { setClipboardStatus('idle'); setView('checkout'); }} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}><strong>{checkoutReturn === 'cancelled' ? t.retry : t.buy}</strong><small>{t.buyHint}</small></button>
+        <button className="demo-commerce-button demo-commerce-button--secondary demo-commerce-button--stacked" onClick={reserve} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}><strong>{t.reserve}</strong><small>{t.reserveHint}</small></button>
       </div>}
 
       {error && <p className="demo-friendly-error" role="alert">{error}</p>}
-      <div className="demo-mobile-trust"><strong>{t.demo}</strong><span>{t.noOrder}</span></div>
     </article>
   </main>;
 }

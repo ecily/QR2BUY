@@ -200,6 +200,131 @@ const copy = {
   },
 };
 
+const merchantCopy = {
+  de: {
+    nav: { demo: "Live-Demo", benefits: "Nutzen", pilot: "Pilot", faq: "FAQ" },
+    eyebrow: "Physisches Verkaufsschild · Kauf direkt am Produkt",
+    hero: "Verkaufen, auch wenn gerade niemand da ist.",
+    heroText: "qr2buy macht Produkte direkt am Verkaufsort kauf- und reservierbar. Kunden scannen den QR-Code am physischen Schild, bezahlen sicher im Browser – ohne App und ohne Benutzerkonto. Nach dem Kauf oder der Reservierung reagiert das Schild sofort.",
+    heroTrust: "Echte Hardware · Keine Kunden-App · Individuelle Pilotprojekte",
+    demoCta: "Live-Demo starten · garantiert keine Abbuchung",
+    partnerCta: "Mit ecily über qr2buy sprechen",
+    heroVisualCaption: "ECHTES SCHILD · DISPLAY REAGIERT",
+    demoIntroEyebrow: "Das reale Prinzip – hier live simuliert",
+    demoIntroTitle: "Erlebe, was das echte Verkaufsschild kann.",
+    demoIntroText: "Diese Website simuliert ein reales physisches qr2buy-Schild. Wähle ein Produkt, scanne den QR-Code und führe einen vollständigen Testkauf oder eine Reservierung durch.",
+    demoIntroHardware: "In dieser Demo übernimmt die Darstellung auf der Frontpage die Rolle des physischen qr2buy-Verkaufsschilds.",
+    demoIntroHardwareDetail: "Im realen Einsatz scannt der Kunde den QR-Code direkt am Produkt. Kauf oder Reservierung aktualisieren anschließend das echte Display.",
+    demoWarning: "Live-Demo – garantiert keine Abbuchung und keine echte Bestellung.",
+    demoSteps: ["Produkt am Schild sehen", "Ohne App scannen", "Im Browser kaufen oder reservieren", "Physisches Schild reagiert"],
+    demoDisclosure: "Das große Display simuliert die physische Hardware. Produkte und Bestände sind fiktiv; Zahlungen laufen ausschließlich in der Stripe-Sandbox.",
+    demoEyebrow: "Live-Simulation",
+    demoTitle: "Erlebe, was das echte Verkaufsschild kann.",
+    demoText: "Diese Website simuliert ein reales physisches qr2buy-Schild. Produktauswahl, QR-Code und Displaystatus gehören direkt zusammen.",
+    demoSafetyLabel: "Stripe-Testmodus · garantiert keine Abbuchung",
+    demoSafetyText: "Diese Live-Demo läuft ausschließlich in der Stripe-Sandbox. 4242 4242 4242 4242 ist eine offizielle Stripe-Testkarte – keine echte Kreditkarte. In dieser Demo kann niemals echtes Geld abgebucht und keine echte Bestellung ausgelöst werden.",
+    demoSafetyGuide: "Nach dem QR-Scan führen wir dich Schritt für Schritt durch den sicheren Test.",
+    displaySimulationLabel: "Demo des physischen Verkaufsschilds",
+    displaySelectionHint: "Deine Produktauswahl steuert dieses Verkaufsschild.",
+    selected: "Ausgewähltes Produkt",
+    afterDemoEyebrow: "Vom Smartphone zum Schild",
+    afterDemoTitle: "Du hast gerade ein Verkaufsschild gesteuert.",
+    afterDemoText: "Dein Smartphone hat den Kauf oder die Reservierung ausgelöst. Das Schild hat den neuen Produktstatus automatisch übernommen.",
+    afterDemoProof: "Genau dieser Ablauf funktioniert auch mit der realen qr2buy-Hardware.",
+    afterDemoCta: "Mit ecily über einen Pilot sprechen",
+    hardwareEyebrow: "Hardwarebeweis",
+    hardwareTitle: "Kein Mockup. Ein echtes Verkaufsschild.",
+    hardwareText: "qr2buy verbindet ein physisches Verkaufsschild mit einer mobilen Kaufseite. Kunden brauchen nur ihr Smartphone. Nach einem Kauf oder einer Reservierung aktualisiert sich das Display automatisch.",
+    hardwareFacts: ["Reales Hardwaredisplay", "Kauf und Reservierung im Browser", "Sofortige Statusaktualisierung", "Keine Kunden-App erforderlich"],
+    benefitsEyebrow: "Wirtschaftlicher Nutzen",
+    benefitsTitle: "Eine Kaufentscheidung wartet nicht auf Öffnungszeiten.",
+    benefitsText: "qr2buy ermöglicht Verkäufe genau dort, wo das Produkt bereits Interesse geweckt hat – auch wenn gerade kein Verkäufer verfügbar ist.",
+    benefits: [
+      ["Zusätzlicher Umsatz", "Produkte bleiben auch außerhalb regulärer Öffnungszeiten kaufbar."],
+      ["Weniger verlorene Kaufimpulse", "Interessenten können sofort handeln, statt später wiederkommen zu müssen."],
+      ["Weniger Personalbindung", "Einfache Verkäufe und Reservierungen benötigen nicht permanent einen Mitarbeiter vor Ort."],
+    ],
+    pilotEyebrow: "Individueller Pilot",
+    pilotTitle: "Finden wir heraus, ob qr2buy zu deinem Verkaufsort passt.",
+    pilotText: "Wir planen gemeinsam einen überschaubaren Pilot für einen konkreten Einsatzort. Je nach Rahmen kann der Pilot kostenlos oder gefördert umgesetzt werden.",
+    pilotCta: "Mit ecily über qr2buy sprechen",
+    faqEyebrow: "Kurz beantwortet",
+    faqTitle: "Häufige Fragen zu qr2buy",
+    faq: [
+      ["Ist die Demo eine echte Bestellung?", "Nein. Es gibt keine echte Bestellung und keine Abbuchung. Der Checkout läuft ausschließlich in der Stripe-Sandbox."],
+      ["Was ist auf dieser Seite simuliert?", "Die Website simuliert das physische Schild mit fiktiven Produkten und Beständen. Der technische Ablauf zwischen Smartphone, Serverstatus und Display entspricht dem realen Hardwareablauf."],
+      ["Gibt es das Verkaufsschild bereits als Hardware?", "Ja. Ein reales Hardwaredisplay und der vollständige technische Ablauf sind vorhanden."],
+      ["Brauchen Kunden eine App?", "Nein. Die Kamera und ein moderner Browser reichen; ein Benutzerkonto ist nicht erforderlich."],
+      ["Was passiert nach einem Kauf oder einer Reservierung?", "Der bestätigte Status wird an das physische Display übertragen und dort unmittelbar sichtbar."],
+      ["Was kostet qr2buy?", "Der Preis wird passend zum Einsatzort und Umfang eines Pilotprojekts individuell geplant."],
+      ["Wie kann ein Pilotprojekt aussehen?", "Wir planen mit dem Händler einen überschaubaren Test an einem konkreten Verkaufsort. Je nach Rahmen kann dieser kostenlos oder gefördert umgesetzt werden."],
+    ],
+    talk: "Mit ecily über qr2buy sprechen",
+    footer: "Das physische QR-Verkaufsschild für Produkte am Verkaufsort.",
+  },
+  en: {
+    nav: { demo: "Live demo", benefits: "Benefits", pilot: "Pilot", faq: "FAQ" },
+    eyebrow: "Physical sales display · Buy right at the product",
+    hero: "Keep selling, even when no one is there.",
+    heroText: "qr2buy makes products buyable or reservable right where they are displayed. Customers scan the QR code on the physical display and pay securely in their browser – with no app and no account. After a purchase or reservation, the display responds immediately.",
+    heroTrust: "Real hardware · No customer app · Individual pilot projects",
+    demoCta: "Start live demo · guaranteed no charge",
+    partnerCta: "Talk to ecily about qr2buy",
+    heroVisualCaption: "REAL DISPLAY · STATUS REACTS",
+    demoIntroEyebrow: "The real flow – simulated live here",
+    demoIntroTitle: "Experience what the physical sales display can do.",
+    demoIntroText: "This website simulates a real physical qr2buy display. Choose a product, scan the QR code and complete a full test purchase or reservation.",
+    demoIntroHardware: "In this demo, the display shown on the front page takes the role of the physical qr2buy sales display.",
+    demoIntroHardwareDetail: "In real use, the customer scans the QR code right at the product. A purchase or reservation then updates the real display.",
+    demoWarning: "Live demo – no real charge and no real order.",
+    demoSteps: ["See the product at the display", "Scan without an app", "Buy or reserve in the browser", "The physical display responds"],
+    demoDisclosure: "The large display simulates the physical hardware. Products and stock are fictional; payments run exclusively in the Stripe Sandbox.",
+    demoEyebrow: "Live simulation",
+    demoTitle: "Experience what the physical sales display can do.",
+    demoText: "This website simulates a real physical qr2buy display. Product selection, QR code and display status are directly connected.",
+    demoSafetyLabel: "Stripe test mode · guaranteed no charge",
+    demoSafetyText: "This live demo runs exclusively in the Stripe Sandbox. 4242 4242 4242 4242 is an official Stripe test card – not a real credit card. This demo can never charge real money or create a real order.",
+    demoSafetyGuide: "After scanning the QR code, we guide you safely through every test step.",
+    displaySimulationLabel: "Demo of the physical sales display",
+    displaySelectionHint: "Your product selection controls this sales display.",
+    selected: "Selected product",
+    afterDemoEyebrow: "From smartphone to display",
+    afterDemoTitle: "You just controlled a sales display.",
+    afterDemoText: "Your smartphone triggered the purchase or reservation. The display automatically adopted the new product status.",
+    afterDemoProof: "This exact flow also works with the real qr2buy hardware.",
+    afterDemoCta: "Talk to ecily about a pilot",
+    hardwareEyebrow: "Hardware proof",
+    hardwareTitle: "Not a mockup. A real physical display.",
+    hardwareText: "qr2buy connects a physical sales display with a mobile purchase page. Customers only need their smartphone. After a purchase or reservation, the display updates automatically.",
+    hardwareFacts: ["Real hardware display", "Buy and reserve in the browser", "Immediate status updates", "No customer app required"],
+    benefitsEyebrow: "Commercial value",
+    benefitsTitle: "A buying decision does not wait for opening hours.",
+    benefitsText: "qr2buy enables sales exactly where a product has already sparked interest – even when no member of staff is available.",
+    benefits: [
+      ["Additional sales opportunities", "Products remain available to buy outside regular opening hours."],
+      ["Fewer lost buying moments", "Interested customers can act immediately instead of having to return later."],
+      ["Less continuous staffing", "Straightforward purchases and reservations do not require an employee to be present at all times."],
+    ],
+    pilotEyebrow: "Individual pilot",
+    pilotTitle: "Let’s find out whether qr2buy fits your point of sale.",
+    pilotText: "Together, we plan a focused pilot for a specific location. Depending on the framework, the pilot may be delivered free of charge or with funding support.",
+    pilotCta: "Talk to ecily about qr2buy",
+    faqEyebrow: "Quick answers",
+    faqTitle: "Frequently asked questions about qr2buy",
+    faq: [
+      ["Is the demo a real order?", "No. There is no real order and no charge. Checkout runs exclusively in the Stripe Sandbox."],
+      ["What is simulated on this page?", "The website simulates the physical display using fictional products and stock. The technical flow between smartphone, server status and display matches the real hardware flow."],
+      ["Does the sales display already exist as hardware?", "Yes. A real hardware display and the complete technical flow are available."],
+      ["Do customers need an app?", "No. A camera and modern browser are enough; no user account is required."],
+      ["What happens after a purchase or reservation?", "The confirmed status is sent to the physical display and becomes visible immediately."],
+      ["What does qr2buy cost?", "Pricing is planned individually for the location and scope of each pilot project."],
+      ["What could a pilot project look like?", "We plan a focused trial with the merchant at a specific point of sale. Depending on the framework, it may be free of charge or supported by funding."],
+    ],
+    talk: "Talk to ecily about qr2buy",
+    footer: "The physical QR sales display for products at the point of sale.",
+  },
+};
+
 const products = [
   { key: "bag", name: { de: "Handgemachte Ledertasche", en: "Handmade leather bag" }, place: { de: "Boutique · Kleinserie", en: "Boutique · small collection" }, price: 129, currency: "EUR", color: "clay", stock: 3, alternatives: { de: "Weitere Taschenmodelle verfügbar", en: "Other bag styles available" } },
   { key: "book", name: { de: "Roman ‚Stadtlichter‘", en: "Novel ‘City Lights’" }, place: { de: "Buchhandlung · Lagerware", en: "Bookshop · stock item" }, price: 24.9, currency: "EUR", color: "sage", stock: 8, alternatives: { de: "Weitere Exemplare verfügbar", en: "More copies available" } },
@@ -324,11 +449,16 @@ function ProductDemo({ lang, t }) {
         <div><span className="landing-eyebrow">{t.liveBadge}</span><h2>{t.demoTitle}</h2></div>
         <p>{t.demoText}</p>
       </div>
+      <div className="demo-hardware-context"><p><strong>{t.demoIntroHardware}</strong></p><p>{t.demoIntroHardwareDetail}</p></div>
+      <ol className="demo-flow-steps" aria-label={t.demoEyebrow}>{t.demoSteps.map((step, index) => <li key={step}><span>{index + 1}</span>{step}</li>)}</ol>
+      <div className="demo-safety-strip" role="note"><strong>{t.demoSafetyLabel}</strong><p>{t.demoSafetyText}</p><span>{t.demoSafetyGuide}</span></div>
       {!live && !error && <div className="demo-session-loading" role="status"><span className="demo-loader" />{t.connecting}</div>}
       {error && <div className="demo-session-error" role="alert"><span>{t.demoError}</span><button onClick={retry}>{t.retry}</button></div>}
       {live && <>
       <div className="demo-layout">
-        <div className="display-card">
+        <div className="display-column">
+          <div className="display-simulation-label"><strong>{t.displaySimulationLabel}</strong><span>{t.displaySelectionHint}</span></div>
+          <div className="display-card">
           <div className="display-card__top"><Logo /><span>{connected ? t.connectionLive : t.connectionPolling} <b className={connected ? "" : "is-reconnecting"} /></span></div>
           <div className={`display-card__screen ${displayMode !== "product" ? "display-card__screen--confirmation" : ""}`}>
             {displayMode === "product" ? <>
@@ -337,6 +467,7 @@ function ProductDemo({ lang, t }) {
             </> : <HardwareDisplayConfirmation mode={displayMode} title={title} unique={product.unique} t={t} />}
           </div>
           <div className="display-card__footer"><span>QR2BUY DISPLAY</span><span>v1.0 · LIVE</span></div>
+          </div>
         </div>
         <div className="demo-control">
           <div className="demo-control__head"><div><span className="landing-eyebrow">{t.selected}</span><h3>{title}</h3></div><span className="demo-live-chip"><i />{t.liveBadge}</span></div>
@@ -366,29 +497,38 @@ function ProductDemo({ lang, t }) {
 export default function LandingPage() {
   const initialLang = useMemo(() => (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("en") ? "en" : "de"), []);
   const [lang, setLang] = useState(initialLang);
-  const t = copy[lang];
+  const t = { ...copy[lang], ...merchantCopy[lang] };
 
   useEffect(() => {
-    document.title = lang === "de" ? "qr2buy – Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein." : "qr2buy – Buying and selling should not depend on opening hours.";
+    const title = lang === "de" ? "qr2buy – Physisches QR-Verkaufsschild für Händler" : "qr2buy – Physical QR sales displays for merchants";
+    const description = lang === "de"
+      ? "Mit dem physischen qr2buy-Verkaufsschild Produkte außerhalb der Öffnungszeiten verkaufen – ohne Kunden-App. Jetzt Live-Demo testen und Pilot planen."
+      : "Sell products beyond opening hours with the physical qr2buy display – no customer app required. Try the live demo and plan a pilot.";
+    document.title = title;
     document.documentElement.lang = lang;
+    document.querySelector('meta[name="description"]')?.setAttribute("content", description);
+    document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
+    document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
   }, [lang]);
 
   return <div className="landing-page">
-    <header className="landing-header"><div className="landing-shell landing-header__inner"><a href="/" aria-label="qr2buy home"><Logo /></a><nav className="landing-nav"><a href="#demo">{t.nav.demo}</a><a href="#use-cases">{t.nav.useCases}</a><a href="#partner">{t.nav.partner}</a><a href="#about">{t.nav.about}</a></nav><div className="landing-header__actions"><div className="language-switch" aria-label={t.language}><button className={lang === "de" ? "is-active" : ""} onClick={() => setLang("de")}>DE</button><button className={lang === "en" ? "is-active" : ""} onClick={() => setLang("en")}>EN</button></div><a className="landing-button landing-button--small" href="#demo">{t.demoCta}</a></div></div></header>
+    <header className="landing-header"><div className="landing-shell landing-header__inner"><a href="/" aria-label="qr2buy home"><Logo /></a><nav className="landing-nav" aria-label="Main navigation"><a href="#demo">{t.nav.demo}</a><a href="#benefits">{t.nav.benefits}</a><a href="#pilot">{t.nav.pilot}</a><a href="#faq">{t.nav.faq}</a></nav><div className="landing-header__actions"><div className="language-switch" aria-label={t.language}><button className={lang === "de" ? "is-active" : ""} onClick={() => setLang("de")} aria-pressed={lang === "de"}>DE</button><button className={lang === "en" ? "is-active" : ""} onClick={() => setLang("en")} aria-pressed={lang === "en"}>EN</button></div><a className="landing-button landing-button--small" href="#demo">{t.demoCta}</a></div></div></header>
 
     <main>
-      <section className="landing-hero"><div className="landing-shell landing-hero__grid"><div className="landing-hero__copy"><span className="landing-eyebrow">{t.eyebrow}</span><h1>{t.hero}</h1><p className="landing-hero__lead">{t.heroText}</p><p className="landing-hero__trust">{t.heroTrust}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href="#demo">{t.demoCta}<span>↗</span></a><a className="landing-button landing-button--outline" href="#partner">{t.partnerCta}</a></div><p className="landing-hero__note"><span className="live-dot" />{t.pilotNote}</p><div className="landing-hero__badges">{t.heroBadges.map((badge) => <span key={badge}>{badge}</span>)}</div><div className="landing-hero__audience"><div><small>{t.buyerLabel}</small><strong>{t.buyerText}</strong></div><div><small>{t.sellerLabel}</small><strong>{t.sellerText}</strong></div></div></div><div className="hero-visual"><div className="hero-visual__glow" /><div className="hero-window"><div className="hero-window__bar"><span /><span /><span /><em>window / 01</em></div><div className="hero-window__scene"><div className="hero-window__shelf"><div className="hero-object hero-object--bag" /><div className="hero-object hero-object--book" /><div className="hero-object hero-object--print" /></div><div className="hero-tag"><span>qr2buy</span><strong>STADTLICHTER</strong><b>24,90 €</b><small>scan to shop</small></div><div className="hero-window__caption">CONFIRMED PAYMENT <span>→</span> DISPLAY REACTS</div></div></div></div></div></section>
+      <section className="landing-hero"><div className="landing-shell landing-hero__grid"><div className="landing-hero__copy"><span className="landing-eyebrow">{t.eyebrow}</span><h1>{t.hero}</h1><p className="landing-hero__lead">{t.heroText}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href="#demo">{t.demoCta}<span aria-hidden="true">↓</span></a><a className="landing-button landing-button--outline" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.partnerCta}<span aria-hidden="true">↗</span></a></div><p className="landing-hero__trust">{t.heroTrust}</p></div><div className="hero-visual" aria-label={lang === "de" ? "Illustration eines physischen qr2buy-Verkaufsschilds direkt bei Produkten" : "Illustration of a physical qr2buy sales display beside products"}><div className="hero-visual__glow" /><div className="hero-window"><div className="hero-window__bar"><span /><span /><span /><em>physical point of sale</em></div><div className="hero-window__scene"><div className="hero-window__shelf"><div className="hero-object hero-object--bag" /><div className="hero-object hero-object--book" /><div className="hero-object hero-object--print" /></div><div className="hero-tag"><span>qr2buy</span><strong>STADTLICHTER</strong><b>24,90 €</b><small>{lang === "de" ? "Scannen & kaufen" : "Scan & buy"}</small></div><div className="hero-window__caption">{t.heroVisualCaption}</div></div></div></div></div></section>
+
       <ProductDemo lang={lang} t={t} />
-      <section className="landing-section landing-proof"><div className="landing-shell landing-proof__grid"><article className="proof-card proof-card--hardware"><span className="landing-eyebrow">{t.hardwareEyebrow}</span><h2>{t.hardwareTitle}</h2><p>{t.hardwareText}</p></article><article className="proof-card proof-card--admin"><span className="landing-eyebrow">{t.adminEyebrow}</span><h2>{t.adminTitle}</h2><p>{t.adminText}</p></article></div></section>
-      <section className="landing-section landing-market"><div className="landing-shell landing-market__inner"><span className="landing-eyebrow">{t.marketEyebrow}</span><h2>{t.marketTitle}</h2><p>{t.marketText}</p></div></section>
-      <section className="landing-section landing-pain"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.scenariosEyebrow}</span><h2>{t.scenariosTitle}</h2></div><div className="scenario-grid">{t.scenarios.map(([title, text], index) => <article className="scenario-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
-      <section className="landing-section landing-why"><div className="landing-shell landing-why__grid"><div><span className="landing-eyebrow">{t.whyEyebrow}</span><h2>{t.whyTitle}</h2><p className="landing-copy">{t.whyText}</p><a className="text-link" href="#how">{t.stepsEyebrow} <span>→</span></a></div><div className="why-list">{t.whyItems.map((item, index) => <div key={item}><span>0{index + 1}</span><strong>{item}</strong></div>)}</div></div></section>
-      <section className="landing-section landing-steps" id="how"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.stepsEyebrow}</span><h2>{lang === "de" ? "Scan. Entscheiden. Weiter." : "Scan. Decide. Continue."}</h2></div><div className="steps-grid">{t.steps.map(([number, title, text]) => <article key={number}><span className="step-number">{number}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
-      <section className="landing-section landing-cases" id="use-cases"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.casesEyebrow}</span><h2>{t.casesTitle}</h2></div><div className="case-grid">{t.cases.map(([title, text], index) => <div className={`case-card case-card--${index + 1}`} key={title}><span>0{index + 1}</span><strong>{title}</strong><small>{text}</small></div>)}</div></div></section>
-      <section className="landing-section landing-partner" id="partner"><div className="landing-shell landing-partner__grid"><div className="partner-card"><span className="partner-card__stamp">MVP · LIVE</span><div className="partner-card__monogram">AF</div><span>Andreas Franz / ecily</span><small>Technical founder · product · business</small></div><div><span className="landing-eyebrow">{t.partnerEyebrow}</span><h2>{t.partnerTitle}</h2><p className="landing-copy">{t.partnerText}</p><p className="equity-note">{t.equity}</p><a className="landing-button landing-button--primary" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.talk}<span>↗</span></a></div></div></section>
-      <section className="landing-section landing-pilot"><div className="landing-shell landing-pilot__inner"><span className="landing-eyebrow">{t.pilotEyebrow}</span><h2>{t.pilotTitle}</h2><p>{t.pilotText}</p><a className="landing-button landing-button--dark" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.pilotCta}<span>↗</span></a></div></section>
-      <section className="landing-section landing-about" id="about"><div className="landing-shell landing-about__grid"><div><span className="landing-eyebrow">{t.aboutEyebrow}</span><h2>Technik, die beim echten Produkt anfängt.</h2></div><p className="landing-copy">{t.aboutText}</p></div></section>
+
+      <section className="landing-section landing-after-demo"><div className="landing-shell after-demo-card"><span className="landing-eyebrow">{t.afterDemoEyebrow}</span><h2>{t.afterDemoTitle}</h2><p>{t.afterDemoText}</p><strong>{t.afterDemoProof}</strong><a className="landing-button landing-button--primary" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.afterDemoCta}<span aria-hidden="true">↗</span></a></div></section>
+
+      <section className="landing-section landing-hardware-proof"><div className="landing-shell hardware-proof-grid"><div><span className="landing-eyebrow">{t.hardwareEyebrow}</span><h2>{t.hardwareTitle}</h2><p className="landing-copy landing-copy--large">{t.hardwareText}</p></div><ul className="hardware-facts">{t.hardwareFacts.map((fact, index) => <li key={fact}><span aria-hidden="true">0{index + 1}</span><strong>{fact}</strong></li>)}</ul></div></section>
+
+      <section className="landing-section landing-benefits" id="benefits"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.benefitsEyebrow}</span><h2>{t.benefitsTitle}</h2><p className="landing-copy landing-copy--large">{t.benefitsText}</p></div><div className="benefit-grid">{t.benefits.map(([title, text], index) => <article className="benefit-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
+
+      <section className="landing-section landing-pilot" id="pilot"><div className="landing-shell landing-pilot__inner"><span className="landing-eyebrow">{t.pilotEyebrow}</span><h2>{t.pilotTitle}</h2><p>{t.pilotText}</p><a className="landing-button landing-button--dark" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.pilotCta}<span aria-hidden="true">↗</span></a></div></section>
+
+      <section className="landing-section landing-faq" id="faq"><div className="landing-shell faq-grid"><div className="landing-section-heading"><span className="landing-eyebrow">{t.faqEyebrow}</span><h2>{t.faqTitle}</h2></div><div className="faq-list">{t.faq.map(([question, answer], index) => <details key={question} open={index === 0}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</div></div></section>
     </main>
-    <footer className="landing-footer"><div className="landing-shell landing-footer__inner"><div><Logo /><p>{t.footer}</p></div><div className="landing-footer__links"><a href="#demo">{t.nav.demo}</a><a href="#partner">{t.nav.partner}</a><a href="mailto:andreas.franz@ecily.com">Kontakt</a></div><span>© {new Date().getFullYear()} qr2buy</span></div></footer>
+    <footer className="landing-footer"><div className="landing-shell landing-footer__inner"><div><Logo /><p>{t.footer}</p></div><div className="landing-footer__links"><a href="#demo">{t.nav.demo}</a><a href="#pilot">{t.nav.pilot}</a><a href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">ecily</a></div><span>© {new Date().getFullYear()} qr2buy</span></div></footer>
   </div>;
 }
