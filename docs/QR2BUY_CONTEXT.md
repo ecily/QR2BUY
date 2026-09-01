@@ -21,7 +21,7 @@ Pilot-Use-Case ist Schaufenster-/Auslagen-Commerce. Die Firmware darf kurzfristi
 
 - Backend ist als Express/Mongoose-Service vorhanden; Health-Endpunkt online: `https://lionfish-app-zidqr.ondigitalocean.app/api/health`.
 - Öffentlicher Demo-Produkt-Endpunkt ist implementiert und extern als funktionierend bekannt: `/api/public/products/by-short/demo`.
-- Frontend ist eine React/Vite-SPA mit zweisprachiger Landingpage, lokaler Demo, Admin-Ansicht und Produktroute `/p/:shortId`.
+- Frontend ist eine React/Vite-SPA mit zweisprachiger Landingpage, session-isolierter Live-Demo, Admin-Ansicht sowie realer und Demo-Produktroute.
 - Firmware hat einen funktionierenden SPI-Pfad und einen Online-Config-App-Pfad.
 - Hardware-Referenz: ESP32, SPI, CS GPIO5, RST GPIO4, DC GPIO15, MOSI GPIO23, MISO GPIO19, SCLK GPIO18, COM3.
 - qr2buy.com ist technisch live.
@@ -39,17 +39,66 @@ Routen:
 - Admin, Basic Auth: Product-/Device-CRUD, Link/Unlink und Status-Override unter `/api/admin/*`
 - Checkout: `POST /api/checkout/:productId`, `POST /api/checkout/by-short/:shortId`, `GET /api/checkout/verify`
 - Stripe: `POST /api/stripe/webhook`
+- Live-Demo: Session, Status, Produkt, Reservierung, Checkout, Cancel und SSE unter `/api/demo/*`; separater Webhook `POST /api/demo/stripe/webhook`
 - Firmware: `GET /api/config?deviceId=...`; Legacy: `GET /api/config` ohne Device-ID und `POST /api/updateDisplay`
 
-Modelle sind `Product`, `Device`, `Order` sowie der Legacy-Singleton `DisplayState`. Product und Device können einander verlinken; Status ist `AVAILABLE` oder `SOLD`. Device-Secret ist im MVP noch als Klartextfeld modelliert. Der Config-Endpunkt provisioniert unbekannte Geräte automatisch und aktualisiert `lastSeenAt`.
+Modelle sind `Product`, `Device`, `Order`, die isolierte `DemoSession` sowie der Legacy-Singleton `DisplayState`. Product und Device können einander verlinken; Status ist `AVAILABLE` oder `SOLD`. Device-Secret ist im MVP noch als Klartextfeld modelliert. Der Config-Endpunkt provisioniert unbekannte Geräte automatisch und aktualisiert `lastSeenAt`.
 
 Admin nutzt `ADMIN_USER`/`ADMIN_PASS`; in Nicht-Production existiert ein Dev-Fallback. Stripe Checkout und Webhook sind implementiert, aber nur mit korrekt gesetzten Server-Secrets produktionsbereit. Webhook-Signatur wird in Production verlangt.
 
 ## Frontend
 
-Die API-Basis kommt aus `VITE_API_BASE` und fällt lokal auf `/api` zurück. Routen: `/`, `/p/:shortId`, `/admin`. Die Produktseite lädt öffentliche Produktdaten, zeigt Status/Preis und startet Checkout; Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für den Dashboard-Status genutzt.
+Die API-Basis ist same-origin `/api`. Routen: `/`, `/p/:shortId`, `/demo/p/:productKey`, `/admin`, `/dashboard`, `/success` und `/cancel`. Die reale Produktseite lädt öffentliche Produktdaten und startet den bestehenden Checkout. Die getrennte Demo-Produktseite lädt ausschließlich den serverseitigen Demo-Katalog. Admin lädt Produkte/Geräte, legt sie an, verlinkt sie und setzt Status. SSE `/api/events` wird für das Legacy-Dashboard genutzt; die Live-Demo besitzt sessiongebundene SSE-Kanäle.
 
-Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist initial pitchbar umgesetzt und nach der zweiten Fragerunde auf den USP geschärft: Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein; qr2buy wird als Vertrauenssystem zwischen Käufer und Händler erklärt. Die Seite präzisiert, dass Stripe der Zahlungsdienstleister ist und qr2buy erst nach bestätigter Zahlung reagiert. DE/EN-Locale-Erkennung, manueller Switch, lokale Demo mit Kauf-/Reservierungssimulation sowie responsive Breakpoints bleiben erhalten. Der Frontend-Build ist erfolgreich und alle sechs produktiven Landing-/Produkt-/API-URLs liefern HTTP 200. Visuelles User-Feedback bleibt als nächster Schärfungsschritt offen.
+Vite erzeugt `frontend/dist`. Die produktive Static Site läuft unter `/` mit SPA-Catchall `index.html`; `/p/demo` ist live erreichbar. Die Landingpage ist pitchbar umgesetzt und auf den USP geschärft: Kaufen und Verkaufen dürfen keine Frage von Öffnungszeiten sein; qr2buy wird als Vertrauenssystem zwischen Käufer und Händler erklärt. Die Seite präzisiert, dass Stripe der Zahlungsdienstleister ist und qr2buy erst nach bestätigter Zahlung reagiert. DE/EN-Locale-Erkennung, manueller Switch, session-isolierte Live-Demo und responsive Breakpoints sind vorhanden. Der frühere Live-Nachweis der sechs produktiven Landing-/Produkt-/API-URLs stammt vom 26. Juli 2026; die neue Live-Demo ist lokal implementiert und noch nicht deployed.
+
+## Session-isolierte Live-Demo (implementiert, Deploy vorbereitet)
+
+Die bisher rein lokale Landingpage-Simulation wurde durch einen getrennten End-to-End-Demo-Pfad ersetzt. Jede geöffnete Frontpage erzeugt ein kryptografisch zufälliges Token; MongoDB speichert nur dessen SHA-256-Hash. Das Token verbindet den scanbaren QR-Code und `/demo/p/:productKey` genau mit dieser Frontpage-Session. Vier Demo-Produkte und ihre Preise kommen aus einem serverseitigen Katalog. Demo-Aktionen importieren oder verändern weder `Product` noch `Device` oder `Order`.
+
+`DemoSession` speichert pro Produkt `READY`, `CHECKOUT_STARTED`, `PAID`, `SOLD`, `RESERVED` oder `CANCELLED`, Event-Version, Checkout-Zuordnung und Reset-Zeit. Ein TTL-Index entfernt Sessions standardmäßig nach zwei Stunden. Wiederverwendbare Produkte werden nach 20 Sekunden session- und produktbezogen zurückgesetzt. Die konkrete Nordmanntanne Nr. 17 wechselt nach `PAID` zunächst durch dieselbe 20-Sekunden-Bestätigung und danach dauerhaft auf `SOLD`; ihre Reservierung bleibt innerhalb der Session dauerhaft `RESERVED`. Andere Sessions starten unabhängig mit `READY`.
+
+Der dargestellte Lagerstand ist ausschließlich eine glaubwürdige Demo-Simulation und kein Inventarsystem: Tanne 1 mit weiteren Tannen, gerahmtes Stadtbild 1 mit weiteren Motiven und Ledertasche 3 mit weiteren Modellen. Nur die konkrete Tanne wird innerhalb ihrer Session dauerhaft blockiert. Demo-Daten bleiben vollständig getrennt von `Product`, `Order`, `Device` und realem Bestand.
+
+Das simulierte Hardware-Display der Frontpage leitet seinen Inhalt direkt aus demselben session- und produktgebundenen SSE-Status ab. `READY` und `CHECKOUT_STARTED` zeigen weiterhin Produkt, Preis und QR-Code. Bei `PAID`, `RESERVED` oder `SOLD` wird ausschließlich der innere Displayinhalt durch eine lokalisierte Bestätigung ersetzt; der QR-Code wird dabei nicht gerendert. Wiederverwendbare Produkte kehren nach serverseitigem Reset zur normalen Ansicht zurück, während die konkrete Tanne dauerhaft als verkauft beziehungsweise reserviert sichtbar und weiterhin auswählbar bleibt.
+
+Neue Routen:
+
+- `POST /api/demo/sessions`
+- `GET /api/demo/sessions/:token`
+- `GET /api/demo/sessions/:token/products/:productKey`
+- `POST /api/demo/sessions/:token/products/:productKey/reserve`
+- `POST /api/demo/sessions/:token/products/:productKey/checkout`
+- `POST /api/demo/sessions/:token/products/:productKey/cancel`
+- `GET /api/demo/sessions/:token/events`
+- `POST /api/demo/stripe/webhook`
+
+Die Mobile-Journey kennzeichnet QR-Produktseite, Vorstufe, Checkout-Rückkehr und Bestätigung durchgehend freundlich als Live-Demo ohne Abbuchung, echte Bestellung oder Lieferung. Sie nennt Stripe-Sandbox, Testkarte und frei erfundene Namens-/Adressdaten in DE und EN. Eine erreichbare E-Mail-Adresse ist nur für die optionale einmalige Demo-Bestätigung sinnvoll und ist mit keiner Marketingeinwilligung verbunden.
+
+Demo-Checkout akzeptiert ausschließlich `STRIPE_DEMO_SECRET_KEY` mit Test-Key-Präfix. In Production werden QR-Rücksprungziele nur aus einer öffentlichen HTTPS-Origin erzeugt; lokale, private oder mit Zugangsdaten versehene Origins werden abgewiesen. Er begrenzt Zahlungsarten auf `card`, deaktiviert Link per Session und schließt damit insbesondere Klarna aus. Produkt- und PaymentIntent-Beschreibung beginnen mit `qr2buy Live-Demo`; Success-URL und Client dürfen keinen Zahlungsstatus setzen. Der signierte Test-Webhook akzeptiert nur `livemode === false`, ruft die Checkout-Session zusätzlich serverseitig ab und setzt nur nach nachgewiesenem `paid` auf `PAID`.
+
+Ein qr2buy-eigener Mail-Service kapselt optionales SMTP über verpflichtendes TLS; standardmäßig bleibt er deaktiviert, für Tests existiert ein Memory-Transport. Es wurde kein externer Anbieter ausgewählt. Erst der erfolgreiche idempotente Übergang zu `PAID` beansprucht genau einen Versandversuch pro Checkout. Wiederholte Webhooks versenden nicht erneut; Mailfehler ändern `PAID` nicht und werden nicht automatisch wiederholt. Die vollständige E-Mail wird ausschließlich aus der serverseitig verifizierten Stripe-Session im Arbeitsspeicher verwendet. MongoDB speichert nur den Versandstatus, keine Adresse. Eine nicht zustellfähige Maske lebt kurzzeitig im Prozessspeicher für die Mobile-Rückmeldung und wird nie per SSE übertragen. Logs, URLs und Fehlermeldungen enthalten keine E-Mail-Adresse.
+
+Die Nachricht enthält einen hochwertigen HTML-Demo-Beleg statt PDF-Anhang, klar markiert als `DEMO-BELEG · KEINE ECHTE RECHNUNG · NICHT STEUERLICH GÜLTIG`, ohne Firmenanschrift, UID, Zahlungsforderung, Marketing oder Trackingpixel.
+
+Benötigte Deployment-ENV-Namen ohne Werte:
+
+- `STRIPE_DEMO_SECRET_KEY` – separater Stripe-Test-Secret-Key
+- `STRIPE_DEMO_WEBHOOK_SECRET` – Signatur-Secret des Demo-Webhooks
+- `DEMO_PUBLIC_BASE_URL` – optionaler öffentlicher Origin, sonst `PUBLIC_BASE_URL` beziehungsweise Request-Origin
+- `DEMO_SESSION_TTL_MINUTES` – optional, Standard 120 Minuten
+- `DEMO_MAIL_TRANSPORT` – `disabled` oder `smtp`; standardmäßig deaktiviert
+- `DEMO_SMTP_HOST`, `DEMO_SMTP_PORT`, `DEMO_SMTP_USER`, `DEMO_SMTP_PASS`, `DEMO_SMTP_FROM`, `DEMO_SMTP_HELO_NAME` – ausschließlich qr2buy-eigener SMTP-over-TLS-Transport
+
+`backend/.env.example` ist gezielt versionierbar und enthält ausschließlich sichere Platzhalter. Reale `.env`- und `.env.*`-Dateien bleiben ignoriert. SMTP wird nur bei vollständig vorhandener TLS-Konfiguration aktiviert; andernfalls bleibt der optionale Transport ohne Einfluss auf Checkout und Zahlungsstatus deaktiviert.
+
+Lokaler Test: MongoDB bereitstellen, Backend und Frontend starten, Frontpage öffnen, QR mit einem zweiten Gerät scannen oder „Demo auf diesem Gerät öffnen“ verwenden. Für Stripe ausschließlich Testdaten verwenden. Der lokale Stripe-Listener muss Testevents an `/api/demo/stripe/webhook` weiterleiten und dessen Signatur-Secret sicher als ENV setzen. Reservierung benötigt kein Stripe. Frontpage und Produktseite gleichen den Zustand per SSE plus Polling ab.
+
+Manuelle Stripe-Sandbox-Konfiguration: In den Testmodus-Branding-Einstellungen Business-/Display-Name und Logo auf qr2buy setzen, falls Checkout noch `www.ecily.com` zeigt. Stripe dokumentiert die Anzeige außerdem über `branding_settings.display_name`; wegen der im Projekt fest gesetzten älteren API-Version bleibt die Dashboard-Einstellung der verlässliche Weg bis zu einer separat geprüften API-Migration. Link wird bereits per Checkout-Session deaktiviert. In den Testmodus-Zahlungsmethoden zusätzlich prüfen, dass keine Wallet- oder beschleunigte Methode die sichtbare Testkartenführung umgeht.
+
+Produktions-Webhook: Im Stripe-Sandbox-Dashboard muss ein öffentlicher Endpoint `https://qr2buy.com/api/demo/stripe/webhook` für `checkout.session.completed` und `checkout.session.async_payment_succeeded` bestehen. Dessen eigenes Signing Secret gehört als `STRIPE_DEMO_WEBHOOK_SECRET` ins Backend. Das von `stripe listen` ausgegebene lokale CLI-Secret ist für diesen öffentlichen Endpoint nicht gültig und darf in Production nicht verwendet werden.
+
+Aktueller Nachweis: Die Cross-Device-Abnahme mit Smartphone-QR-Scan, mobiler Produktseite, Stripe-Testcheckout, signiertem Webhook, Rückmeldung auf Smartphone, Frontpage und simuliertem Hardwaredisplay sowie Reservierungs-, Zahlungs- und Reset-Zuständen war erfolgreich. Vor Deploy sind 20 Backend-Tests, vollständige Backend-Syntaxprüfung, sicherer Production-Start-Smoke, 5 Frontend-Tests, Frontend-Lint und Produktionsbuild grün; Backend- und Frontend-Audit melden jeweils 0 Schwachstellen. Die neue Mobile-UX, der fiktive Demo-Bestand, `PAID → SOLD` und der Mailtransport benötigen nach Deploy noch öffentliche Smoke- beziehungsweise visuelle Browserabnahme und einen echten Zustelltest nach separater qr2buy-SMTP-Konfiguration.
 
 ## Firmware und Hardware
 
@@ -101,4 +150,4 @@ Die Landingpage wurde in der zweiten Vertrauensrunde weiter geschärft: Öffnung
 
 The landing page was refined in the second trust round: opening hours, confirmed payment and clear feedback for buyer, seller and display are central. Hero and demo partner CTAs link to `https://ecily.com/de/start-up`; the page also documents affordable display hardware, the protected merchant area in the demo MVP and the technical connection between product page, backend, database and display. Amazon is mentioned only once in a separate market section.
 
-Branch `main` ist mit `origin/main` synchron. Der erfolgreiche Livegang und die Doku wurden zuletzt in `1cfbb9f` dokumentiert; vor diesem Doku-Update war der Working Tree sauber.
+Branch `main` basiert auf `38de2b2` und ist laut lokaler Remote-Referenz mit `origin/main` synchron. Die session-isolierte Live-Demo ist als lokaler, uncommitteter Feature-Stand vorhanden. Es wurde weder gepusht noch deployed; ignorierte ENV-, Firmware-Secret- und Builddateien bleiben unangetastet.

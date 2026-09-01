@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
+import { createDemoSession, getDemoSession } from "../api.js";
+import { getHardwareDisplayMode } from "../demoDisplayState.js";
 
-const DEMO_URL = "/p/demo";
 const ECILY_STARTUP_URL = "https://ecily.com/de/start-up";
 
 const copy = {
@@ -20,22 +22,48 @@ const copy = {
     pilotNote: "Funktionierender MVP · Pilotphase",
     heroPoints: ["Kein App-Zwang", "Kauf oder Reservierung", "Bestandsschutz am Display"],
     demoEyebrow: "Interaktive Demo",
-    demoTitle: "Vom Produkt im Fenster zum nächsten Schritt.",
-    demoText: "Wähle ein Produkt und simuliere, wie sich Preisschild, Bestand und Status verändern. Dies ist eine Demo – es wird nichts gekauft und nichts abgebucht.",
+    demoTitle: "Live ausprobieren – nur dein Handy, keine App.",
+    demoText: "Scanne ein Produkt. Kaufe es im sicheren Stripe-Testmodus oder reserviere es zur Abholung.",
     displayOnline: "LIVE DISPLAY",
-    scanHint: "Scannen oder antippen",
+    scanHint: "Mit dem Handy scannen",
+    noApp: "Keine App nötig",
+    openHere: "Demo auf diesem Gerät öffnen",
+    liveBadge: "Live-Demo · keine echte Zahlung",
     available: "Noch zu haben",
     reserved: "Für dich reserviert",
     sold: "Schon verkauft",
     stock: "Bestand",
     onePiece: "Einzelstück",
+    demoStock: "Fiktiver Demo-Bestand",
     buy: "Kauf simulieren",
     reserve: "Reservierung simulieren",
     reset: "Demo-Status zurücksetzen",
-    demoNotice: "Demo-Modus: keine echte Bestellung, keine Zahlung.",
+    demoNotice: "Es entsteht keine echte Bestellung. Bitte verwende ausschließlich Testdaten.",
     demoJourney: ["Interesse", "Scan", "Bestätigung", "Preisschild reagiert"],
     demoCompleteTitle: "Ein Produkt. Ein Scan. Eine klare Rückmeldung.",
     demoCompleteText: "Du hast gerade gesehen, wie qr2buy funktioniert. Wenn du das Potential siehst und mitbauen willst, sprich mit ecily.",
+    paidLive: "Danke! Wir haben deinen Auftrag erhalten! Viel Freude mit deinem Produkt.",
+    reservedLive: "Reserviert! Wir haben deine Demo-Reservierung erhalten.",
+    displayPaidTitle: "Zahlung bestätigt",
+    displayPaidMessage: "Danke! Viel Freude mit deinem Produkt.",
+    displayReservedTitle: "Für dich reserviert",
+    displayReservedMessage: "Zur Abholung vorgemerkt.",
+    displaySoldLabel: "VERKAUFT",
+    displaySoldTitle: "Diese Tanne wurde schon verkauft.",
+    displaySoldMore: "Wir haben aber noch andere für dich.",
+    displaySoldWish: "Schau dich um. Frohe Weihnachten!",
+    displayTreeReservedLabel: "RESERVIERT",
+    displayTreeReservedTitle: "Diese Tanne ist bereits reserviert.",
+    displayTreeReservedMore: "Andere Produkte warten noch auf dich.",
+    stripeConfirmed: "Stripe hat den Testkauf serverseitig bestätigt.",
+    resetsIn: "Diese Demo wird in {seconds} Sekunden zurückgesetzt.",
+    connecting: "Sichere Live-Demo wird vorbereitet …",
+    demoError: "Die Live-Demo ist gerade nicht verfügbar.",
+    retry: "Erneut versuchen",
+    connectionLive: "Live verbunden",
+    connectionPolling: "Verbindung wird wiederhergestellt",
+    checkoutStarted: "Testcheckout geöffnet",
+    cancelled: "Testcheckout abgebrochen",
     selected: "Ausgewählt",
     scenariosEyebrow: "Warum das zählt",
     scenariosTitle: "Wenn Interesse da ist, soll der Kauf nicht warten.",
@@ -92,22 +120,48 @@ const copy = {
     pilotNote: "Working MVP · Pilot phase",
     heroPoints: ["No app required", "Buy or reserve", "Inventory-aware display"],
     demoEyebrow: "Interactive demo",
-    demoTitle: "From product in the window to the next step.",
-    demoText: "Choose a product and simulate how the price tag, stock and status change. This is a demo – nothing is bought and nothing is charged.",
+    demoTitle: "Try it live – just your phone, no app.",
+    demoText: "Scan a product. Buy it in secure Stripe test mode or reserve it for collection.",
     displayOnline: "LIVE DISPLAY",
-    scanHint: "Scan or tap",
+    scanHint: "Scan with your phone",
+    noApp: "No app required",
+    openHere: "Open demo on this device",
+    liveBadge: "Live demo · no real payment",
     available: "Still available",
     reserved: "Reserved for you",
     sold: "Already sold",
     stock: "Stock",
     onePiece: "One-off piece",
+    demoStock: "Fictional demo stock",
     buy: "Simulate purchase",
     reserve: "Simulate reservation",
     reset: "Reset demo status",
-    demoNotice: "Demo mode: no real order, no payment.",
+    demoNotice: "No real order is created. Please use test data only.",
     demoJourney: ["Interest", "Scan", "Confirmation", "Display reacts"],
     demoCompleteTitle: "One product. One scan. Clear feedback.",
     demoCompleteText: "You have just seen how qr2buy works. If you see the potential and want to help build it, talk to ecily.",
+    paidLive: "Thank you! We received your request. Enjoy your product.",
+    reservedLive: "Reserved! We received your demo reservation.",
+    displayPaidTitle: "Payment confirmed",
+    displayPaidMessage: "Thank you! Enjoy your product.",
+    displayReservedTitle: "Reserved for you",
+    displayReservedMessage: "Set aside for collection.",
+    displaySoldLabel: "SOLD",
+    displaySoldTitle: "This tree has already been sold.",
+    displaySoldMore: "We still have others for you.",
+    displaySoldWish: "Take a look around. Merry Christmas!",
+    displayTreeReservedLabel: "RESERVED",
+    displayTreeReservedTitle: "This tree is already reserved.",
+    displayTreeReservedMore: "Other products are still waiting for you.",
+    stripeConfirmed: "Stripe confirmed the test purchase on the server.",
+    resetsIn: "This demo resets in {seconds} seconds.",
+    connecting: "Preparing your secure live demo …",
+    demoError: "The live demo is temporarily unavailable.",
+    retry: "Try again",
+    connectionLive: "Live connection active",
+    connectionPolling: "Restoring live connection",
+    checkoutStarted: "Test checkout opened",
+    cancelled: "Test checkout cancelled",
     selected: "Selected",
     scenariosEyebrow: "Why it matters",
     scenariosTitle: "When interest is there, the purchase should not have to wait.",
@@ -147,79 +201,164 @@ const copy = {
 };
 
 const products = [
-  { id: "bag", name: { de: "Handgemachte Ledertasche", en: "Handmade leather bag" }, place: { de: "Boutique · Einzelstück", en: "Boutique · one-off piece" }, price: "129 €", stock: 1, kind: "single", color: "clay" },
-  { id: "book", name: { de: "Roman ‚Stadtlichter‘", en: "Novel ‘City Lights’" }, place: { de: "Buchhandlung · Lagerware", en: "Bookshop · stock item" }, price: "24,90 €", stock: 8, kind: "stock", color: "sage" },
-  { id: "print", name: { de: "Gerahmter Kunstdruck", en: "Framed art print" }, place: { de: "Galerie · limitiert", en: "Gallery · limited" }, price: "390 €", stock: 1, kind: "single", color: "ink" },
-  { id: "tree", name: { de: "Nordmanntanne Nr. 17", en: "Nordmann fir no. 17" }, place: { de: "Saisonaler Stand", en: "Seasonal stand" }, price: "59 €", stock: 1, kind: "single", color: "pine" },
+  { key: "bag", name: { de: "Handgemachte Ledertasche", en: "Handmade leather bag" }, place: { de: "Boutique · Kleinserie", en: "Boutique · small collection" }, price: 129, currency: "EUR", color: "clay", stock: 3, alternatives: { de: "Weitere Taschenmodelle verfügbar", en: "Other bag styles available" } },
+  { key: "book", name: { de: "Roman ‚Stadtlichter‘", en: "Novel ‘City Lights’" }, place: { de: "Buchhandlung · Lagerware", en: "Bookshop · stock item" }, price: 24.9, currency: "EUR", color: "sage", stock: 8, alternatives: { de: "Weitere Exemplare verfügbar", en: "More copies available" } },
+  { key: "print", name: { de: "Gerahmter Kunstdruck", en: "Framed art print" }, place: { de: "Galerie · limitiert", en: "Gallery · limited" }, price: 390, currency: "EUR", color: "ink", stock: 1, alternatives: { de: "Weitere Stadtbilder verfügbar", en: "Other city prints available" } },
+  { key: "tree", name: { de: "Nordmanntanne Nr. 17", en: "Nordmann fir no. 17" }, place: { de: "Saisonaler Stand", en: "Seasonal stand" }, price: 59, currency: "EUR", color: "pine", stock: 1, alternatives: { de: "Weitere Tannen verfügbar", en: "Other trees available" }, unique: true },
 ];
-
-const qrPattern = [
-  "111111100101101111111", "100000101110101000001", "101110101011101011101", "101110100100101011101", "101110101111101011101", "100000101010101000001", "111111101010101111111", "000000001101100000000", "110110111001011101101", "011011001111100110010", "101101111001011011101", "001011010110101100110", "111100101011010111001", "000000001101001100110", "111111101011111001010", "100000101100001111100", "101110101011101001101", "101110100101100110011", "101110101110111010101", "100000101001001101110", "111111101110111001001"
-].join("").split("");
 
 function Logo() {
   return <span className="landing-logo"><span className="landing-logo__mark" aria-hidden="true"><i /><i /><i /><i /></span><span>qr2buy</span></span>;
 }
 
 function StatusPill({ status, t }) {
-  const label = status === "sold" ? t.sold : status === "reserved" ? t.reserved : t.available;
-  return <span className={`demo-status demo-status--${status}`}><span className="demo-status__dot" />{label}</span>;
+  const normalized = ["PAID", "SOLD"].includes(status) ? "sold" : status === "RESERVED" ? "reserved" : status === "CHECKOUT_STARTED" ? "checkout" : status === "CANCELLED" ? "cancelled" : "available";
+  const label = normalized === "sold" ? t.sold : normalized === "reserved" ? t.reserved : normalized === "checkout" ? t.checkoutStarted : normalized === "cancelled" ? t.cancelled : t.available;
+  return <span className={`demo-status demo-status--${normalized}`}><span className="demo-status__dot" />{label}</span>;
 }
 
-function QrMockup() {
-  return <a className="qr-mockup" href={DEMO_URL} aria-label="Open the qr2buy demo product page">
-    <span className="qr-mockup__grid" aria-hidden="true">{qrPattern.map((cell, index) => <i key={index} className={cell === "1" ? "is-dark" : ""} />)}</span>
-    <span className="qr-mockup__caption">qr2buy.com/p/demo</span>
+function QrMockup({ value, label }) {
+  const [src, setSrc] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    if (!value) return undefined;
+    QRCode.toDataURL(value, { errorCorrectionLevel: "M", margin: 4, width: 280, color: { dark: "#102820", light: "#ffffff" } })
+      .then((result) => { if (active) setSrc(result); })
+      .catch(() => { if (active) setSrc(""); });
+    return () => { active = false; };
+  }, [value]);
+
+  return <a className="qr-mockup" href={value || undefined} aria-label={label}>
+    {src ? <img src={src} alt="" /> : <span className="demo-loader" aria-hidden="true" />}
+    <span className="qr-mockup__caption">{label}</span>
   </a>;
+}
+
+function ResetCountdown({ resetAt, t }) {
+  const [seconds, setSeconds] = useState(20);
+  useEffect(() => {
+    if (!resetAt) return undefined;
+    const update = () => setSeconds(Math.max(0, Math.ceil((new Date(resetAt).getTime() - Date.now()) / 1000)));
+    update();
+    const timer = setInterval(update, 250);
+    return () => clearInterval(timer);
+  }, [resetAt]);
+  return <span>{t.resetsIn.replace("{seconds}", seconds)}</span>;
+}
+
+function HardwareDisplayConfirmation({ mode, title, unique, t }) {
+  const paid = mode === "paid";
+  const sold = mode === "sold";
+  const permanentlyReserved = mode === "reserved" && unique;
+  return <div className={`hardware-display-confirmation hardware-display-confirmation--${mode}`} role="status" aria-live="polite" aria-atomic="true">
+    <span className="hardware-display-confirmation__icon" aria-hidden="true">{sold ? "×" : "✓"}</span>
+    <span className="hardware-display-confirmation__state">{sold ? t.displaySoldLabel : permanentlyReserved ? t.displayTreeReservedLabel : ""}</span>
+    <strong>{sold ? t.displaySoldTitle : permanentlyReserved ? t.displayTreeReservedTitle : paid ? t.displayPaidTitle : t.displayReservedTitle}</strong>
+    <span className="hardware-display-confirmation__product">{title}</span>
+    {sold ? <><p>{t.displaySoldMore}</p><p>{t.displaySoldWish}</p></> : <p>{permanentlyReserved ? t.displayTreeReservedMore : paid ? t.displayPaidMessage : t.displayReservedMessage}</p>}
+  </div>;
 }
 
 function ProductDemo({ lang, t }) {
   const [selectedId, setSelectedId] = useState("book");
-  const [demoState, setDemoState] = useState({});
-  const product = products.find((item) => item.id === selectedId) || products[0];
-  const state = demoState[selectedId] || { status: "available", stock: product.stock };
-
-  const act = (nextStatus) => {
-    if (state.status === "sold") return;
-    setDemoState((current) => ({
-      ...current,
-      [selectedId]: {
-        status: nextStatus,
-        stock: product.kind === "stock" ? Math.max(0, state.stock - 1) : state.stock,
-      },
-    }));
-  };
-
-  const reset = () => setDemoState((current) => ({ ...current, [selectedId]: { status: "available", stock: product.stock } }));
-  const displayStock = state.stock === 1 && product.kind === "single" ? t.onePiece : `${state.stock}`;
+  const [live, setLive] = useState(null);
+  const [error, setError] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const started = useRef(false);
+  const eventVersions = useRef(new Map());
+  const catalog = live?.products || products;
+  const product = catalog.find((item) => item.key === selectedId) || catalog[0];
+  const state = live?.session?.products?.find((item) => item.productKey === selectedId) || { status: "READY" };
   const title = product.name[lang];
+  const price = new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-GB", { style: "currency", currency: product.currency }).format(product.price);
+  const demoUrl = live?.token ? `${window.location.origin}/demo/p/${product.key}#session=${encodeURIComponent(live.token)}` : "";
+  const complete = ["PAID", "RESERVED", "SOLD"].includes(state.status);
+  const displayMode = getHardwareDisplayMode(state.status);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    createDemoSession().then(setLive).catch(() => setError(true));
+  }, []);
+
+  useEffect(() => {
+    if (!live?.token) return undefined;
+    const token = live.token;
+    let active = true;
+    const applySnapshot = (snapshot) => {
+      if (!active) return;
+      const nextStates = snapshot?.session?.products || [];
+      const activeProduct = nextStates.find((item) => {
+        const previousVersion = eventVersions.current.get(item.productKey);
+        return previousVersion !== undefined && item.eventVersion > previousVersion && ["CHECKOUT_STARTED", "PAID", "RESERVED", "SOLD"].includes(item.status);
+      });
+      eventVersions.current = new Map(nextStates.map((item) => [item.productKey, item.eventVersion]));
+      if (activeProduct) setSelectedId(activeProduct.productKey);
+      setLive((current) => ({ ...snapshot, token: current?.token || token }));
+      setError(false);
+    };
+    const refresh = () => getDemoSession(token).then(applySnapshot).catch(() => setConnected(false));
+    const events = new EventSource(`/api/demo/sessions/${encodeURIComponent(token)}/events`);
+    events.onopen = () => { setConnected(true); refresh(); };
+    events.onerror = () => setConnected(false);
+    events.addEventListener("snapshot", (event) => {
+      try { applySnapshot(JSON.parse(event.data)); } catch { setConnected(false); }
+    });
+    const poll = setInterval(refresh, 4000);
+    return () => {
+      active = false;
+      clearInterval(poll);
+      events.close();
+    };
+  }, [live?.token]);
+
+  const retry = () => {
+    setError(false);
+    createDemoSession().then(setLive).catch(() => setError(true));
+  };
 
   return <section className="landing-section landing-demo" id="demo">
     <div className="landing-shell">
       <div className="landing-section-heading landing-section-heading--split">
-        <div><span className="landing-eyebrow">{t.demoEyebrow}</span><h2>{t.demoTitle}</h2></div>
+        <div><span className="landing-eyebrow">{t.liveBadge}</span><h2>{t.demoTitle}</h2></div>
         <p>{t.demoText}</p>
       </div>
+      {!live && !error && <div className="demo-session-loading" role="status"><span className="demo-loader" />{t.connecting}</div>}
+      {error && <div className="demo-session-error" role="alert"><span>{t.demoError}</span><button onClick={retry}>{t.retry}</button></div>}
+      {live && <>
       <div className="demo-layout">
         <div className="display-card">
-          <div className="display-card__top"><Logo /><span>{t.displayOnline} <b /></span></div>
-          <div className="display-card__screen">
-            <div className="display-card__qr"><QrMockup /></div>
-            <div className="display-card__product"><span className="display-card__label">{product.place[lang]}</span><strong>{title}</strong><span className="display-card__price">{product.price}</span><StatusPill status={state.status} t={t} /><span className="display-card__stock">{t.stock}: {displayStock}</span></div>
+          <div className="display-card__top"><Logo /><span>{connected ? t.connectionLive : t.connectionPolling} <b className={connected ? "" : "is-reconnecting"} /></span></div>
+          <div className={`display-card__screen ${displayMode !== "product" ? "display-card__screen--confirmation" : ""}`}>
+            {displayMode === "product" ? <>
+              <div className="display-card__qr"><QrMockup value={demoUrl} label={t.scanHint} /><small>{t.noApp}</small><a className="demo-open-mobile" href={demoUrl}>{t.openHere}</a></div>
+              <div className="display-card__product"><span className="display-card__label">{product.place[lang]}</span><strong>{title}</strong><span className="display-card__price">{price}</span><StatusPill status={state.status} t={t} /><span className="display-card__stock">{t.demoStock}: {product.stock} · {product.alternatives?.[lang]}</span></div>
+            </> : <HardwareDisplayConfirmation mode={displayMode} title={title} unique={product.unique} t={t} />}
           </div>
           <div className="display-card__footer"><span>QR2BUY DISPLAY</span><span>v1.0 · LIVE</span></div>
         </div>
         <div className="demo-control">
-          <div className="demo-control__head"><div><span className="landing-eyebrow">{t.selected}</span><h3>{title}</h3></div><button className="text-button" onClick={reset}>{t.reset}</button></div>
+          <div className="demo-control__head"><div><span className="landing-eyebrow">{t.selected}</span><h3>{title}</h3></div><span className="demo-live-chip"><i />{t.liveBadge}</span></div>
           <div className="product-picker" role="listbox" aria-label={t.selected}>
-            {products.map((item) => <button key={item.id} className={`product-option ${item.id === selectedId ? "is-selected" : ""}`} onClick={() => setSelectedId(item.id)} role="option" aria-selected={item.id === selectedId}><span className={`product-option__swatch product-option__swatch--${item.color}`} /><span><strong>{item.name[lang]}</strong><small>{item.place[lang]}</small></span><b>{item.price}</b></button>)}
+            {catalog.map((item) => {
+              const itemStatus = live?.session?.products?.find((entry) => entry.productKey === item.key)?.status || "READY";
+              return <button key={item.key} className={`product-option ${item.key === selectedId ? "is-selected" : ""}`} onClick={() => setSelectedId(item.key)} role="option" aria-selected={item.key === selectedId}><span className={`product-option__swatch product-option__swatch--${item.color}`} /><span><strong>{item.name[lang]}</strong><small>{item.place[lang]} · <StatusPill status={itemStatus} t={t} /></small></span><b>{new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-GB", { style: "currency", currency: item.currency }).format(item.price)}</b></button>;
+            })}
           </div>
-          <div className="demo-actions"><button className="demo-button demo-button--primary" onClick={() => act("sold")} disabled={state.status === "sold"}>{t.buy}</button><button className="demo-button demo-button--secondary" onClick={() => act("reserved")} disabled={state.status !== "available"}>{t.reserve}</button></div>
+          <a className="demo-button demo-button--primary demo-open-desktop" href={demoUrl}>{t.openHere}</a>
           <div className="demo-journey" aria-label={t.demoEyebrow}>{t.demoJourney.map((step, index) => <span key={step}><b>{index + 1}</b>{step}{index < t.demoJourney.length - 1 && <i>→</i>}</span>)}</div>
           <p className="demo-notice"><span>i</span>{t.demoNotice}</p>
-          {state.status !== "available" && <div className="demo-complete"><strong>{t.demoCompleteTitle}</strong><p>{t.demoCompleteText}</p><a className="demo-complete__link" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.talk} <span>↗</span></a></div>}
+          {complete && <div className={`demo-complete demo-complete--${state.status.toLowerCase()}`} role="status" aria-live="polite">
+            {state.status === "PAID" && <div className="demo-confetti" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div>}
+            <strong>{state.status === "SOLD" ? t.displaySoldTitle : state.status === "PAID" ? t.paidLive : product.unique ? t.displayTreeReservedTitle : t.reservedLive}</strong>
+            {state.status === "PAID" && <p>{t.stripeConfirmed}</p>}
+            {state.resetAt && <p className="demo-reset-live"><ResetCountdown resetAt={state.resetAt} t={t} /></p>}
+            <a className="demo-complete__link" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.talk} <span>↗</span></a>
+          </div>}
         </div>
       </div>
+      </>}
     </div>
   </section>;
 }
@@ -244,7 +383,7 @@ export default function LandingPage() {
       <section className="landing-section landing-market"><div className="landing-shell landing-market__inner"><span className="landing-eyebrow">{t.marketEyebrow}</span><h2>{t.marketTitle}</h2><p>{t.marketText}</p></div></section>
       <section className="landing-section landing-pain"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.scenariosEyebrow}</span><h2>{t.scenariosTitle}</h2></div><div className="scenario-grid">{t.scenarios.map(([title, text], index) => <article className="scenario-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
       <section className="landing-section landing-why"><div className="landing-shell landing-why__grid"><div><span className="landing-eyebrow">{t.whyEyebrow}</span><h2>{t.whyTitle}</h2><p className="landing-copy">{t.whyText}</p><a className="text-link" href="#how">{t.stepsEyebrow} <span>→</span></a></div><div className="why-list">{t.whyItems.map((item, index) => <div key={item}><span>0{index + 1}</span><strong>{item}</strong></div>)}</div></div></section>
-      <section className="landing-section landing-steps" id="how"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.stepsEyebrow}</span><h2>Scan. Entscheiden. Weiter.</h2></div><div className="steps-grid">{t.steps.map(([number, title, text]) => <article key={number}><span className="step-number">{number}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
+      <section className="landing-section landing-steps" id="how"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.stepsEyebrow}</span><h2>{lang === "de" ? "Scan. Entscheiden. Weiter." : "Scan. Decide. Continue."}</h2></div><div className="steps-grid">{t.steps.map(([number, title, text]) => <article key={number}><span className="step-number">{number}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
       <section className="landing-section landing-cases" id="use-cases"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.casesEyebrow}</span><h2>{t.casesTitle}</h2></div><div className="case-grid">{t.cases.map(([title, text], index) => <div className={`case-card case-card--${index + 1}`} key={title}><span>0{index + 1}</span><strong>{title}</strong><small>{text}</small></div>)}</div></div></section>
       <section className="landing-section landing-partner" id="partner"><div className="landing-shell landing-partner__grid"><div className="partner-card"><span className="partner-card__stamp">MVP · LIVE</span><div className="partner-card__monogram">AF</div><span>Andreas Franz / ecily</span><small>Technical founder · product · business</small></div><div><span className="landing-eyebrow">{t.partnerEyebrow}</span><h2>{t.partnerTitle}</h2><p className="landing-copy">{t.partnerText}</p><p className="equity-note">{t.equity}</p><a className="landing-button landing-button--primary" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.talk}<span>↗</span></a></div></div></section>
       <section className="landing-section landing-pilot"><div className="landing-shell landing-pilot__inner"><span className="landing-eyebrow">{t.pilotEyebrow}</span><h2>{t.pilotTitle}</h2><p>{t.pilotText}</p><a className="landing-button landing-button--dark" href={ECILY_STARTUP_URL} target="_blank" rel="noreferrer">{t.pilotCta}<span>↗</span></a></div></section>

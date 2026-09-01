@@ -46,6 +46,31 @@ async function http(method, path, { json, searchParams, headers } = {}) {
 /* ───────── Health ───────── */
 export const getHealth = () => http('GET', 'health');
 
+/* ───────────────── Session-isolated live demo ───────────────── */
+export const createDemoSession = () => http('POST', 'demo/sessions');
+
+export function getDemoSession(token) {
+  return http('GET', `demo/sessions/${encodeURIComponent(token)}`);
+}
+
+export function getDemoProduct(token, productKey) {
+  return http('GET', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}`);
+}
+
+export function reserveDemoProduct(token, productKey) {
+  return http('POST', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}/reserve`);
+}
+
+export function createDemoCheckout(token, productKey, locale) {
+  return http('POST', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}/checkout`, {
+    json: { locale }
+  });
+}
+
+export function cancelDemoCheckout(token, productKey) {
+  return http('POST', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}/cancel`);
+}
+
 /* ───────── Public / Buyer Flow ───────── */
 export function getPublicProductByShort(shortId) {
   return http('GET', `public/products/by-short/${encodeURIComponent(String(shortId).toLowerCase())}`);

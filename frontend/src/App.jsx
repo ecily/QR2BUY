@@ -13,6 +13,7 @@ import ky from "ky";
 import "./App.css";
 import LandingPage from "./pages/LandingPage.jsx";
 import Admin from "./pages/Admin.jsx"; // Admin-Seite
+import DemoProductPage from "./pages/DemoProductPage.jsx";
 import { getPublicProductByShort, startCheckoutRedirectByShort } from "./api.js";
 
 /* -------------------------------------------------------------------------- */
@@ -164,6 +165,41 @@ function Dashboard() {
   useEffect(() => {
     let cancelled = false;
 
+    const startSSE = () => {
+      try {
+        const es = new EventSource("/api/events");
+        sseRef.current = es;
+        es.addEventListener("open", () => setSseConnected(true));
+        es.addEventListener("error", () => setSseConnected(false));
+        es.addEventListener("ready", () => setSseConnected(true));
+        es.addEventListener("version", (evt) => {
+          try {
+            const data = JSON.parse(evt.data || "{}");
+            if (data.version) setVersion(String(data.version));
+            if (data.updatedAt) setUpdatedAt(data.updatedAt);
+          } catch {
+            /* Ignore malformed legacy SSE events. */
+          }
+        });
+        es.addEventListener("update", (evt) => {
+          try {
+            const data = JSON.parse(evt.data || "{}");
+            setPreview((current) => ({
+              text: data?.text ?? current.text,
+              qr: data?.qr ?? current.qr,
+              version: data?.version ?? current.version,
+            }));
+            if (data?.version) setVersion(String(data.version));
+            if (data?.updatedAt) setUpdatedAt(data.updatedAt);
+          } catch {
+            /* Ignore malformed legacy SSE events. */
+          }
+        });
+      } catch {
+        setSseConnected(false);
+      }
+    };
+
     const bootstrap = async () => {
       try {
         const h = await api.get("health").json();
@@ -219,38 +255,6 @@ function Dashboard() {
       }
     };
   }, []);
-
-  const startSSE = () => {
-    try {
-      const es = new EventSource("/api/events");
-      sseRef.current = es;
-      es.addEventListener("open", () => setSseConnected(true));
-      es.addEventListener("error", () => setSseConnected(false));
-      es.addEventListener("ready", () => setSseConnected(true));
-      es.addEventListener("version", (evt) => {
-        try {
-          const data = JSON.parse(evt.data || "{}");
-          if (data.version) setVersion(String(data.version));
-          if (data.updatedAt) setUpdatedAt(data.updatedAt);
-        } catch {}
-      });
-      es.addEventListener("update", (evt) => {
-        try {
-          const data = JSON.parse(evt.data || "{}");
-          const next = {
-            text: data?.text ?? preview.text,
-            qr: data?.qr ?? preview.qr,
-            version: data?.version ?? version,
-          };
-          setPreview(next);
-          if (data?.version) setVersion(String(data.version));
-          if (data?.updatedAt) setUpdatedAt(data.updatedAt);
-        } catch {}
-      });
-    } catch {
-      setSseConnected(false);
-    }
-  };
 
   const validate = () => {
     const errs = { text: "", url: "" };
@@ -709,6 +713,7 @@ export default function App() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/p/:shortId" element={<ProductRoute />} />
+      <Route path="/demo/p/:productKey" element={<DemoProductPage />} />
       <Route path="/success" element={<SuccessPage />} />
       <Route path="/cancel" element={<CancelPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />

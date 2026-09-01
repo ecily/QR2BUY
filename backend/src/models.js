@@ -6,6 +6,15 @@ export const STATUS = Object.freeze({
   SOLD: 'SOLD'
 });
 
+export const DEMO_STATUS = Object.freeze({
+  READY: 'READY',
+  CHECKOUT_STARTED: 'CHECKOUT_STARTED',
+  PAID: 'PAID',
+  SOLD: 'SOLD',
+  RESERVED: 'RESERVED',
+  CANCELLED: 'CANCELLED'
+});
+
 /* ───────── Product ───────── */
 const ProductSchema = new mongoose.Schema(
   {
@@ -97,7 +106,47 @@ const OrderSchema = new mongoose.Schema(
 OrderSchema.index({ productId: 1, createdAt: -1 });
 OrderSchema.index({ deviceId: 1, createdAt: -1 });
 
+/* ───────────────── DemoSession (strictly isolated from real commerce) ───────────────── */
+const DemoProductStateSchema = new mongoose.Schema(
+  {
+    productKey: { type: String, required: true },
+    status: {
+      type: String,
+      enum: Object.values(DEMO_STATUS),
+      default: DEMO_STATUS.READY
+    },
+    eventVersion: { type: Number, default: 0 },
+    checkoutOperationId: { type: String, default: null },
+    checkoutSessionId: { type: String, default: null },
+    checkoutStartedAt: { type: Date, default: null },
+    changedAt: { type: Date, required: true },
+    resetAt: { type: Date, default: null },
+    demoOrderNumber: { type: String, default: null },
+    paidAt: { type: Date, default: null },
+    mailAttemptedForCheckoutId: { type: String, default: null },
+    mailStatus: {
+      type: String,
+      enum: ['NONE', 'SENDING', 'ACCEPTED', 'FAILED', 'UNAVAILABLE'],
+      default: 'NONE'
+    }
+  },
+  { _id: false }
+);
+
+const DemoSessionSchema = new mongoose.Schema(
+  {
+    tokenHash: { type: String, required: true, unique: true, index: true },
+    products: { type: [DemoProductStateSchema], default: [] },
+    processedWebhookEvents: { type: [String], default: [] },
+    expiresAt: { type: Date, required: true }
+  },
+  { timestamps: true }
+);
+
+DemoSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 /* ───────── Exports ───────── */
 export const Product = mongoose.models.Product || mongoose.model('Product', ProductSchema);
 export const Device = mongoose.models.Device || mongoose.model('Device', DeviceSchema);
 export const Order = mongoose.models.Order || mongoose.model('Order', OrderSchema);
+export const DemoSession = mongoose.models.DemoSession || mongoose.model('DemoSession', DemoSessionSchema);

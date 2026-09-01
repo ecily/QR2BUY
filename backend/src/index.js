@@ -20,6 +20,7 @@ import adminRouter from './routes/admin.js';
 import checkoutRouter from './routes/checkout.js';
 import stripeWebhookRouter from './routes/stripeWebhook.js';
 import publicRouter from './routes/public.js';
+import demoRouter from './routes/demo.js';
 
 dotenv.config();
 
@@ -37,6 +38,12 @@ const __dirname = path.dirname(__filename);
 /* ───────────────── Logger ───────────────── */
 const logger = pino({ level: LOG_LEVEL, base: { service: 'qr2buy_api' } });
 
+function sanitizeRequestUrl(url = '') {
+  return String(url)
+    .replace(/(\/api\/demo\/sessions\/)[^/?#]+/g, '$1[SESSION]')
+    .replace(/([?&]session=)[^&#]+/g, '$1[SESSION]');
+}
+
 /* ───────────────── App & Middleware ───────────────── */
 const app = express();
 app.set('trust proxy', 1);
@@ -45,6 +52,15 @@ app.set('trust proxy', 1);
 app.use(
   pinoHttp({
     logger,
+    wrapSerializers: false,
+    serializers: {
+      req: (req) => ({
+        method: req.method,
+        url: sanitizeRequestUrl(req.url),
+        host: req.headers?.host,
+        remoteAddress: req.socket?.remoteAddress
+      })
+    },
     customLogLevel: (res, err) => {
       if (err || res.statusCode >= 500) return 'error';
       if (res.statusCode >= 400) return 'warn';
@@ -59,6 +75,7 @@ app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
 
 /* Stripe raw body (MUSS vor JSON-Parser stehen) */
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+app.use('/api/demo/stripe/webhook', express.raw({ type: 'application/json' }));
 
 /* JSON body (alle anderen Routen) */
 app.use(express.json({ limit: '1mb' }));
@@ -116,6 +133,7 @@ app.use('/api', legacyDisplayRouter);
 
 /* 2) Buyer/Public + Admin + Checkout + Webhook + Firmware */
 app.use('/api/public', publicRouter);
+app.use('/api/demo', demoRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/stripe', stripeWebhookRouter);
