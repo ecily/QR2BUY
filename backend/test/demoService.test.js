@@ -256,6 +256,13 @@ test('requires a public HTTPS origin for production demo checkout returns', asyn
   }
 });
 
+test('recovers from a malformed optional public URL with the validated request origin', async () => {
+  const { service, stripeCalls } = harness({ requirePublicHttps: true });
+  const created = await service.createSession();
+  await service.startCheckout(created.token, 'book', ['not-a-url', 'https://qr2buy.com']);
+  assert.match(stripeCalls[0].success_url, /^https:\/\/qr2buy\.com\/demo\/p\/book/);
+});
+
 test('accepts only a valid webhook signature', () => {
   const stripe = {
     webhooks: {

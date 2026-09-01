@@ -85,18 +85,20 @@ function privateHostname(hostname) {
     (parts[0] === 192 && parts[1] === 168);
 }
 
-function publicBaseUrl(value, requirePublicHttps) {
-  try {
-    const url = new URL(value);
-    if (!['http:', 'https:'].includes(url.protocol)) throw new Error('unsupported protocol');
-    if (url.username || url.password) throw new Error('credentials not allowed');
-    if (requirePublicHttps && (url.protocol !== 'https:' || privateHostname(url.hostname))) {
-      throw new Error('public https required');
+function publicBaseUrl(values, requirePublicHttps) {
+  const candidates = Array.isArray(values) ? values : [values];
+  for (const value of candidates) {
+    try {
+      const url = new URL(value);
+      if (!['http:', 'https:'].includes(url.protocol)) continue;
+      if (url.username || url.password) continue;
+      if (requirePublicHttps && (url.protocol !== 'https:' || privateHostname(url.hostname))) continue;
+      return url.origin;
+    } catch {
+      // A request-derived public HTTPS origin may safely recover a malformed optional ENV value.
     }
-    return url.origin;
-  } catch {
-    throw new DemoError('invalid_public_base_url', 500);
   }
+  throw new DemoError('invalid_public_base_url', 500);
 }
 
 export function createStripeDemoClient(secretKey = process.env.STRIPE_DEMO_SECRET_KEY) {

@@ -20,12 +20,10 @@ router.use((_req, res, next) => {
   next();
 });
 
-function baseUrl(req) {
-  return (
-    process.env.DEMO_PUBLIC_BASE_URL ||
-    process.env.PUBLIC_BASE_URL ||
-    `${req.protocol}://${req.get('host')}`
-  );
+function baseUrls(req) {
+  const configured = process.env.DEMO_PUBLIC_BASE_URL || process.env.PUBLIC_BASE_URL;
+  const requestOrigin = `${req.protocol}://${req.get('host')}`;
+  return configured ? [configured, requestOrigin] : [requestOrigin];
 }
 
 function sendError(res, error) {
@@ -75,7 +73,7 @@ router.post('/sessions/:token/products/:productKey/reserve', actionLimit, async 
 router.post('/sessions/:token/products/:productKey/checkout', actionLimit, async (req, res) => {
   try {
     return res.status(201).json(
-      await service.startCheckout(req.params.token, req.params.productKey, baseUrl(req), req.body?.locale)
+      await service.startCheckout(req.params.token, req.params.productKey, baseUrls(req), req.body?.locale)
     );
   } catch (error) {
     return sendError(res, error);
