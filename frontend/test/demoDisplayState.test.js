@@ -138,3 +138,13 @@ test("keeps checkout closed and exposes a manual fallback when clipboard access 
   assert.ok(page.includes("Demo erfolgreich · 0 € abgebucht"));
   assert.ok(page.includes("Demo successful · €0 charged"));
 });
+
+test("handles mobile Stripe return and cancellation through the session state", async () => {
+  const page = await readFile(new URL("../src/pages/DemoProductPage.jsx", import.meta.url), "utf8");
+  assert.match(page, /checkoutReturn === 'return' \? 1500 : 3000/);
+  assert.match(page, /checkoutReturn !== 'cancelled'/);
+  assert.match(page, /cancelDemoCheckout\(token, productKey\)/);
+  assert.match(page, /checkoutReturn === 'return' && status === 'CHECKOUT_STARTED'/);
+  assert.match(page, /status === 'PAID' \?/);
+  assert.match(page, /new EventSource\(`\/api\/demo\/sessions\/\$\{encodeURIComponent\(token\)\}\/events`\)/);
+});

@@ -17,7 +17,7 @@ function getBaseUrl(req) {
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!key) throw new Error('STRIPE_SECRET_KEY not set');
+  if (!key?.startsWith('sk_test_')) throw new Error('STRIPE_TEST_KEY not set');
   return new Stripe(key, { apiVersion: '2024-06-20' });
 }
 
@@ -101,7 +101,7 @@ router.post('/:productId', async (req, res, next) => {
     const { sessionId, url } = await createSessionForProduct(req, product, { deviceId, quantity });
     return res.status(201).json({ ok: true, sessionId, url });
   } catch (err) {
-    if (err?.message?.includes('STRIPE_SECRET_KEY')) {
+    if (err?.message?.includes('STRIPE_TEST_KEY')) {
       return res.status(500).json({ ok: false, error: 'Stripe not configured on server' });
     }
     next(err);
@@ -130,7 +130,7 @@ router.post('/by-short/:shortId', async (req, res, next) => {
     const { sessionId, url } = await createSessionForProduct(req, product, { deviceId, quantity });
     return res.status(201).json({ ok: true, sessionId, url });
   } catch (err) {
-    if (err?.message?.includes('STRIPE_SECRET_KEY')) {
+    if (err?.message?.includes('STRIPE_TEST_KEY')) {
       return res.status(500).json({ ok: false, error: 'Stripe not configured on server' });
     }
     next(err);

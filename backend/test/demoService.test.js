@@ -290,6 +290,38 @@ test('marks PAID only from a paid webhook and handles redelivery idempotently', 
   assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'PAID');
 });
 
+test('acknowledges unknown webhook events without changing demo state', async () => {
+  const { service } = harness();
+  const created = await service.createSession();
+  const result = await service.processWebhookEvent({
+    id: 'evt_unknown', livemode: false, type: 'payment_intent.created', data: { object: {} }
+  });
+  assert.deepEqual(result, { ok: true, ignored: true });
+  assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'READY');
+});
+
+test('does not apply a webhook to the wrong demo session or product', async () => {
+  const { service } = harness();
+  const created = await service.createSession();
+  await service.startCheckout(created.token, 'bag', 'https://qr2buy.com');
+  await assert.rejects(
+    service.processWebhookEvent(paidEvent({ sessionId: 'different-session', productKey: 'tree' })),
+    (error) => error.code === 'invalid_webhook_event'
+  );
+  assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'CHECKOUT_STARTED');
+  assert.equal((await service.getProduct(created.token, 'tree')).state.status, 'READY');
+});
+
+test('ignores a delayed paid retry after the checkout claim has timed out', async () => {
+  const { service, setClock } = harness();
+  const created = await service.createSession();
+  await service.startCheckout(created.token, 'bag', 'https://qr2buy.com');
+  setClock('2026-09-01T12:16:00.000Z');
+  assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'READY');
+  assert.equal((await service.processWebhookEvent(paidEvent({ id: 'evt_delayed' }))).duplicate, true);
+  assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'READY');
+});
+
 test('does not treat an unpaid checkout.session.completed event as PAID', async () => {
   const { service } = harness();
   const created = await service.createSession();

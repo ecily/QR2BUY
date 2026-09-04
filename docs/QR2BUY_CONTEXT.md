@@ -66,6 +66,15 @@ Wichtige Demo-Routen:
 
 Ein optionaler qr2buy-eigener SMTP-over-TLS-Dienst kann nach `PAID` höchstens einen klar als Demo gekennzeichneten HTML-Beleg senden. Er ist standardmäßig deaktiviert; E-Mail-Adressen werden nicht in MongoDB gespeichert oder per SSE verteilt.
 
+## Stripe-Sandbox und Webhooks
+
+Alle öffentlich angebotenen Checkout-Pfade sind auf Stripe-Testmodus begrenzt. Zwei getrennte, signaturgeprüfte Raw-Body-Webhooks verarbeiten ausschließlich ihre jeweilige Projektion:
+
+- `POST /api/demo/stripe/webhook` verarbeitet nur `flow=qr2buy_demo` für `DemoSession`, akzeptiert `checkout.session.completed` und `checkout.session.async_payment_succeeded`, verifiziert den Checkout erneut bei Stripe und setzt erst danach atomar `PAID`. Unbekannte, unbezahlte und fremde Events werden ohne Statusänderung quittiert; Live-Events und falsche Signaturen werden abgewiesen.
+- `POST /api/stripe/webhook` gehört zum älteren `/p/:shortId`-Buyer-Flow und aktualisiert ausschließlich normale `Product`-, `Device`- und `Order`-Modelle für `system=qr2buy`. Demo- und unbekannte Events werden mit 2xx ignoriert. Fulfillment setzt einen bezahlten Test-Checkout voraus, ist über die Checkout-Session-ID idempotent und speichert nur eine redigierte Sessionprojektion statt des vollständigen Stripe-Objekts.
+
+Die frühere Stripe-Zustellung an `https://lionfish-app-zidqr.ondigitalocean.app/api/stripe/webhook` erzeugte 42 HTTP-500-Antworten, weil dieser Legacy-Endpoint aktiv blieb, während `STRIPE_SECRET_KEY` und `STRIPE_WEBHOOK_SECRET` im produktiven Service nicht gesetzt waren. Der kanonische Legacy-Endpoint ist `https://qr2buy.com/api/stripe/webhook`; er verwendet einen eigenen Signing Secret. Der Demo-Endpoint verwendet weiterhin getrennt `STRIPE_DEMO_SECRET_KEY` und `STRIPE_DEMO_WEBHOOK_SECRET`. Webhooks, nicht Browser-Returns, sind die maßgebliche Bestätigung für bezahlte Zustände.
+
 ## Hardware-Binding und Hardware-API
 
 `DemoHardwareBinding` koppelt `demo-device` nach ausdrücklichem Operator-Pairing an genau eine aktive `DemoSession`, einen `productKey` und eine Locale. Ein autorisiertes Rebinding derselben `deviceId` ersetzt das vorherige Binding atomar. Produktwechsel der gekoppelten Frontpage werden per PATCH übertragen. Es gibt keinen parallelen Hardware-Produktkatalog; Produktname, Preis, Status und QR werden aus `DemoSession` plus `DEMO_PRODUCTS` projiziert.
@@ -155,11 +164,11 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 
 ## Verifizierter Teststand vom 4. September 2026
 
-- Backend: 35/35 Tests grün
+- Backend: 43/43 Tests grün
 - Backend: alle Dateien unter `backend/src` mit `node --check` grün
 - Backend: Import-Smoke für `backend/src/routes/demo.js` grün
 - Backend: kein separates Lint- oder Build-Script vorhanden
-- Frontend: 32/32 Tests grün
+- Frontend: 33/33 Tests grün
 - Frontend: ESLint grün
 - Frontend: Vite-Produktionsbuild grün
 - Firmware: 16/16 statische Vertragsprüfungen grün
