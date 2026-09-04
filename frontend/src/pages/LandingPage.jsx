@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { bindDemoHardware, createDemoSession, getDemoSession, updateDemoHardwareBinding } from "../api.js";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../demoHardwareBinding.js";
 import { getHardwareDisplayMode } from "../demoDisplayState.js";
 import { confirmDemoSafety, hasDemoSafetyConfirmation } from "../demoSafetyGate.js";
+import BrandLogo from "../components/BrandLogo.jsx";
 
 const ECILY_STARTUP_URLS = {
   de: "https://ecily.com/de/start-up",
@@ -266,7 +268,8 @@ const merchantCopy = {
     trustItems: ["Derselbe Produktname auf Schild und Smartphone", "Preis und aktuelle Verfügbarkeit sichtbar", "Sicherer Checkout über einen etablierten Zahlungsanbieter", "Optionaler E-Mail-Beleg beim bestätigten Testkauf"],
     casesEyebrow: "Für kleine und mittlere Händler",
     casesTitle: "Für Geschäfte, deren Produkte auch nach Ladenschluss sichtbar bleiben.",
-    cases: [["Mode & Accessoires", "Ausgewählte Produkte im Schaufenster direkt anbieten."], ["Kunst & Galerie", "Originale und limitierte Arbeiten am Werk kaufbar machen."], ["Design & Einrichtung", "Ausstellungsstücke direkt im Showroom anbieten."], ["Fahrräder", "Sichtbare Modelle auch außerhalb der Öffnungszeiten reservierbar machen."], ["Pflanzen", "Ausgewählte Pflanzen direkt vor Ort anbieten."], ["Hochwertige Einzelstücke", "Identität und Status eines konkreten Produkts sichtbar halten."], ["Showrooms", "Ausgestellte Produkte ohne dauerhafte Betreuung verkaufen."]],
+    casesText: "Besonders stark dort, wo Produkte gesehen werden, aber nicht immer ein Mitarbeiter danebensteht.",
+    cases: [["Mode & Accessoires", "Produkte im Schaufenster direkt kauf- oder reservierbar machen."], ["Kunst & Galerie", "Originale und limitierte Arbeiten auch nach Ladenschluss verkaufen."], ["Design & Einrichtung", "Ausstellungsstücke im Showroom direkt kaufbar machen."], ["Fahrräder", "Sichtbare Modelle außerhalb der Öffnungszeiten reservierbar machen."], ["Pflanzen", "Ausgewählte Pflanzen direkt vor Ort verkaufen."], ["Hochwertige Einzelstücke", "Identität, Preis und Status eines konkreten Produkts sichtbar halten."], ["Showrooms", "Ausgestellte Produkte ohne permanente Betreuung verkaufen."]],
     howEyebrow: "So funktioniert qr2buy",
     howTitle: "Vom Blick ins Schaufenster bis zur Rückmeldung am Schild.",
     howSteps: [["1", "Produkt sehen", "Das physische Display zeigt Produkt, Preis, QR und Verfügbarkeit."], ["2", "Scannen", "Die Smartphone-Kamera öffnet die mobile Produktseite – ohne App."], ["3", "Kaufen oder reservieren", "Der Käufer schließt den Vorgang direkt im Browser ab."], ["4", "Status sehen", "Das physische Display übernimmt die bestätigte Änderung."]],
@@ -344,7 +347,8 @@ const merchantCopy = {
     trustItems: ["The same product name on display and phone", "Price and current availability are visible", "Secure checkout through an established payment provider", "Optional email receipt after a confirmed test purchase"],
     casesEyebrow: "For small and medium-sized merchants",
     casesTitle: "For stores whose products remain visible after closing time.",
-    cases: [["Fashion & accessories", "Offer selected products directly from the shop window."], ["Art & galleries", "Make originals and limited works buyable beside the piece."], ["Design & interiors", "Offer display pieces directly in the showroom."], ["Bicycles", "Let buyers reserve visible models outside opening hours."], ["Plants", "Offer selected plants directly where they are displayed."], ["Premium one-off pieces", "Keep the identity and status of a specific product visible."], ["Showrooms", "Sell displayed products without permanent staffing."]],
+    casesText: "Especially useful where products attract attention but a staff member is not always standing beside them.",
+    cases: [["Fashion & accessories", "Make shop-window products directly buyable or reservable."], ["Art & galleries", "Sell originals and limited works after closing time."], ["Design & interiors", "Make showroom pieces directly buyable."], ["Bicycles", "Let buyers reserve visible models outside opening hours."], ["Plants", "Sell selected plants directly where they are displayed."], ["Premium one-off pieces", "Keep a specific product’s identity, price and status visible."], ["Showrooms", "Sell displayed products without permanent staffing."]],
     howEyebrow: "How qr2buy works",
     howTitle: "From spotting a product to seeing feedback on the display.",
     howSteps: [["1", "See the product", "The physical display shows the product, price, QR code and availability."], ["2", "Scan", "The smartphone camera opens the mobile product page – no app required."], ["3", "Buy or reserve", "The buyer completes the action directly in the browser."], ["4", "See the status", "The physical display adopts the confirmed change."]],
@@ -378,10 +382,6 @@ const products = [
   { key: "print", name: { de: "Gerahmter Kunstdruck", en: "Framed art print" }, place: { de: "Galerie · limitiert", en: "Gallery · limited" }, price: 390, currency: "EUR", color: "ink", stock: 1, alternatives: { de: "Weitere Stadtbilder verfügbar", en: "Other city prints available" } },
   { key: "tree", name: { de: "Nordmanntanne Nr. 17", en: "Nordmann fir no. 17" }, place: { de: "Saisonaler Stand", en: "Seasonal stand" }, price: 59, currency: "EUR", color: "pine", stock: 1, alternatives: { de: "Weitere Tannen verfügbar", en: "Other trees available" }, unique: true },
 ];
-
-function Logo() {
-  return <span className="landing-logo"><span className="landing-logo__mark" aria-hidden="true"><i /><i /><i /><i /></span><span>qr2buy</span></span>;
-}
 
 function StatusPill({ status, t }) {
   const normalized = ["PAID", "SOLD"].includes(status) ? "sold" : status === "RESERVED" ? "reserved" : status === "CHECKOUT_STARTED" ? "checkout" : status === "CANCELLED" ? "cancelled" : "available";
@@ -575,7 +575,7 @@ function ProductDemo({ lang, t }) {
       <div className="demo-hardware-context"><p><strong>{t.demoIntroHardware}</strong></p><p>{t.demoIntroHardwareDetail}</p></div>
       <ol className="demo-flow-steps" aria-label={t.demoEyebrow}>{t.demoSteps.map((step, index) => <li key={step}><span>{index + 1}</span>{step}</li>)}</ol>
       <div className={`demo-safety-strip ${safetyConfirmed ? "is-confirmed" : ""}`} role="note"><strong>{t.demoSafetyLabel}</strong><p>{t.demoSafetyText}</p><span>{t.demoSafetyGuide}</span>{!safetyConfirmed ? <button type="button" onClick={acknowledgeSafety}>{t.demoSafetyConfirm}</button> : <span className="demo-safety-confirmed" role="status"><i aria-hidden="true">✓</i>{t.demoSafetyConfirmed}</span>}</div>
-      {!safetyConfirmed && <div className="demo-gated-preview" aria-disabled="true"><span className="demo-gated-preview__display"><Logo /></span><strong>{t.demoSafetyWaiting}</strong></div>}
+      {!safetyConfirmed && <div className="demo-gated-preview" aria-disabled="true"><span className="demo-gated-preview__display"><BrandLogo /></span><strong>{t.demoSafetyWaiting}</strong></div>}
       {safetyConfirmed && !live && !error && <div className="demo-session-loading" role="status"><span className="demo-loader" />{t.connecting}</div>}
       {safetyConfirmed && error && <div className="demo-session-error" role="alert"><span>{t.demoError}</span><button onClick={retry}>{t.retry}</button></div>}
       {safetyConfirmed && live && <>
@@ -583,7 +583,7 @@ function ProductDemo({ lang, t }) {
         <div className="display-column">
           <div className="display-simulation-label"><strong>{t.displaySimulationLabel}</strong><span>{t.displaySelectionHint}</span></div>
           <div className="display-card">
-          <div className="display-card__top"><Logo /><span>{connected ? t.connectionLive : t.connectionPolling} <b className={connected ? "" : "is-reconnecting"} /></span></div>
+          <div className="display-card__top"><BrandLogo /><span>{connected ? t.connectionLive : t.connectionPolling} <b className={connected ? "" : "is-reconnecting"} /></span></div>
           <div className={`display-card__screen ${displayMode !== "product" ? "display-card__screen--confirmation" : ""}`}>
             {displayMode === "product" ? <>
               <div className="display-card__qr"><QrMockup value={demoUrl} label={t.scanHint} /><small>{t.noApp}</small><a className="demo-open-mobile" href={demoUrl}>{t.openHere}</a></div>
@@ -631,27 +631,37 @@ function ProductDemo({ lang, t }) {
   </section>;
 }
 
-export default function LandingPage() {
-  const initialLang = useMemo(() => (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("en") ? "en" : "de"), []);
+export default function LandingPage({ initialLanguage }) {
+  const initialLang = useMemo(() => initialLanguage || (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("en") ? "en" : "de"), [initialLanguage]);
   const [lang, setLang] = useState(initialLang);
+  const navigate = useNavigate();
   const t = { ...copy[lang], ...merchantCopy[lang], ...HARDWARE_OPERATOR_COPY[lang] };
 
   useEffect(() => {
     const title = lang === "de" ? "qr2buy – Scannen. Kaufen. Verkauft." : "qr2buy – Scan. Buy. Sold.";
     const description = lang === "de"
-      ? "Mit qr2buy verkauft dein Schaufenster 24/7: Produkte ohne App direkt am physischen Display scannen, kaufen oder reservieren."
-      : "With qr2buy, your shop window sells 24/7: scan, buy or reserve products at the physical display with no app required.";
+      ? "qr2buy macht sichtbare Produkte im Schaufenster auch außerhalb der Öffnungszeiten direkt kauf- oder reservierbar – ohne App und ohne Mitarbeiter vor Ort."
+      : "qr2buy lets customers buy or reserve visible shop-window products even outside opening hours – no app and no staff member required.";
+    const canonicalUrl = `https://qr2buy.com/${lang}`;
     document.title = title;
     document.documentElement.lang = lang;
+    document.querySelector('link[rel="canonical"]')?.setAttribute("href", canonicalUrl);
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
+    document.querySelector('meta[property="og:url"]')?.setAttribute("content", canonicalUrl);
+    document.querySelector('meta[property="og:locale"]')?.setAttribute("content", lang === "de" ? "de_DE" : "en_US");
     document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", title);
     document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", description);
   }, [lang]);
 
+  const changeLanguage = (nextLanguage) => {
+    setLang(nextLanguage);
+    navigate(`/${nextLanguage}`, { replace: true });
+  };
+
   return <div className="landing-page">
-    <header className="landing-header"><div className="landing-shell landing-header__inner"><a href="/" aria-label="qr2buy home"><Logo /></a><nav className="landing-nav" aria-label="Main navigation"><a href="#demo">{t.nav.demo}</a><a href="#benefits">{t.nav.benefits}</a><a href="#use-cases">{t.nav.useCases}</a><a href="#pilot">{t.nav.pilot}</a></nav><div className="landing-header__actions"><div className="language-switch" aria-label={t.language}><button className={lang === "de" ? "is-active" : ""} onClick={() => setLang("de")} aria-pressed={lang === "de"}>DE</button><button className={lang === "en" ? "is-active" : ""} onClick={() => setLang("en")} aria-pressed={lang === "en"}>EN</button></div><a className="landing-button landing-button--small" href="#demo">{t.demoCta}</a></div></div></header>
+    <header className="landing-header"><div className="landing-shell landing-header__inner"><a href={`/${lang}`} aria-label="qr2buy home"><BrandLogo /></a><nav className="landing-nav" aria-label="Main navigation"><a href="#demo">{t.nav.demo}</a><a href="#benefits">{t.nav.benefits}</a><a href="#use-cases">{t.nav.useCases}</a><a href="#pilot">{t.nav.pilot}</a></nav><div className="landing-header__actions"><div className="language-switch" aria-label={t.language}><button className={lang === "de" ? "is-active" : ""} onClick={() => changeLanguage("de")} aria-pressed={lang === "de"}>DE</button><button className={lang === "en" ? "is-active" : ""} onClick={() => changeLanguage("en")} aria-pressed={lang === "en"}>EN</button></div><a className="landing-button landing-button--small" href="#demo">{t.demoCta}</a></div></div></header>
 
     <main>
       <section className="landing-hero"><div className="landing-shell landing-hero__grid"><div className="landing-hero__copy"><span className="landing-eyebrow">{t.eyebrow}</span><h1>{t.hero}</h1><p className="landing-hero__lead">{t.heroText}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href="#demo">{t.demoCta}<span aria-hidden="true">↓</span></a><a className="landing-button landing-button--outline" href="#how">{t.howCta}<span aria-hidden="true">↓</span></a></div><p className="landing-hero__trust">{t.heroTrust}</p></div><div className="hero-visual" aria-label={lang === "de" ? "Illustration eines physischen qr2buy-Verkaufsschilds direkt bei Produkten" : "Illustration of a physical qr2buy sales display beside products"}><div className="hero-visual__glow" /><div className="hero-window"><div className="hero-window__bar"><span /><span /><span /><em>physical point of sale</em></div><div className="hero-window__scene"><div className="hero-window__shelf"><div className="hero-object hero-object--bag" /><div className="hero-object hero-object--book" /><div className="hero-object hero-object--print" /></div><div className="hero-tag"><span>qr2buy</span><strong>STADTLICHTER</strong><b>24,90 €</b><small>{lang === "de" ? "Scannen & kaufen" : "Scan & buy"}</small></div><div className="hero-window__caption">{t.heroVisualCaption}</div></div></div></div></div></section>
@@ -668,7 +678,7 @@ export default function LandingPage() {
 
       <section className="landing-section landing-trust"><div className="landing-shell trust-grid"><div><span className="landing-eyebrow">{t.trustEyebrow}</span><h2>{t.trustTitle}</h2><p className="landing-copy landing-copy--large">{t.trustText}</p></div><ul className="trust-list">{t.trustItems.map((item) => <li key={item}><span aria-hidden="true">✓</span>{item}</li>)}</ul></div></section>
 
-      <section className="landing-section landing-cases" id="use-cases"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.casesEyebrow}</span><h2>{t.casesTitle}</h2></div><div className="merchant-case-grid">{t.cases.map(([title, text]) => <article key={title}><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
+      <section className="landing-section landing-cases" id="use-cases"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.casesEyebrow}</span><h2>{t.casesTitle}</h2><p className="landing-copy landing-copy--large">{t.casesText}</p></div><div className="merchant-case-grid">{t.cases.map(([title, text]) => <article key={title}><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
 
       <section className="landing-section landing-how" id="how"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.howEyebrow}</span><h2>{t.howTitle}</h2></div><ol className="how-grid">{t.howSteps.map(([number, title, text]) => <li key={number}><span>{number}</span><h3>{title}</h3><p>{text}</p></li>)}</ol></div></section>
 
@@ -678,6 +688,6 @@ export default function LandingPage() {
 
       <section className="landing-section landing-pilot" id="pilot"><div className="landing-shell landing-pilot__inner"><span className="landing-eyebrow">{t.pilotEyebrow}</span><h2>{t.pilotTitle}</h2><p>{t.pilotText}</p><a className="landing-button landing-button--dark" href={ECILY_STARTUP_URLS[lang]} target="_blank" rel="noreferrer">{t.pilotCta}<span aria-hidden="true">↗</span></a></div></section>
     </main>
-    <footer className="landing-footer"><div className="landing-shell landing-footer__inner"><div><Logo /><p>{t.footer}</p></div><div className="landing-footer__links"><a href="#demo">{t.nav.demo}</a><a href="#pilot">{t.nav.pilot}</a><a href={ECILY_STARTUP_URLS[lang]} target="_blank" rel="noreferrer">ecily</a></div><span>© {new Date().getFullYear()} qr2buy</span></div></footer>
+    <footer className="landing-footer"><div className="landing-shell landing-footer__inner"><div><BrandLogo /><p>{t.footer}</p></div><div className="landing-footer__links"><a href="#demo">{t.nav.demo}</a><a href="#pilot">{t.nav.pilot}</a><a href={ECILY_STARTUP_URLS[lang]} target="_blank" rel="noreferrer">ecily</a></div><span>© {new Date().getFullYear()} qr2buy</span></div></footer>
   </div>;
 }

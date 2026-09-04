@@ -710,6 +710,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
+      <Route path="/de" element={<LandingPage key="de" initialLanguage="de" />} />
+      <Route path="/en" element={<LandingPage key="en" initialLanguage="en" />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/p/:shortId" element={<ProductRoute />} />

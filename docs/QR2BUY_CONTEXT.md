@@ -28,7 +28,11 @@ Produktiv bestätigt:
 
 Die produktive React/Vite-Frontpage ist responsiv, deutsch/englisch lokalisiert und konsequent auf kleine und mittlere Händler mit Schaufenstern oder anderen nach Ladenschluss sichtbaren Produkten ausgerichtet. Ihre Kernstory: Ein Passant sieht bei geschlossener Tür ein konkretes Produkt und kann es per QR-Scan ohne App und ohne Mitarbeiter vor Ort kaufen oder reservieren. qr2buy wird ausdrücklich nicht als Supermarkt- oder Massensortimentslösung dargestellt.
 
-Der Hero lautet deutsch „Dein Schaufenster verkauft weiter – auch wenn du längst geschlossen hast.“ und englisch „Your shop window keeps selling – long after you have closed.“; der Browser-/SEO-/OG-/Twitter-Titel lautet sprachabhängig `qr2buy – Scannen. Kaufen. Verkauft.` beziehungsweise `qr2buy – Scan. Buy. Sold.`. Die Live-Demo steht direkt nach dem Hero. Danach folgen eine konkrete Samstagabend-Problemszene, der Haupt-USP „Das Verkaufsschild zeigt nicht nur den Preis. Es verkauft.“, die Abgrenzung zum normalen, nur eine Website öffnenden QR-Code, Wiederverwendbarkeit, Käufervertrauen, KMU-Einsatzorte, Ablauf, realer Hardwarebeweis und abschließende Pilot-CTA.
+Der Hero lautet deutsch „Dein Schaufenster verkauft weiter – auch wenn du längst geschlossen hast.“ und englisch „Your shop window keeps selling – long after you have closed.“; der Browser-/SEO-/OG-/Twitter-Titel lautet sprachabhängig `qr2buy – Scannen. Kaufen. Verkauft.` beziehungsweise `qr2buy – Scan. Buy. Sold.`. `/de` und `/en` liefern die jeweilige Sprache deterministisch; der Sprachwechsel hält Dokumenttitel, HTML-Sprache, Description, Canonical URL und Open-Graph-Felder synchron. Die Live-Demo steht direkt nach dem Hero. Danach folgen eine konkrete Samstagabend-Problemszene, der Haupt-USP „Das Verkaufsschild zeigt nicht nur den Preis. Es verkauft.“, die Abgrenzung zum normalen, nur eine Website öffnenden QR-Code, Wiederverwendbarkeit, Käufervertrauen, KMU-Einsatzorte, Ablauf, realer Hardwarebeweis und abschließende Pilot-CTA.
+
+Die verbindliche Primärmarke besteht aus der bestehenden Bildmarke links und der Wortmarke `qr2buy` rechts und wird über eine gemeinsame Frontend-Komponente in Header, Footer, Demo-Display und mobiler Demo verwendet. Das Favicon verwendet ausschließlich diese kontrastoptimierte Bildmarke als SVG sowie PNG in 16, 32 und 48 Pixeln; ein Apple-Touch-Icon liegt in 180 Pixeln vor. Es gibt kein Webmanifest/PWA und daher keine künstlich ergänzten Manifest-Icons. Ein geeignetes bestehendes Social-Preview-Bild ist nicht vorhanden; `og:image` und `twitter:image` bleiben bewusst aus, statt ein Platzhalterbild zu veröffentlichen.
+
+Die Einsatzorte-Sektion ist visuell konsolidiert: sieben kurze DE/EN-Branchenkarten stehen auf Desktop bewusst als zentriertes 4+3-Raster, auf Tablet zweispaltig mit zentrierter Schlusskarte und auf Mobile einspaltig. Dunkle Überschriften und Sekundärtexte auf warmen hellen Karten sichern den Kontrast zum dunkelgrünen Abschnitt.
 
 Die Seite behauptet keine produktiv unbewiesene Flottenverwaltung, Massenskalierung, Bestandsverriegelung oder garantierte Sicherheit. E-Mail wird sachlich korrekt nur als optionaler Demo-Beleg nach einem bestätigten Testkauf beschrieben; der eigentliche Kauf-/Reservierungsstatus wird unmittelbar im Ablauf und am gekoppelten Display sichtbar.
 
@@ -155,7 +159,7 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Backend: alle Dateien unter `backend/src` mit `node --check` grün
 - Backend: Import-Smoke für `backend/src/routes/demo.js` grün
 - Backend: kein separates Lint- oder Build-Script vorhanden
-- Frontend: 27/27 Tests grün
+- Frontend: 32/32 Tests grün
 - Frontend: ESLint grün
 - Frontend: Vite-Produktionsbuild grün
 - Firmware: 16/16 statische Vertragsprüfungen grün

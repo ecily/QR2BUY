@@ -8,6 +8,7 @@ import {
 } from '../api.js';
 import { copyStripeTestCard, prepareStripeRedirect } from '../demoCheckoutTransition.js';
 import { blocksDemoActions } from '../demoDisplayState.js';
+import BrandLogo from '../components/BrandLogo.jsx';
 
 const copy = {
   de: {
@@ -275,7 +276,7 @@ export default function DemoProductPage() {
 
   return <main className="demo-product-page">
     <div className="demo-mobile-topbar">
-      <Link to="/" className="landing-logo"><span className="landing-logo__mark" aria-hidden="true"><i /><i /><i /><i /></span><span>qr2buy</span></Link>
+      <Link to={`/${lang}`}><BrandLogo /></Link>
       <div className="language-switch" aria-label="Language"><button className={lang === 'de' ? 'is-active' : ''} onClick={() => setLang('de')} aria-pressed={lang === 'de'}>DE</button><button className={lang === 'en' ? 'is-active' : ''} onClick={() => setLang('en')} aria-pressed={lang === 'en'}>EN</button></div>
     </div>
 

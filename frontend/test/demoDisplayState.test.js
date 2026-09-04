@@ -93,6 +93,18 @@ test("positions the public landing page for merchants in German and English", as
   assert.ok(landing.includes("qr2buy – Scan. Buy. Sold."));
 });
 
+test("balances the seven merchant use-case cards across responsive grids", async () => {
+  const landing = await readFile(new URL("../src/pages/LandingPage.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/App.css", import.meta.url), "utf8");
+  assert.ok(landing.includes("Besonders stark dort, wo Produkte gesehen werden, aber nicht immer ein Mitarbeiter danebensteht."));
+  assert.ok(landing.includes("Especially useful where products attract attention but a staff member is not always standing beside them."));
+  assert.match(css, /\.merchant-case-grid\s*\{[^}]*grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)/);
+  assert.match(css, /\.merchant-case-grid article\s*\{[^}]*grid-column:\s*span 2/);
+  assert.match(css, /\.merchant-case-grid article:nth-child\(5\)\s*\{\s*grid-column:\s*2 \/ span 2/);
+  assert.match(css, /@media \(max-width: 980px\)[\s\S]*\.merchant-case-grid\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.merchant-case-grid, \.how-grid\s*\{\s*grid-template-columns:\s*1fr/);
+});
+
 test("copies the Stripe test card and creates checkout only after that user transition", async () => {
   const calls = [];
   const result = await prepareStripeRedirect({
