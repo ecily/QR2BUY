@@ -217,8 +217,8 @@ const merchantCopy = {
   de: {
     nav: { demo: "Live-Demo", benefits: "Nutzen", useCases: "Einsatzorte", pilot: "Pilot" },
     eyebrow: "Das digitale Verkaufsschild für Händler",
-    hero: "Dein Schaufenster verkauft jetzt 24/7 – auch wenn du geschlossen hast.",
-    heroText: "Mit qr2buy werden sichtbare Produkte direkt kaufbar: scannen, kaufen oder reservieren – ohne App und ohne Verkäufer vor Ort.",
+    hero: "Dein Schaufenster verkauft weiter – auch wenn du längst geschlossen hast.",
+    heroText: "Mit qr2buy können Passanten sichtbare Produkte direkt kaufen oder reservieren. Einfach QR-Code scannen – keine App und kein Mitarbeiter vor Ort nötig.",
     heroTrust: "Aus einem einfachen Preisschild wird eine digitale Verkaufsstelle.",
     demoCta: "Live-Demo ausprobieren",
     howCta: "So funktioniert qr2buy",
@@ -227,7 +227,7 @@ const merchantCopy = {
     demoIntroHardwareDetail: "Der echte Hardware-Prototyp nutzt denselben Backend-Ablauf und reagiert ebenfalls auf Produktwechsel, Reservierungen und Käufe.",
     demoSteps: ["Produkt am Schild sehen", "Ohne App scannen", "Im Browser kaufen oder reservieren", "Physisches Schild reagiert"],
     demoEyebrow: "Live-Simulation",
-    demoTitle: "Probier es aus.",
+    demoTitle: "Probier aus, wie dein Schaufenster nach Ladenschluss weiterverkauft.",
     demoText: "Diese Demo zeigt, wie ein reales qr2buy-Verkaufsschild funktioniert. Produkt, Preis, QR und Verkaufsstatus sind mit dem Backend verbunden und reagieren live.",
     demoSafetyLabel: "Stripe-Testmodus · garantiert keine Abbuchung",
     demoSafetyText: "Diese Live-Demo läuft ausschließlich in der Stripe-Sandbox. 4242 4242 4242 4242 ist eine offizielle Stripe-Testkarte – keine echte Kreditkarte. In dieser Demo kann niemals echtes Geld abgebucht und keine echte Bestellung ausgelöst werden.",
@@ -238,35 +238,44 @@ const merchantCopy = {
     displaySimulationLabel: "Demo des physischen Verkaufsschilds",
     displaySelectionHint: "Deine Produktauswahl steuert dieses Verkaufsschild.",
     selected: "Ausgewähltes Produkt",
-    benefitsEyebrow: "Mehr als eine Preisanzeige",
-    benefitsTitle: "Das Schild zeigt nicht nur den Preis. Es verkauft.",
-    benefitsText: "qr2buy macht den Moment nutzbar, in dem ein Produkt bereits überzeugt – direkt dort, wo es gesehen wird.",
+    problemEyebrow: "Der verpasste Kaufmoment",
+    problemTitle: "Kein verlorener Interessent nur wegen geschlossener Tür.",
+    problemText: "Samstagabend. Jemand sieht dein Produkt im Schaufenster. Heute geht er weiter. Mit qr2buy kann er es direkt kaufen oder reservieren.",
+    benefitsEyebrow: "Der Hauptnutzen",
+    benefitsTitle: "Das Verkaufsschild zeigt nicht nur den Preis. Es verkauft.",
+    benefitsText: "qr2buy macht den Kaufmoment nutzbar, während das Produkt bereits vor Augen ist.",
     benefits: [
-      ["24/7 verkaufsbereit", "Produkte können gekauft oder reserviert werden, auch wenn niemand vor Ort ist."],
-      ["Keine App nötig", "Die Smartphone-Kamera reicht. Der Kauf oder die Reservierung läuft direkt im Browser."],
-      ["Sofortige Rückmeldung", "Kauf oder Reservierung werden direkt am physischen Schild sichtbar."],
-      ["Zentral synchronisiert", "Produkt, Preis und Verkaufsstatus bleiben mit dem Backend verbunden."],
+      ["Keine App", "Die Smartphone-Kamera genügt."],
+      ["24/7 kauf- oder reservierbar", "Auch wenn kein Mitarbeiter vor Ort ist."],
+      ["Live-Bestätigung am Schild", "Das physische Schild reagiert sichtbar auf Kauf oder Reservierung."],
+      ["Sofortige Bestätigung", "Der Status erscheint direkt; beim Kauf kann zusätzlich ein Demo-Beleg per E-Mail folgen."],
     ],
+    compareEyebrow: "Der Unterschied",
+    compareTitle: "Mehr als ein QR-Code.",
+    compareStandardLabel: "Normaler QR-Code",
+    compareStandardText: "Öffnet nur eine Website.",
+    compareQr2buyLabel: "qr2buy",
+    compareQr2buyText: "Verbindet Produkt, Preis, Checkout, Verfügbarkeit und den physischen Verkaufsstatus.",
     reuseEyebrow: "Wiederverwendbar statt statisch",
-    reuseTitle: "Ein Schild. Immer wieder neu verwenden.",
-    reuseText: "Produkt, Preis, QR und Status werden zentral geändert. Das physische Schild bleibt dasselbe.",
-    reuseTimeline: [["Heute", "Ledertasche"], ["Morgen", "Kunstdruck"], ["Nächste Woche", "Weihnachtsbaum"]],
+    reuseTitle: "Ein Schild. Immer wieder neue Produkte.",
+    reuseText: "Produkt, Preis, QR und Status werden neu zugewiesen. Das physische Schild bleibt.",
+    reuseTimeline: [["Heute", "Ledertasche"], ["Morgen", "Kunstdruck"], ["Nächste Woche", "Anderes Produkt"]],
     trustEyebrow: "Klarheit beim Kauf",
-    trustTitle: "Der Käufer sieht, was er kauft.",
-    trustText: "Produktidentität, Preis und Verfügbarkeit stimmen auf Display und Smartphone überein. Nach Reservierung oder Kauf wird die bestätigte Änderung sichtbar.",
-    trustItems: ["Produktname und Preis", "Aktuelle Verfügbarkeit", "Dieselbe Produktidentität auf Schild und Smartphone", "Sicherer Checkout über etablierte Zahlungsanbieter"],
-    casesEyebrow: "Neue Verkaufsorte",
-    casesTitle: "Dort verkaufen, wo heute nur präsentiert wird.",
-    cases: [["Schaufenster", "Sichtbare Produkte bleiben auch nach Ladenschluss kaufbar."], ["Galerien", "Originale und limitierte Arbeiten direkt am Werk anbieten."], ["Showrooms", "Ausgestellte Produkte ohne dauerhafte Betreuung verkaufen."], ["Einzelstücke", "Identität und Status eines konkreten Produkts sichtbar halten."], ["Unbeaufsichtigte Flächen", "Kauf oder Reservierung direkt vor Ort ermöglichen."]],
+    trustTitle: "Der Käufer weiß genau, was er gerade kauft.",
+    trustText: "Du siehst sofort, dass es geklappt hat: Das Schild vor dem Produkt bestätigt deinen Kauf oder deine Reservierung live.",
+    trustItems: ["Derselbe Produktname auf Schild und Smartphone", "Preis und aktuelle Verfügbarkeit sichtbar", "Sicherer Checkout über einen etablierten Zahlungsanbieter", "Optionaler E-Mail-Beleg beim bestätigten Testkauf"],
+    casesEyebrow: "Für kleine und mittlere Händler",
+    casesTitle: "Für Geschäfte, deren Produkte auch nach Ladenschluss sichtbar bleiben.",
+    cases: [["Mode & Accessoires", "Ausgewählte Produkte im Schaufenster direkt anbieten."], ["Kunst & Galerie", "Originale und limitierte Arbeiten am Werk kaufbar machen."], ["Design & Einrichtung", "Ausstellungsstücke direkt im Showroom anbieten."], ["Fahrräder", "Sichtbare Modelle auch außerhalb der Öffnungszeiten reservierbar machen."], ["Pflanzen", "Ausgewählte Pflanzen direkt vor Ort anbieten."], ["Hochwertige Einzelstücke", "Identität und Status eines konkreten Produkts sichtbar halten."], ["Showrooms", "Ausgestellte Produkte ohne dauerhafte Betreuung verkaufen."]],
     howEyebrow: "So funktioniert qr2buy",
     howTitle: "Vom Blick ins Schaufenster bis zur Rückmeldung am Schild.",
     howSteps: [["1", "Produkt sehen", "Das physische Display zeigt Produkt, Preis, QR und Verfügbarkeit."], ["2", "Scannen", "Die Smartphone-Kamera öffnet die mobile Produktseite – ohne App."], ["3", "Kaufen oder reservieren", "Der Käufer schließt den Vorgang direkt im Browser ab."], ["4", "Status sehen", "Das physische Display übernimmt die bestätigte Änderung."]],
     hardwareEyebrow: "Hardwarebeweis",
-    hardwareTitle: "Funktioniert bereits auf echter Hardware.",
+    hardwareTitle: "Es funktioniert bereits auf echter Hardware.",
     hardwareText: "Der qr2buy-Prototyp verbindet ein echtes Farbdisplay mit dem Backend. Produktwechsel und Verkaufsstatus werden synchronisiert, der dargestellte QR-Code ist real scanbar.",
     hardwareFacts: ["Echtes Farbdisplay", "Live mit dem Backend verbunden", "Produktwechsel synchron", "QR real scanbar", "Reservierungs- und Kaufstatus am Display sichtbar"],
     pilotEyebrow: "Erste Pilotanwendungen",
-    pilotTitle: "Willst du qr2buy in deinem Geschäft testen?",
+    pilotTitle: "Willst du dein Schaufenster auch nach Ladenschluss verkaufen lassen?",
     pilotText: "Wir suchen Händler und Partner für erste reale Pilotanwendungen.",
     pilotCta: "Mit ecily über qr2buy sprechen",
     faqEyebrow: "Kurz beantwortet",
@@ -286,8 +295,8 @@ const merchantCopy = {
   en: {
     nav: { demo: "Live demo", benefits: "Benefits", useCases: "Where it works", pilot: "Pilot" },
     eyebrow: "The digital sales display for merchants",
-    hero: "Your shop window now sells 24/7 – even when you are closed.",
-    heroText: "qr2buy makes visible products instantly buyable: scan, buy or reserve – no app and no salesperson on site required.",
+    hero: "Your shop window keeps selling – long after you have closed.",
+    heroText: "With qr2buy, passers-by can buy or reserve visible products straight away. They simply scan the QR code – no app and no staff member on site required.",
     heroTrust: "A simple price tag becomes a digital point of sale.",
     demoCta: "Try the live demo",
     howCta: "How qr2buy works",
@@ -296,7 +305,7 @@ const merchantCopy = {
     demoIntroHardwareDetail: "The real hardware prototype uses the same backend flow and also responds to product changes, reservations and purchases.",
     demoSteps: ["See the product at the display", "Scan without an app", "Buy or reserve in the browser", "The physical display responds"],
     demoEyebrow: "Live simulation",
-    demoTitle: "Try it for yourself.",
+    demoTitle: "See how your shop window can keep selling after closing time.",
     demoText: "This demo shows how a real qr2buy sales display works. Product, price, QR code and sales status are connected to the backend and respond live.",
     demoSafetyLabel: "Stripe test mode · guaranteed no charge",
     demoSafetyText: "This live demo runs exclusively in the Stripe Sandbox. 4242 4242 4242 4242 is an official Stripe test card – not a real credit card. This demo can never charge real money or create a real order.",
@@ -307,35 +316,44 @@ const merchantCopy = {
     displaySimulationLabel: "Demo of the physical sales display",
     displaySelectionHint: "Your product selection controls this sales display.",
     selected: "Selected product",
-    benefitsEyebrow: "More than a price display",
-    benefitsTitle: "The display does more than show the price. It sells.",
-    benefitsText: "qr2buy turns interest into action right where the product has already caught the buyer’s attention.",
+    problemEyebrow: "The missed buying moment",
+    problemTitle: "Do not lose an interested buyer just because the door is closed.",
+    problemText: "Saturday evening. Someone spots your product in the window. Today, they walk on. With qr2buy, they can buy or reserve it there and then.",
+    benefitsEyebrow: "The core benefit",
+    benefitsTitle: "The sales display does more than show the price. It sells.",
+    benefitsText: "qr2buy captures the buying moment while the product is still right in front of the customer.",
     benefits: [
-      ["Ready to sell 24/7", "Products can be bought or reserved even when no one is on site."],
-      ["No app required", "The smartphone camera is enough. Buying or reserving happens directly in the browser."],
-      ["Immediate feedback", "A purchase or reservation becomes visible on the physical display."],
-      ["Centrally synchronised", "Product, price and sales status stay connected to the backend."],
+      ["No app", "The smartphone camera is all buyers need."],
+      ["Buy or reserve 24/7", "Even when no staff member is on site."],
+      ["Live confirmation on the display", "The physical display visibly responds to a purchase or reservation."],
+      ["Immediate confirmation", "The status appears at once; a demo receipt can also follow by email after a purchase."],
     ],
+    compareEyebrow: "The difference",
+    compareTitle: "More than a QR code.",
+    compareStandardLabel: "Regular QR code",
+    compareStandardText: "Only opens a website.",
+    compareQr2buyLabel: "qr2buy",
+    compareQr2buyText: "Connects the product, price, checkout, availability and physical sales status.",
     reuseEyebrow: "Reusable, not static",
-    reuseTitle: "One display. Use it again and again.",
-    reuseText: "Product, price, QR code and status are changed centrally. The physical display stays the same.",
-    reuseTimeline: [["Today", "Leather bag"], ["Tomorrow", "Art print"], ["Next week", "Christmas tree"]],
+    reuseTitle: "One display. New products again and again.",
+    reuseText: "Product, price, QR code and status are reassigned. The physical display stays.",
+    reuseTimeline: [["Today", "Leather bag"], ["Tomorrow", "Art print"], ["Next week", "Another product"]],
     trustEyebrow: "Clarity at checkout",
-    trustTitle: "Buyers can see exactly what they are buying.",
-    trustText: "Product identity, price and availability match on the display and smartphone. After a reservation or purchase, the confirmed change becomes visible.",
-    trustItems: ["Product name and price", "Current availability", "The same product identity on display and phone", "Secure checkout through established payment providers"],
-    casesEyebrow: "New places to sell",
-    casesTitle: "Sell where products are currently only displayed.",
-    cases: [["Shop windows", "Keep visible products buyable after closing time."], ["Galleries", "Offer originals and limited works right beside the piece."], ["Showrooms", "Sell displayed products without permanent staffing."], ["One-off pieces", "Keep the identity and status of a specific item visible."], ["Unattended retail spaces", "Enable buying or reserving directly on site."]],
+    trustTitle: "Buyers know exactly what they are buying.",
+    trustText: "You can see immediately that it worked: the display beside the product confirms your purchase or reservation live.",
+    trustItems: ["The same product name on display and phone", "Price and current availability are visible", "Secure checkout through an established payment provider", "Optional email receipt after a confirmed test purchase"],
+    casesEyebrow: "For small and medium-sized merchants",
+    casesTitle: "For stores whose products remain visible after closing time.",
+    cases: [["Fashion & accessories", "Offer selected products directly from the shop window."], ["Art & galleries", "Make originals and limited works buyable beside the piece."], ["Design & interiors", "Offer display pieces directly in the showroom."], ["Bicycles", "Let buyers reserve visible models outside opening hours."], ["Plants", "Offer selected plants directly where they are displayed."], ["Premium one-off pieces", "Keep the identity and status of a specific product visible."], ["Showrooms", "Sell displayed products without permanent staffing."]],
     howEyebrow: "How qr2buy works",
     howTitle: "From spotting a product to seeing feedback on the display.",
     howSteps: [["1", "See the product", "The physical display shows the product, price, QR code and availability."], ["2", "Scan", "The smartphone camera opens the mobile product page – no app required."], ["3", "Buy or reserve", "The buyer completes the action directly in the browser."], ["4", "See the status", "The physical display adopts the confirmed change."]],
     hardwareEyebrow: "Hardware proof",
-    hardwareTitle: "Already working on real hardware.",
+    hardwareTitle: "It already works on real hardware.",
     hardwareText: "The qr2buy prototype connects a real colour display to the backend. Product changes and sales status are synchronised, and its QR code can be scanned in practice.",
     hardwareFacts: ["Real colour display", "Live backend connection", "Synchronised product changes", "QR code tested in practice", "Reservation and purchase status visible on the display"],
     pilotEyebrow: "First pilot applications",
-    pilotTitle: "Want to test qr2buy in your store?",
+    pilotTitle: "Want your shop window to keep selling after closing time?",
     pilotText: "We are looking for merchants and partners for the first real-world pilot applications.",
     pilotCta: "Talk to ecily about qr2buy",
     faqEyebrow: "Quick answers",
@@ -619,7 +637,7 @@ export default function LandingPage() {
   const t = { ...copy[lang], ...merchantCopy[lang], ...HARDWARE_OPERATOR_COPY[lang] };
 
   useEffect(() => {
-    const title = lang === "de" ? "qr2buy – Physisches QR-Verkaufsschild für Händler" : "qr2buy – Physical QR sales displays for merchants";
+    const title = lang === "de" ? "qr2buy – Scannen. Kaufen. Verkauft." : "qr2buy – Scan. Buy. Sold.";
     const description = lang === "de"
       ? "Mit qr2buy verkauft dein Schaufenster 24/7: Produkte ohne App direkt am physischen Display scannen, kaufen oder reservieren."
       : "With qr2buy, your shop window sells 24/7: scan, buy or reserve products at the physical display with no app required.";
@@ -628,6 +646,8 @@ export default function LandingPage() {
     document.querySelector('meta[name="description"]')?.setAttribute("content", description);
     document.querySelector('meta[property="og:title"]')?.setAttribute("content", title);
     document.querySelector('meta[property="og:description"]')?.setAttribute("content", description);
+    document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", title);
+    document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", description);
   }, [lang]);
 
   return <div className="landing-page">
@@ -638,7 +658,11 @@ export default function LandingPage() {
 
       <ProductDemo lang={lang} t={t} />
 
+      <section className="landing-section landing-problem"><div className="landing-shell problem-card"><span className="landing-eyebrow">{t.problemEyebrow}</span><h2>{t.problemTitle}</h2><p>{t.problemText}</p></div></section>
+
       <section className="landing-section landing-benefits" id="benefits"><div className="landing-shell"><div className="landing-section-heading"><span className="landing-eyebrow">{t.benefitsEyebrow}</span><h2>{t.benefitsTitle}</h2><p className="landing-copy landing-copy--large">{t.benefitsText}</p></div><div className="benefit-grid">{t.benefits.map(([title, text], index) => <article className="benefit-card" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{text}</p></article>)}</div></div></section>
+
+      <section className="landing-section landing-compare"><div className="landing-shell compare-grid"><div><span className="landing-eyebrow">{t.compareEyebrow}</span><h2>{t.compareTitle}</h2></div><div className="compare-cards"><article><span>{t.compareStandardLabel}</span><strong>{t.compareStandardText}</strong></article><article className="is-qr2buy"><span>{t.compareQr2buyLabel}</span><strong>{t.compareQr2buyText}</strong></article></div></div></section>
 
       <section className="landing-section landing-reuse"><div className="landing-shell reuse-grid"><div><span className="landing-eyebrow">{t.reuseEyebrow}</span><h2>{t.reuseTitle}</h2><p className="landing-copy landing-copy--large">{t.reuseText}</p></div><ol className="reuse-timeline">{t.reuseTimeline.map(([when, product], index) => <li key={when}><span>{when}</span><strong>{product}</strong>{index < t.reuseTimeline.length - 1 && <i aria-hidden="true">→</i>}</li>)}</ol></div></section>
 

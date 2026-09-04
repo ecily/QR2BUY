@@ -53,35 +53,44 @@ test("positions the public landing page for merchants in German and English", as
   const landing = await readFile(new URL("../src/pages/LandingPage.jsx", import.meta.url), "utf8");
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   for (const phrase of [
-    "Dein Schaufenster verkauft jetzt 24/7 – auch wenn du geschlossen hast.",
-    "Your shop window now sells 24/7 – even when you are closed.",
-    "Das Schild zeigt nicht nur den Preis. Es verkauft.",
-    "The display does more than show the price. It sells.",
-    "Ein Schild. Immer wieder neu verwenden.",
-    "One display. Use it again and again.",
-    "Der Käufer sieht, was er kauft.",
-    "Buyers can see exactly what they are buying.",
-    "Dort verkaufen, wo heute nur präsentiert wird.",
-    "Sell where products are currently only displayed.",
-    "Funktioniert bereits auf echter Hardware.",
-    "Already working on real hardware.",
+    "Dein Schaufenster verkauft weiter – auch wenn du längst geschlossen hast.",
+    "Your shop window keeps selling – long after you have closed.",
+    "Kein verlorener Interessent nur wegen geschlossener Tür.",
+    "Do not lose an interested buyer just because the door is closed.",
+    "Das Verkaufsschild zeigt nicht nur den Preis. Es verkauft.",
+    "The sales display does more than show the price. It sells.",
+    "Mehr als ein QR-Code.",
+    "More than a QR code.",
+    "Ein Schild. Immer wieder neue Produkte.",
+    "One display. New products again and again.",
+    "Der Käufer weiß genau, was er gerade kauft.",
+    "Buyers know exactly what they are buying.",
+    "Für Geschäfte, deren Produkte auch nach Ladenschluss sichtbar bleiben.",
+    "For stores whose products remain visible after closing time.",
+    "Es funktioniert bereits auf echter Hardware.",
+    "It already works on real hardware.",
     "Demo des physischen Verkaufsschilds",
     "Demo of the physical sales display",
     "Stripe-Testmodus · garantiert keine Abbuchung",
     "Stripe test mode · guaranteed no charge",
+    "Willst du dein Schaufenster auch nach Ladenschluss verkaufen lassen?",
     "Wir suchen Händler und Partner für erste reale Pilotanwendungen.",
+    "Want your shop window to keep selling after closing time?",
     "We are looking for merchants and partners for the first real-world pilot applications.",
     "https://ecily.com/de/start-up",
     "https://ecily.com/en/start-up",
   ]) assert.ok(landing.includes(phrase), `missing merchant landing copy: ${phrase}`);
-  for (const section of ["<ProductDemo", 'id="benefits"', 'className="landing-section landing-reuse"', 'id="use-cases"', 'id="how"', "landing-hardware-proof", 'id="pilot"']) {
+  for (const section of ["<ProductDemo", "landing-problem", 'id="benefits"', "landing-compare", 'className="landing-section landing-reuse"', 'id="use-cases"', 'id="how"', "landing-hardware-proof", 'id="pilot"']) {
     assert.ok(landing.includes(section), `missing landing section: ${section}`);
   }
   assert.ok(landing.indexOf("<ProductDemo") < landing.indexOf('id="benefits"'), "live demo must follow the hero before benefits");
   assert.match(landing, /t\.faq\.map/);
   assert.match(html, /<link rel="canonical" href="https:\/\/qr2buy\.com\/"/);
   assert.match(html, /property="og:title"/);
+  assert.match(html, /name="twitter:title"/);
   assert.match(html, /name="description"/);
+  assert.ok(html.includes("qr2buy – Scannen. Kaufen. Verkauft."));
+  assert.ok(landing.includes("qr2buy – Scan. Buy. Sold."));
 });
 
 test("copies the Stripe test card and creates checkout only after that user transition", async () => {

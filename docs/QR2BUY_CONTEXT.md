@@ -26,7 +26,11 @@ Produktiv bestätigt:
 
 ## Frontpage und session-isolierte Live-Demo
 
-Die produktive React/Vite-Frontpage ist responsiv, deutsch/englisch lokalisiert und konsequent händlerzentriert. Ihre Kernpositionierung: Das Schaufenster kann sichtbare Produkte auch außerhalb der Öffnungszeiten direkt kauf- oder reservierbar machen, ohne Kunden-App und ohne Verkäufer vor Ort. Die Live-Demo steht direkt nach dem Hero; danach folgen der konkrete Händlernutzen, die Wiederverwendbarkeit eines zentral aktualisierten Schilds, Käufervertrauen, geeignete Einsatzorte, der Ablauf, der reale Hardwarebeweis und erst am Ende die Einladung zu einer Pilotanwendung. Nicht produktiv bewiesene Flotten-, Inventar- oder Sicherheitsversprechen werden bewusst nicht behauptet.
+Die produktive React/Vite-Frontpage ist responsiv, deutsch/englisch lokalisiert und konsequent auf kleine und mittlere Händler mit Schaufenstern oder anderen nach Ladenschluss sichtbaren Produkten ausgerichtet. Ihre Kernstory: Ein Passant sieht bei geschlossener Tür ein konkretes Produkt und kann es per QR-Scan ohne App und ohne Mitarbeiter vor Ort kaufen oder reservieren. qr2buy wird ausdrücklich nicht als Supermarkt- oder Massensortimentslösung dargestellt.
+
+Der Hero lautet deutsch „Dein Schaufenster verkauft weiter – auch wenn du längst geschlossen hast.“ und englisch „Your shop window keeps selling – long after you have closed.“; der Browser-/SEO-/OG-/Twitter-Titel lautet sprachabhängig `qr2buy – Scannen. Kaufen. Verkauft.` beziehungsweise `qr2buy – Scan. Buy. Sold.`. Die Live-Demo steht direkt nach dem Hero. Danach folgen eine konkrete Samstagabend-Problemszene, der Haupt-USP „Das Verkaufsschild zeigt nicht nur den Preis. Es verkauft.“, die Abgrenzung zum normalen, nur eine Website öffnenden QR-Code, Wiederverwendbarkeit, Käufervertrauen, KMU-Einsatzorte, Ablauf, realer Hardwarebeweis und abschließende Pilot-CTA.
+
+Die Seite behauptet keine produktiv unbewiesene Flottenverwaltung, Massenskalierung, Bestandsverriegelung oder garantierte Sicherheit. E-Mail wird sachlich korrekt nur als optionaler Demo-Beleg nach einem bestätigten Testkauf beschrieben; der eigentliche Kauf-/Reservierungsstatus wird unmittelbar im Ablauf und am gekoppelten Display sichtbar.
 
 Vor dem Start der Live-Demo bestätigt der Besucher ausdrücklich den ausschließlich ungefährlichen Stripe-Testmodus. Erst danach wird die persönliche DemoSession erzeugt beziehungsweise restauriert und die Interaktion freigegeben. Dieser Bestätigungsmarker liegt nur in `sessionStorage`, nicht in `localStorage`; es entstehen weiterhin weder eine reale Abbuchung noch eine echte Bestellung.
 
@@ -151,7 +155,7 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Backend: alle Dateien unter `backend/src` mit `node --check` grün
 - Backend: Import-Smoke für `backend/src/routes/demo.js` grün
 - Backend: kein separates Lint- oder Build-Script vorhanden
-- Frontend: 26/26 Tests grün
+- Frontend: 27/27 Tests grün
 - Frontend: ESLint grün
 - Frontend: Vite-Produktionsbuild grün
 - Firmware: 16/16 statische Vertragsprüfungen grün

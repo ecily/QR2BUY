@@ -62,3 +62,13 @@ test("safety gate and merchant sections keep explicit mobile layouts", async () 
   assert.match(css, /\.reuse-timeline\s*\{\s*grid-template-columns:\s*1fr/);
   assert.match(css, /\.merchant-case-grid, \.how-grid\s*\{\s*grid-template-columns:\s*1fr/);
 });
+
+test("hero uses viewport-aware sizing across phone, tablet and desktop breakpoints", async () => {
+  const css = await readFile(new URL("../src/App.css", import.meta.url), "utf8");
+  assert.match(css, /\.landing-hero__grid\s*\{[^}]*min-height:\s*calc\(100svh - 76px\)/);
+  assert.match(css, /@media \(min-width: 981px\) and \(max-height: 800px\)/);
+  assert.match(css, /@media \(max-width: 980px\)[\s\S]*\.landing-hero__grid\s*\{[^}]*min-height:\s*calc\(100svh - 76px\)/);
+  assert.match(css, /@media \(max-width: 700px\)[\s\S]*\.landing-hero__grid\s*\{[^}]*min-height:\s*calc\(100svh - 68px\)/);
+  assert.match(css, /@media \(max-width: 430px\)[\s\S]*\.hero-window\s*\{[^}]*min-height:\s*150px/);
+  assert.match(css, /@media \(max-width: 350px\)/);
+});
