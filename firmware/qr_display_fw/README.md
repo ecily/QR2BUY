@@ -1,5 +1,23 @@
 # qr2buy ESP32 display firmware
 
+## Current production prototype
+
+The authoritative project and hardware state is documented in [`../../docs/QR2BUY_CONTEXT.md`](../../docs/QR2BUY_CONTEXT.md). The active physical prototype uses an ESP32 Dev Module with an ILI9341 over SPI (`CS=5`, `RST=4`, `DC=15`, `MOSI=23`, `MISO=19`, `SCLK=18`) and the PlatformIO environment `esp32dev_spi_cs5_rst4_app`.
+
+The active application is `src/static_app.cpp`. It connects through the local ignored `src/secrets.h`, tries every configured Wi-Fi network, verifies `https://qr2buy.com` with `GTS Root R4`, polls the bound `DemoSession` projection every three seconds and renders the accepted 320×240 landscape sales display. QR codes, product switching and the live freshness indicator have been verified on the physical prototype. `TFT_BL=-1`; software backlight control is not wired.
+
+Build, upload and monitor on the currently documented port:
+
+```bash
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_rst4_app
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe run -e esp32dev_spi_cs5_rst4_app --target upload --upload-port COM3
+/c/Users/Nutzer/.platformio/penv/Scripts/platformio.exe device monitor -p COM3 -b 115200
+```
+
+Never commit `src/secrets.h` or `.pio/`. Never replace verified TLS with `setInsecure()`.
+
+## Historical diagnostics reference
+
 Alpha hardware milestone reached on 2026-05-27:
 
 - `esp32dev_spi_cs5_rst4_tft_diag` shows visible display output.

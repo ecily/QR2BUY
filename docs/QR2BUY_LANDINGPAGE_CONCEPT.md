@@ -1,5 +1,7 @@
 # qr2buy.com – Landingpage-Konzept / Landing Page Concept
 
+> **Historisches Konzeptdokument.** Die Abschnitte zur rein frontend-seitigen Demo beschreiben den frühen Entwurf und nicht mehr die aktuelle Implementierung. Der produktive Stand mit `DemoSession`, Backend-Reservierung, Stripe-Sandbox und Hardwarekopplung ist in [`QR2BUY_CONTEXT.md`](./QR2BUY_CONTEXT.md) verbindlich dokumentiert.
+
 ## Ziel / Goal
 
 Die Landingpage macht qr2buy in wenigen Sekunden verständlich: Ein reales Produkt im Schaufenster, in der Auslage oder auf einer Verkaufsfläche wird per QR-Code direkt kaufbar oder reservierbar.

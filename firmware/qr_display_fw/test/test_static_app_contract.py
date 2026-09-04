@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "src" / "static_app.cpp").read_text(encoding="utf-8")
 EXAMPLE_SECRETS = (ROOT / "src" / "secrets.example.h").read_text(encoding="utf-8")
 ROOT_CA = (ROOT / "include" / "qr2buy_root_ca.h").read_text(encoding="utf-8")
+ACTIVE_TFT_SETUP = (ROOT / "include" / "tft_setup_spi_cs5_rst4.h").read_text(encoding="utf-8")
 
 
 class StaticAppContractTest(unittest.TestCase):
@@ -23,7 +24,7 @@ class StaticAppContractTest(unittest.TestCase):
 
     def test_required_statuses_have_backend_driven_rendering(self):
         expected = {
-            "READY": "BEREIT",
+            "READY": "NOCH ZU HABEN",
             "CHECKOUT_STARTED": "CHECKOUT LAEUFT",
             "CANCELLED": "ABGEBROCHEN",
             "RESERVED": "RESERVIERT",
@@ -50,6 +51,8 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("return false;", SOURCE)
         self.assertNotIn("printJsonPreview", SOURCE)
         self.assertNotRegex(SOURCE, r"Serial\.(?:print|println)\s*\(\s*(?:body|config\.qr)")
+        self.assertIn('showBootstrapScreen("Backend temporaer", "nicht erreichbar", COLOR_ERROR)', SOURCE)
+        self.assertIn("if (hasRenderedConfig) return;", SOURCE)
 
     def test_wifi_fallback_reconnect_is_non_blocking(self):
         self.assertIn("while (wifiIndex < WIFI_LIST_LEN)", SOURCE)
@@ -63,7 +66,7 @@ class StaticAppContractTest(unittest.TestCase):
     def test_missing_device_secret_is_safe_and_visible(self):
         self.assertIn('#define QR2BUY_DEVICE_SECRET "YOUR_DEVICE_SECRET"', SOURCE)
         self.assertIn('strcmp(QR2BUY_DEVICE_SECRET, "YOUR_DEVICE_SECRET") != 0', SOURCE)
-        self.assertIn('showBootstrapScreen("Device Secret fehlt", "secrets.h pruefen", TFT_RED)', SOURCE)
+        self.assertIn('showBootstrapScreen("Device Secret fehlt", "secrets.h pruefen", COLOR_ERROR)', SOURCE)
         self.assertIn('#define QR2BUY_DEVICE_ID "demo-device"', EXAMPLE_SECRETS)
         self.assertIn('#define QR2BUY_DEVICE_SECRET "YOUR_DEVICE_SECRET"', EXAMPLE_SECRETS)
 
@@ -87,6 +90,82 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("QR_MAX_BUFFER_BYTES = 512", SOURCE)
         self.assertIn("quietModules = 4", SOURCE)
         self.assertIn("if (scale < 2) return false", SOURCE)
+
+    def test_landscape_frontpage_inspired_sales_display_contract(self):
+        self.assertIn("tft.setRotation(1)", SOURCE)
+        self.assertIn("QR_PANEL_WIDTH = 146", SOURCE)
+        self.assertIn("CONTENT_X = 164", SOURCE)
+        self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
+        self.assertIn('"Mit dem Handy"', SOURCE)
+        self.assertIn('"KEINE APP NOETIG"', SOURCE)
+        self.assertIn('"Fiktives Demo-Produkt"', SOURCE)
+        self.assertIn('"Status live synchronisiert"', SOURCE)
+
+    def test_display_palette_uses_named_rgb565_colors_and_dark_qr(self):
+        expected_colors = {
+            "COLOR_PAPER": "0xFFFF",
+            "COLOR_WARM": "0xEF5B",
+            "COLOR_INK": "0x08C2",
+            "COLOR_MUTED": "0x3207",
+            "COLOR_PINE": "0x1A47",
+            "COLOR_READY_BG": "0xB6B5",
+            "COLOR_READY_FG": "0x11A3",
+        }
+        for name, value in expected_colors.items():
+            self.assertRegex(SOURCE, rf"{name}\s*=\s*{value}")
+        qr_renderer = SOURCE[SOURCE.index("static bool drawQrCode"):SOURCE.index("static const char* displayStatus")]
+        self.assertIn("COLOR_PINE_DARK", qr_renderer)
+        self.assertIn("COLOR_PAPER", qr_renderer)
+
+    def test_active_hardware_does_not_claim_software_backlight_control(self):
+        self.assertRegex(ACTIVE_TFT_SETUP, r"#define\s+TFT_BL\s+-1")
+        self.assertNotIn("QR2BUY_BACKLIGHT_PIN", ACTIVE_TFT_SETUP)
+        self.assertNotIn("ledcWrite", SOURCE)
+
+    def test_live_footer_requires_a_fresh_successful_config_fetch(self):
+        self.assertIn("LIVE_FRESHNESS_MS = 10000UL", SOURCE)
+        self.assertIn("hasSuccessfulConfigFetch = false", SOURCE)
+        freshness = SOURCE[SOURCE.index("static bool connectionIsFresh"):SOURCE.index("static uint16_t livePulseColor")]
+        self.assertIn("hasSuccessfulConfigFetch", freshness)
+        self.assertIn("WiFi.status() == WL_CONNECTED", freshness)
+        self.assertIn("clockReady()", freshness)
+        self.assertIn("now - lastSuccessfulConfigAt <= LIVE_FRESHNESS_MS", freshness)
+        success_path = SOURCE[SOURCE.index("static void configPollingTask"):SOURCE.index("static void applyPendingConfig")]
+        self.assertRegex(success_path, r"if \(fetched\)[\s\S]*pendingConfigFetchedAt = millis\(\)")
+        self.assertIn("lastSuccessfulConfigAt = configFetchedAt", SOURCE)
+
+    def test_live_pulse_only_redraws_its_small_footer_dot(self):
+        self.assertIn("LIVE_PULSE_STEP_MS = 300UL", SOURCE)
+        self.assertIn('tft.drawString("LIVE", 176, 229, 1)', SOURCE)
+        self.assertIn('tft.drawString("SICHER VERBUNDEN", 212, 229, 1)', SOURCE)
+        service = SOURCE[SOURCE.index("static void serviceConnectionIndicator"):SOURCE.index("static void drawProductScreen")]
+        self.assertIn("drawFooterPulse(livePulseColor(pulseStep))", service)
+        self.assertNotIn("fillScreen", service)
+        self.assertNotIn("drawProductScreen", service)
+
+    def test_scan_usp_is_prominent_without_changing_qr_geometry(self):
+        self.assertIn('drawCenteredAt("Mit dem Handy", 79, 163, 2', SOURCE)
+        self.assertIn('drawCenteredAt("scannen", 79, 188, 4', SOURCE)
+        self.assertIn("tft.fillRoundRect(20, 204, 118, 18, 9, COLOR_READY_BG)", SOURCE)
+        self.assertIn('drawCenteredAt("KEINE APP NOETIG", 79, 213, 1', SOURCE)
+        self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
+
+    def test_product_title_adapts_between_loaded_fonts_and_stays_two_lines(self):
+        self.assertIn("#define LOAD_FONT2", ACTIVE_TFT_SETUP)
+        self.assertIn("#define LOAD_FONT4", ACTIVE_TFT_SETUP)
+        splitter = SOURCE[SOURCE.index("static bool splitTitleForFont"):SOURCE.index("static void drawProminentProductName")]
+        self.assertIn("leftWidth <= maxWidth && rightWidth <= maxWidth", splitter)
+        self.assertNotIn("thirdLine", splitter)
+        renderer = SOURCE[SOURCE.index("static void drawProminentProductName"):SOURCE.index("static bool statusShowsQr")]
+        self.assertIn("splitTitleForFont(text, 4, maxWidth", renderer)
+        self.assertIn("splitTitleForFont(text, 2, maxWidth - 1", renderer)
+        self.assertIn("y + 27, 4", renderer)
+        self.assertIn("x + 1, y, 2", renderer)
+        self.assertIn("y + 22, 2", renderer)
+        self.assertNotIn("thirdLine", renderer)
+        self.assertIn("tft.fillRoundRect(CONTENT_X - 5, 31, 156, 58, 6, COLOR_PAPER)", SOURCE)
+        self.assertIn("drawProminentProductName(config.text, CONTENT_X + 2, 145)", SOURCE)
+        self.assertIn("tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4)", SOURCE)
 
 
 if __name__ == "__main__":

@@ -42,10 +42,35 @@ static const uint32_t CONFIG_POLL_INTERVAL_MS = 3000UL;
 static const uint32_t HTTP_CONNECT_TIMEOUT_MS = 5000UL;
 static const uint32_t HTTP_TIMEOUT_MS = 7000UL;
 static const uint32_t CLOCK_RETRY_INTERVAL_MS = 30000UL;
+static const uint32_t LIVE_FRESHNESS_MS = 10000UL;
+static const uint32_t LIVE_PULSE_STEP_MS = 300UL;
 static const time_t MIN_VALID_UNIX_TIME = 1700000000;
 static const size_t MAX_CONFIG_JSON_BYTES = 4096;
 static const uint8_t QR_MAX_VERSION = 10;
 static const uint16_t QR_MAX_BUFFER_BYTES = 512;
+
+// RGB565 counterparts of the Frontpage display palette.
+static const uint16_t COLOR_PAPER = 0xFFFF;       // #fffdf8
+static const uint16_t COLOR_WARM = 0xEF5B;        // #efe9dc
+static const uint16_t COLOR_INK = 0x08C2;         // #0b1813
+static const uint16_t COLOR_MUTED = 0x3207;       // #304239
+static const uint16_t COLOR_PINE = 0x1A47;        // #1d4939
+static const uint16_t COLOR_PINE_DARK = 0x1184;   // #123127
+static const uint16_t COLOR_READY_BG = 0xB6B5;    // #b7d6af
+static const uint16_t COLOR_READY_FG = 0x11A3;    // #12361f
+static const uint16_t COLOR_CHECKOUT_BG = 0xDF3E; // #dbe7f0
+static const uint16_t COLOR_CHECKOUT_FG = 0x3AF0; // #3f5f82
+static const uint16_t COLOR_CANCELLED_BG = 0xEF1A;// #e8e1d7
+static const uint16_t COLOR_CANCELLED_FG = 0x6B0B;// #6b6258
+static const uint16_t COLOR_RESERVED_BG = 0xF6F9; // #f5dfcb
+static const uint16_t COLOR_RESERVED_FG = 0xA2E5; // #a65d2f
+static const uint16_t COLOR_SOLD_BG = 0xF6DA;     // #f0d8d4
+static const uint16_t COLOR_SOLD_FG = 0xA269;     // #a04d49
+static const uint16_t COLOR_COPPER = 0xAA85;      // #a9502d
+static const uint16_t COLOR_ERROR = COLOR_SOLD_FG;
+static const uint16_t COLOR_LIVE_DIM = 0x3347;    // #356b3d
+static const uint16_t COLOR_LIVE_MID = 0x5469;    // #548c49
+static const uint16_t COLOR_LIVE_BRIGHT = 0x7D6D; // #78ac68
 
 struct ConfigPayload {
   bool bound = false;
@@ -61,8 +86,15 @@ struct ConfigPayload {
 static SemaphoreHandle_t configMutex;
 static ConfigPayload pendingConfig;
 static bool pendingConfigReady = false;
+static bool pendingBackendError = false;
+static uint32_t pendingConfigFetchedAt = 0;
 static ConfigPayload renderedConfig;
 static bool hasRenderedConfig = false;
+static bool hasSuccessfulConfigFetch = false;
+static uint32_t lastSuccessfulConfigAt = 0;
+static bool footerIndicatorVisible = false;
+static bool footerIndicatorLive = false;
+static uint8_t footerPulseStep = 0xFF;
 static bool deviceSecretConfigured = false;
 static bool runtimeReady = false;
 static String bootstrapScreenKey;
@@ -77,6 +109,8 @@ static uint32_t lastClockRequestAt = 0;
 static bool timeReached(uint32_t now, uint32_t target) {
   return static_cast<int32_t>(now - target) >= 0;
 }
+
+static bool clockReady();
 
 static void enableBacklightIfConfigured() {
 #if defined(QR2BUY_BACKLIGHT_PIN)
@@ -106,15 +140,29 @@ static void drawCentered(const char* text, int16_t y, uint8_t font, uint16_t fg,
   tft.drawString(text, tft.width() / 2, y, font);
 }
 
-static void drawMessageScreen(const char* line1, const char* line2, uint16_t accent = TFT_NAVY) {
-  tft.fillScreen(TFT_WHITE);
-  tft.fillRect(0, 0, tft.width(), 52, accent);
-  drawCentered(APP_TITLE, 27, 4, TFT_WHITE, accent);
-  drawCentered(line1, 112, 2, accent, TFT_WHITE);
-  if (line2 && line2[0] != '\0') drawCentered(line2, 140, 2, TFT_DARKGREY, TFT_WHITE);
+static void drawCenteredAt(const char* text, int16_t x, int16_t y,
+                           uint8_t font, uint16_t fg, uint16_t bg) {
+  tft.setTextDatum(MC_DATUM);
+  tft.setTextColor(fg, bg);
+  tft.drawString(text, x, y, font);
 }
 
-static void showBootstrapScreen(const char* line1, const char* line2, uint16_t accent = TFT_NAVY) {
+static void drawMessageScreen(const char* line1, const char* line2, uint16_t accent = COLOR_PINE) {
+  footerIndicatorVisible = false;
+  tft.fillScreen(COLOR_WARM);
+  tft.fillRoundRect(14, 14, tft.width() - 28, tft.height() - 28, 10, COLOR_PAPER);
+  tft.fillRect(14, 14, 6, tft.height() - 28, accent);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_PINE_DARK, COLOR_PAPER);
+  tft.drawString(APP_TITLE, 34, 30, 4);
+  tft.setTextColor(COLOR_COPPER, COLOR_PAPER);
+  tft.drawString("PHYSISCHES VERKAUFSSCHILD", 35, 64, 1);
+  drawCentered(line1, 122, 4, accent, COLOR_PAPER);
+  if (line2 && line2[0] != '\0') drawCentered(line2, 157, 2, COLOR_MUTED, COLOR_PAPER);
+  drawCentered("qr2buy.com", 203, 1, COLOR_MUTED, COLOR_PAPER);
+}
+
+static void showBootstrapScreen(const char* line1, const char* line2, uint16_t accent = COLOR_PINE) {
   if (hasRenderedConfig) return;
   if (!deviceSecretConfigured && strcmp(line1, "Device Secret fehlt") != 0) return;
   const String key = String(line1) + '|' + line2;
@@ -138,7 +186,8 @@ static bool validQrUrl(const String& url) {
     && selectQrVersion(url.length()) > 0;
 }
 
-static bool drawQrCode(const String& url, int16_t areaTop) {
+static bool drawQrCode(const String& url, int16_t areaLeft, int16_t areaTop,
+                       int16_t areaWidth, int16_t areaHeight) {
   const uint8_t version = selectQrVersion(url.length());
   if (version == 0 || qrcode_getBufferSize(version) > QR_MAX_BUFFER_BYTES) return false;
 
@@ -146,23 +195,23 @@ static bool drawQrCode(const String& url, int16_t areaTop) {
   static uint8_t qrBuffer[QR_MAX_BUFFER_BYTES];
   if (qrcode_initText(&qr, qrBuffer, version, ECC_LOW, url.c_str()) != 0) return false;
 
-  const int16_t areaBottom = tft.height() - 32;
   const int16_t quietModules = 4;
-  int16_t scale = tft.width() / (qr.size + quietModules * 2);
-  const int16_t scaleByHeight = (areaBottom - areaTop) / (qr.size + quietModules * 2);
+  int16_t scale = areaWidth / (qr.size + quietModules * 2);
+  const int16_t scaleByHeight = areaHeight / (qr.size + quietModules * 2);
   if (scaleByHeight < scale) scale = scaleByHeight;
   if (scale < 2) return false;
 
   const int16_t pixelSize = qr.size * scale;
   const int16_t quietZone = quietModules * scale;
-  const int16_t x0 = (tft.width() - pixelSize) / 2;
-  const int16_t y0 = areaTop + ((areaBottom - areaTop - pixelSize) / 2);
+  const int16_t totalSize = pixelSize + quietZone * 2;
+  const int16_t x0 = areaLeft + (areaWidth - totalSize) / 2 + quietZone;
+  const int16_t y0 = areaTop + (areaHeight - totalSize) / 2 + quietZone;
   tft.fillRect(x0 - quietZone, y0 - quietZone,
-               pixelSize + quietZone * 2, pixelSize + quietZone * 2, TFT_WHITE);
+               totalSize, totalSize, COLOR_PAPER);
   for (int16_t y = 0; y < qr.size; y++) {
     for (int16_t x = 0; x < qr.size; x++) {
       if (qrcode_getModule(&qr, x, y)) {
-        tft.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, TFT_BLACK);
+        tft.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, COLOR_PINE_DARK);
       }
     }
   }
@@ -170,13 +219,122 @@ static bool drawQrCode(const String& url, int16_t areaTop) {
 }
 
 static const char* displayStatus(const String& status) {
-  if (status == "READY") return "BEREIT";
+  if (status == "READY") return "NOCH ZU HABEN";
   if (status == "CHECKOUT_STARTED") return "CHECKOUT LAEUFT";
   if (status == "CANCELLED") return "ABGEBROCHEN";
   if (status == "RESERVED") return "RESERVIERT";
   if (status == "PAID") return "BEZAHLT";
   if (status == "SOLD") return "VERKAUFT";
   return "UNBEKANNT";
+}
+
+static String displayPrice(const String& priceText) {
+  String value = priceText;
+  value.replace("\xE2\x82\xAC", "EUR");
+  return value;
+}
+
+static void statusColors(const String& status, uint16_t& fg, uint16_t& bg) {
+  if (status == "CHECKOUT_STARTED") {
+    fg = COLOR_CHECKOUT_FG;
+    bg = COLOR_CHECKOUT_BG;
+  } else if (status == "CANCELLED") {
+    fg = COLOR_CANCELLED_FG;
+    bg = COLOR_CANCELLED_BG;
+  } else if (status == "RESERVED") {
+    fg = COLOR_RESERVED_FG;
+    bg = COLOR_RESERVED_BG;
+  } else if (status == "PAID" || status == "SOLD") {
+    fg = COLOR_SOLD_FG;
+    bg = COLOR_SOLD_BG;
+  } else {
+    fg = COLOR_READY_FG;
+    bg = COLOR_READY_BG;
+  }
+}
+
+static void drawStatusPill(const String& status, int16_t x, int16_t y) {
+  uint16_t fg;
+  uint16_t bg;
+  statusColors(status, fg, bg);
+  const char* label = displayStatus(status);
+  const int16_t width = tft.textWidth(label, 1) + 29;
+  tft.fillRoundRect(x, y, width, 24, 12, bg);
+  tft.fillCircle(x + 11, y + 12, 3, fg);
+  tft.setTextDatum(ML_DATUM);
+  tft.setTextColor(fg, bg);
+  tft.drawString(label, x + 20, y + 12, 1);
+}
+
+static void drawWrappedProductName(const String& text, int16_t x, int16_t y,
+                                   int16_t maxWidth, uint16_t background) {
+  String firstLine = text;
+  String secondLine;
+  while (firstLine.length() > 0 && tft.textWidth(firstLine, 2) > maxWidth) {
+    const int split = firstLine.lastIndexOf(' ');
+    if (split <= 0) break;
+    secondLine = firstLine.substring(split + 1) + (secondLine.isEmpty() ? "" : " " + secondLine);
+    firstLine = firstLine.substring(0, split);
+  }
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_INK, background);
+  tft.drawString(firstLine, x, y, 2);
+  if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 20, 2);
+}
+
+static bool splitTitleForFont(const String& text, uint8_t font, int16_t maxWidth,
+                              String& firstLine, String& secondLine) {
+  if (tft.textWidth(text, font) <= maxWidth) {
+    firstLine = text;
+    secondLine = "";
+    return true;
+  }
+
+  int bestDifference = 32767;
+  int split = text.indexOf(' ');
+  while (split > 0) {
+    const String left = text.substring(0, split);
+    const String right = text.substring(split + 1);
+    const int16_t leftWidth = tft.textWidth(left, font);
+    const int16_t rightWidth = tft.textWidth(right, font);
+    if (leftWidth <= maxWidth && rightWidth <= maxWidth) {
+      const int difference = leftWidth > rightWidth
+        ? leftWidth - rightWidth
+        : rightWidth - leftWidth;
+      if (difference < bestDifference) {
+        bestDifference = difference;
+        firstLine = left;
+        secondLine = right;
+      }
+    }
+    split = text.indexOf(' ', split + 1);
+  }
+  return !firstLine.isEmpty();
+}
+
+static void drawProminentProductName(const String& text, int16_t x, int16_t maxWidth) {
+  String firstLine;
+  String secondLine;
+  tft.setTextDatum(TL_DATUM);
+
+  if (splitTitleForFont(text, 4, maxWidth, firstLine, secondLine)) {
+    const int16_t y = secondLine.isEmpty() ? 47 : 34;
+    tft.setTextColor(COLOR_INK, COLOR_PAPER);
+    tft.drawString(firstLine, x, y, 4);
+    if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 27, 4);
+    return;
+  }
+
+  firstLine = "";
+  secondLine = "";
+  splitTitleForFont(text, 2, maxWidth - 1, firstLine, secondLine);
+  const int16_t y = secondLine.isEmpty() ? 52 : 42;
+  tft.setTextColor(COLOR_INK, COLOR_PAPER);
+  tft.drawString(firstLine, x, y, 2);
+  if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 22, 2);
+  tft.setTextColor(COLOR_INK);
+  tft.drawString(firstLine, x + 1, y, 2);
+  if (!secondLine.isEmpty()) tft.drawString(secondLine, x + 1, y + 22, 2);
 }
 
 static bool statusShowsQr(const String& status) {
@@ -187,25 +345,126 @@ static bool knownStatus(const String& status) {
   return statusShowsQr(status) || status == "RESERVED" || status == "PAID" || status == "SOLD";
 }
 
+static bool connectionIsFresh(uint32_t now) {
+  return hasSuccessfulConfigFetch
+    && WiFi.status() == WL_CONNECTED
+    && clockReady()
+    && now - lastSuccessfulConfigAt <= LIVE_FRESHNESS_MS;
+}
+
+static uint16_t livePulseColor(uint8_t step) {
+  static const uint16_t colors[] = {
+    COLOR_LIVE_DIM, COLOR_LIVE_MID, COLOR_LIVE_BRIGHT,
+    COLOR_LIVE_BRIGHT, COLOR_LIVE_MID, COLOR_LIVE_DIM
+  };
+  return colors[step % 6];
+}
+
+static void drawFooterPulse(uint16_t color) {
+  tft.fillCircle(166, 233, 4, COLOR_WARM);
+  tft.fillCircle(166, 233, 3, color);
+}
+
+static void drawConnectionFooter(bool live, uint32_t now) {
+  tft.fillRect(158, 225, 162, 15, COLOR_WARM);
+  tft.setTextDatum(TL_DATUM);
+  if (live) {
+    footerPulseStep = (now / LIVE_PULSE_STEP_MS) % 6;
+    drawFooterPulse(livePulseColor(footerPulseStep));
+    tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
+    tft.drawString("LIVE", 176, 229, 1);
+    tft.fillCircle(205, 233, 1, COLOR_PINE);
+    tft.drawString("SICHER VERBUNDEN", 212, 229, 1);
+  } else {
+    footerPulseStep = 0xFF;
+    drawFooterPulse(COLOR_MUTED);
+    tft.setTextColor(COLOR_MUTED, COLOR_WARM);
+    tft.drawString("VERBINDUNG...", 176, 229, 1);
+  }
+  footerIndicatorLive = live;
+}
+
+static void serviceConnectionIndicator() {
+  if (!footerIndicatorVisible) return;
+  const uint32_t now = millis();
+  const bool live = connectionIsFresh(now);
+  if (live != footerIndicatorLive) {
+    drawConnectionFooter(live, now);
+    return;
+  }
+  if (!live) return;
+
+  const uint8_t pulseStep = (now / LIVE_PULSE_STEP_MS) % 6;
+  if (pulseStep == footerPulseStep) return;
+  footerPulseStep = pulseStep;
+  drawFooterPulse(livePulseColor(pulseStep));
+}
+
 static void drawProductScreen(const ConfigPayload& config) {
-  tft.fillScreen(TFT_WHITE);
-  tft.fillRect(0, 0, tft.width(), 52, TFT_NAVY);
-  drawCentered(APP_TITLE, 27, 4, TFT_WHITE, TFT_NAVY);
-  drawCentered(config.text.c_str(), 66, 2, TFT_DARKGREEN, TFT_WHITE);
-  drawCentered(config.priceText.c_str(), 87, 2, TFT_BLACK, TFT_WHITE);
-  drawCentered(displayStatus(config.status), 108, 2, TFT_DARKGREY, TFT_WHITE);
-  drawQrCode(config.qr, 122);
-  drawCentered("Scan zum Oeffnen", tft.height() - 15, 2, TFT_DARKGREY, TFT_WHITE);
+  static const int16_t QR_PANEL_X = 6;
+  static const int16_t QR_PANEL_WIDTH = 146;
+  static const int16_t CONTENT_X = 164;
+
+  tft.fillScreen(COLOR_WARM);
+  tft.fillRoundRect(QR_PANEL_X, 6, QR_PANEL_WIDTH, 228, 8, COLOR_PAPER);
+  tft.drawFastVLine(157, 12, 216, COLOR_MUTED);
+  drawQrCode(config.qr, 9, 14, 140, 140);
+
+  drawCenteredAt("Mit dem Handy", 79, 163, 2, COLOR_INK, COLOR_PAPER);
+  drawCenteredAt("scannen", 79, 188, 4, COLOR_INK, COLOR_PAPER);
+  tft.fillRoundRect(20, 204, 118, 18, 9, COLOR_READY_BG);
+  drawCenteredAt("KEINE APP NOETIG", 79, 213, 1, COLOR_READY_FG, COLOR_READY_BG);
+
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_MUTED, COLOR_WARM);
+  tft.drawString("QR2BUY LIVE-DEMO", CONTENT_X, 17, 1);
+  tft.fillRoundRect(CONTENT_X - 5, 31, 156, 58, 6, COLOR_PAPER);
+  drawProminentProductName(config.text, CONTENT_X + 2, 145);
+  tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
+  tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4);
+  drawStatusPill(config.status, CONTENT_X, 129);
+  tft.setTextColor(COLOR_MUTED, COLOR_WARM);
+  tft.drawString("Fiktives Demo-Produkt", CONTENT_X, 176, 1);
+  tft.drawString("Status live synchronisiert", CONTENT_X, 194, 1);
+  tft.fillRect(0, 225, tft.width(), 15, COLOR_WARM);
+  tft.setTextColor(COLOR_PINE, COLOR_WARM);
+  tft.drawString(APP_TITLE, 8, 229, 1);
+  footerIndicatorVisible = true;
+  const uint32_t now = millis();
+  drawConnectionFooter(connectionIsFresh(now), now);
 }
 
 static void drawTerminalScreen(const ConfigPayload& config) {
-  const uint16_t accent = config.status == "SOLD" ? TFT_RED : TFT_DARKGREEN;
-  tft.fillScreen(TFT_WHITE);
-  tft.fillRect(0, 0, tft.width(), 52, accent);
-  drawCentered(APP_TITLE, 27, 4, TFT_WHITE, accent);
-  drawCentered(displayStatus(config.status), 112, 4, accent, TFT_WHITE);
-  drawCentered(config.text.c_str(), 158, 2, TFT_DARKGREY, TFT_WHITE);
-  drawCentered(config.priceText.c_str(), 186, 2, TFT_BLACK, TFT_WHITE);
+  footerIndicatorVisible = false;
+  uint16_t accent;
+  uint16_t statusBackground;
+  statusColors(config.status, accent, statusBackground);
+  tft.fillScreen(COLOR_WARM);
+  tft.fillRoundRect(14, 14, tft.width() - 28, tft.height() - 28, 10, COLOR_PAPER);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_PINE_DARK, COLOR_PAPER);
+  tft.drawString(APP_TITLE, 30, 27, 4);
+  tft.setTextColor(COLOR_COPPER, COLOR_PAPER);
+  tft.drawString("STATUS LIVE AKTUALISIERT", 30, 62, 1);
+
+  tft.drawCircle(56, 114, 23, accent);
+  tft.drawCircle(56, 114, 22, accent);
+  if (config.status == "SOLD") {
+    tft.drawLine(46, 104, 66, 124, accent);
+    tft.drawLine(66, 104, 46, 124, accent);
+  } else {
+    tft.drawLine(45, 114, 53, 122, accent);
+    tft.drawLine(53, 122, 69, 103, accent);
+  }
+
+  tft.fillRoundRect(84, 84, 220, 39, 8, statusBackground);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(accent, statusBackground);
+  tft.drawString(displayStatus(config.status), 96, 91, 4);
+  drawWrappedProductName(config.text, 91, 128, 190, COLOR_PAPER);
+  tft.setTextColor(COLOR_MUTED, COLOR_PAPER);
+  tft.drawString(displayPrice(config.priceText), 91, 174, 2);
+  tft.drawString("Der QR-Code ist jetzt deaktiviert.", 30, 205, 1);
 }
 
 static void renderConfig(const ConfigPayload& config) {
@@ -262,7 +521,7 @@ static void startNextWifiAttempt(uint32_t now) {
   wifiIndex = 0;
   wifiAttemptActive = false;
   wifiRetryAt = now + WIFI_RETRY_INTERVAL_MS;
-  showBootstrapScreen("WLAN Fehler", "Neuer Versuch folgt", TFT_RED);
+  showBootstrapScreen("WLAN Fehler", "Neuer Versuch folgt", COLOR_ERROR);
 }
 
 static void serviceWifi() {
@@ -464,9 +723,16 @@ static void configPollingTask(void*) {
   for (;;) {
     if (hasConfiguredDeviceSecret() && WiFi.status() == WL_CONNECTED && clockReady()) {
       ConfigPayload config;
-      if (fetchConfig(config) && xSemaphoreTake(configMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-        pendingConfig = config;
-        pendingConfigReady = true;
+      const bool fetched = fetchConfig(config);
+      if (xSemaphoreTake(configMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        if (fetched) {
+          pendingConfig = config;
+          pendingConfigReady = true;
+          pendingBackendError = false;
+          pendingConfigFetchedAt = millis();
+        } else {
+          pendingBackendError = true;
+        }
         xSemaphoreGive(configMutex);
       }
     }
@@ -476,13 +742,22 @@ static void configPollingTask(void*) {
 
 static void applyPendingConfig() {
   if (xSemaphoreTake(configMutex, 0) != pdTRUE) return;
+  const bool showBackendError = pendingBackendError;
+  pendingBackendError = false;
   if (!pendingConfigReady) {
     xSemaphoreGive(configMutex);
+    if (showBackendError) {
+      showBootstrapScreen("Backend temporaer", "nicht erreichbar", COLOR_ERROR);
+    }
     return;
   }
   ConfigPayload config = pendingConfig;
+  const uint32_t configFetchedAt = pendingConfigFetchedAt;
   pendingConfigReady = false;
   xSemaphoreGive(configMutex);
+
+  lastSuccessfulConfigAt = configFetchedAt;
+  hasSuccessfulConfigFetch = true;
 
   if (hasRenderedConfig && sameVisibleConfig(renderedConfig, config)) return;
   renderConfig(config);
@@ -498,18 +773,18 @@ void setup() {
   enableBacklightIfConfigured();
   pulseResetIfConfigured();
   tft.init();
-  tft.setRotation(0);
+  tft.setRotation(1);
   tft.invertDisplay(false);
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   deviceSecretConfigured = hasConfiguredDeviceSecret();
   if (deviceSecretConfigured) showBootstrapScreen("Verbinde WLAN...", "");
-  else showBootstrapScreen("Device Secret fehlt", "secrets.h pruefen", TFT_RED);
+  else showBootstrapScreen("Device Secret fehlt", "secrets.h pruefen", COLOR_ERROR);
 
   configMutex = xSemaphoreCreateMutex();
   if (!configMutex) {
-    drawMessageScreen("Interner Fehler", "Config Mutex", TFT_RED);
+    drawMessageScreen("Interner Fehler", "Config Mutex", COLOR_ERROR);
     return;
   }
   if (!deviceSecretConfigured) {
@@ -517,7 +792,7 @@ void setup() {
   }
 
   if (xTaskCreate(configPollingTask, "qr2buy-config", 8192, nullptr, 1, nullptr) != pdPASS) {
-    drawMessageScreen("Interner Fehler", "Polling Task", TFT_RED);
+    drawMessageScreen("Interner Fehler", "Polling Task", COLOR_ERROR);
     return;
   }
   runtimeReady = true;
@@ -531,5 +806,6 @@ void loop() {
   serviceWifi();
   serviceClock();
   applyPendingConfig();
+  serviceConnectionIndicator();
   delay(10);
 }

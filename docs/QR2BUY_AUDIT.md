@@ -1,5 +1,7 @@
 # qr2buy.com – Projekt-Audit
 
+> **Historische Momentaufnahme vom 26. Juli 2026.** Dieses Audit dokumentiert den damaligen Ausgangsstand und ist keine Beschreibung des heutigen Systems. Inzwischen umgesetzte Live-Demo-, Test-, Security-, Hardware-Binding- und Displaystände stehen ausschließlich in [`QR2BUY_CONTEXT.md`](./QR2BUY_CONTEXT.md); bei jedem Widerspruch gilt diese zentrale Source of Truth.
+
 ## Zusammenfassung
 
 Das Repo enthält einen schlanken MVP-Kern mit Express/MongoDB-Backend, React/Vite-Frontend, funktionierendem SPI-TFT-/QR-Pfad und Online-Geräte-Config. Der DigitalOcean-/Domain-Livegang ist erfolgreich abgeschlossen. Stripe und der öffentliche Kauf müssen end-to-end weiterhin verifiziert werden.
