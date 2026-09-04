@@ -53,16 +53,31 @@ test("positions the public landing page for merchants in German and English", as
   const landing = await readFile(new URL("../src/pages/LandingPage.jsx", import.meta.url), "utf8");
   const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
   for (const phrase of [
-    "Verkaufen, auch wenn gerade niemand da ist.",
-    "Keep selling, even when no one is there.",
+    "Dein Schaufenster verkauft jetzt 24/7 – auch wenn du geschlossen hast.",
+    "Your shop window now sells 24/7 – even when you are closed.",
+    "Das Schild zeigt nicht nur den Preis. Es verkauft.",
+    "The display does more than show the price. It sells.",
+    "Ein Schild. Immer wieder neu verwenden.",
+    "One display. Use it again and again.",
+    "Der Käufer sieht, was er kauft.",
+    "Buyers can see exactly what they are buying.",
+    "Dort verkaufen, wo heute nur präsentiert wird.",
+    "Sell where products are currently only displayed.",
+    "Funktioniert bereits auf echter Hardware.",
+    "Already working on real hardware.",
     "Demo des physischen Verkaufsschilds",
     "Demo of the physical sales display",
     "Stripe-Testmodus · garantiert keine Abbuchung",
     "Stripe test mode · guaranteed no charge",
-    "Je nach Rahmen kann der Pilot kostenlos oder gefördert umgesetzt werden.",
-    "Depending on the framework, the pilot may be delivered free of charge or with funding support.",
+    "Wir suchen Händler und Partner für erste reale Pilotanwendungen.",
+    "We are looking for merchants and partners for the first real-world pilot applications.",
     "https://ecily.com/de/start-up",
+    "https://ecily.com/en/start-up",
   ]) assert.ok(landing.includes(phrase), `missing merchant landing copy: ${phrase}`);
+  for (const section of ["<ProductDemo", 'id="benefits"', 'className="landing-section landing-reuse"', 'id="use-cases"', 'id="how"', "landing-hardware-proof", 'id="pilot"']) {
+    assert.ok(landing.includes(section), `missing landing section: ${section}`);
+  }
+  assert.ok(landing.indexOf("<ProductDemo") < landing.indexOf('id="benefits"'), "live demo must follow the hero before benefits");
   assert.match(landing, /t\.faq\.map/);
   assert.match(html, /<link rel="canonical" href="https:\/\/qr2buy\.com\/"/);
   assert.match(html, /property="og:title"/);

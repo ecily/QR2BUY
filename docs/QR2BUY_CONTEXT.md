@@ -26,7 +26,11 @@ Produktiv bestätigt:
 
 ## Frontpage und session-isolierte Live-Demo
 
-Die produktive React/Vite-Frontpage ist responsiv, deutsch/englisch lokalisiert und richtet sich primär an Händler und Standbetreiber. Die sichtbare Display-Simulation, QR-Produktseite und der physische Prototyp verwenden dieselbe serverseitige `DemoSession` als Statusquelle. Jede Frontpage erzeugt beziehungsweise restauriert eine eigene kryptografisch zufällige Session; MongoDB speichert nur den SHA-256-Hash des Tokens. Demo-Daten verändern keine normalen `Product`-, `Device`- oder `Order`-Datensätze.
+Die produktive React/Vite-Frontpage ist responsiv, deutsch/englisch lokalisiert und konsequent händlerzentriert. Ihre Kernpositionierung: Das Schaufenster kann sichtbare Produkte auch außerhalb der Öffnungszeiten direkt kauf- oder reservierbar machen, ohne Kunden-App und ohne Verkäufer vor Ort. Die Live-Demo steht direkt nach dem Hero; danach folgen der konkrete Händlernutzen, die Wiederverwendbarkeit eines zentral aktualisierten Schilds, Käufervertrauen, geeignete Einsatzorte, der Ablauf, der reale Hardwarebeweis und erst am Ende die Einladung zu einer Pilotanwendung. Nicht produktiv bewiesene Flotten-, Inventar- oder Sicherheitsversprechen werden bewusst nicht behauptet.
+
+Vor dem Start der Live-Demo bestätigt der Besucher ausdrücklich den ausschließlich ungefährlichen Stripe-Testmodus. Erst danach wird die persönliche DemoSession erzeugt beziehungsweise restauriert und die Interaktion freigegeben. Dieser Bestätigungsmarker liegt nur in `sessionStorage`, nicht in `localStorage`; es entstehen weiterhin weder eine reale Abbuchung noch eine echte Bestellung.
+
+Die sichtbare Display-Simulation, QR-Produktseite und der physische Prototyp verwenden dieselbe serverseitige `DemoSession` als Statusquelle. Jede Frontpage erzeugt beziehungsweise restauriert eine eigene kryptografisch zufällige Session; MongoDB speichert nur den SHA-256-Hash des Tokens. Demo-Daten verändern keine normalen `Product`-, `Device`- oder `Order`-Datensätze.
 
 Der serverseitige Katalog `DEMO_PRODUCTS` ist die Produkt-Source-of-Truth:
 
@@ -147,7 +151,7 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Backend: alle Dateien unter `backend/src` mit `node --check` grün
 - Backend: Import-Smoke für `backend/src/routes/demo.js` grün
 - Backend: kein separates Lint- oder Build-Script vorhanden
-- Frontend: 21/21 Tests grün
+- Frontend: 26/26 Tests grün
 - Frontend: ESLint grün
 - Frontend: Vite-Produktionsbuild grün
 - Firmware: 16/16 statische Vertragsprüfungen grün
