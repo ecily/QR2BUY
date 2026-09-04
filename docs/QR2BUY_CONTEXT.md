@@ -75,6 +75,32 @@ Alle öffentlich angebotenen Checkout-Pfade sind auf Stripe-Testmodus begrenzt. 
 
 Die frühere Stripe-Zustellung an `https://lionfish-app-zidqr.ondigitalocean.app/api/stripe/webhook` erzeugte 42 HTTP-500-Antworten, weil dieser Legacy-Endpoint aktiv blieb, während `STRIPE_SECRET_KEY` und `STRIPE_WEBHOOK_SECRET` im produktiven Service nicht gesetzt waren. Der kanonische Legacy-Endpoint ist `https://qr2buy.com/api/stripe/webhook`; er verwendet einen eigenen Signing Secret. Der Demo-Endpoint verwendet weiterhin getrennt `STRIPE_DEMO_SECRET_KEY` und `STRIPE_DEMO_WEBHOOK_SECRET`. Webhooks, nicht Browser-Returns, sind die maßgebliche Bestätigung für bezahlte Zustände.
 
+Am 4. September 2026 hat der Nutzer nach dem Webhook-Fix erneut einen vollständigen manuellen Sandbox-Checkout mit der offiziellen Stripe-Testkarte `4242 4242 4242 4242` erfolgreich durchgeführt. Damit sind produktiv die Frontpage-Demo, die mobile Demo-Produktseite, der ausschließlich simulierte Stripe-Testcheckout ohne echte Zahlung oder Bestellung, der Checkout-Return, die Webhook-Verarbeitung und der bestätigte Zahlungsstatus der zugehörigen `DemoSession` belegt. Frontpage und mobile Journey reagierten korrekt. Hardware-Synchronisierung, produktiver Reservierungsflow und der vertragsgemäße automatische Reset auf `READY` waren bereits separat bestätigt; diese manuelle Abnahme wird nicht als neue Detailabnahme aller physischen TFT-Statusansichten ausgelegt.
+
+Aktuell sind genau diese Stripe-Test-Webhooks verbindlich:
+
+- `https://qr2buy.com/api/stripe/webhook` für den Legacy-Buyer-Flow der normalen `Product`-, `Device`- und `Order`-Modelle
+- `https://qr2buy.com/api/demo/stripe/webhook` für die session-isolierte Frontpage-/Hardware-Demo über `DemoSession`
+
+Beide akzeptieren mindestens `checkout.session.completed` und `checkout.session.async_payment_succeeded`, verlangen eine gültige Stripe-Signatur, beantworten ungültige Signaturen mit HTTP 400 und erfolgreiche legitime Zustellungen mit HTTP 2xx. Der alte `lionfish-app-zidqr.ondigitalocean.app`-Endpoint darf nicht erneut als Stripe-Destination konfiguriert werden. Die zugehörigen ENV-Namen sind `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_DEMO_SECRET_KEY` und `STRIPE_DEMO_WEBHOOK_SECRET`; alle vier müssen im produktiven DigitalOcean-Backend als Secrets gesetzt sein. Ein ausschließlich lokal grüner Test ersetzt diese produktive Konfiguration nicht.
+
+### Stripe Regression Guard
+
+Vor jeder Änderung an Checkout, Stripe, Webhooks oder `DemoSession` sind zu prüfen:
+
+1. beide verbindlichen produktiven Webhook-Endpunkte,
+2. alle vier zugehörigen DigitalOcean-Stripe-ENV als Secrets,
+3. Stripe-Testmodus und niemals Live-Modus für die Demo,
+4. zwingende Webhook-Signaturprüfung,
+5. `pending_webhooks: 0` beziehungsweise erfolgreiche Zustellung nach einem kontrollierten Testevent,
+6. keine HTTP-500 in den Backend-Logs,
+7. Frontpage- und Mobile-Status nach Checkout,
+8. der Reservierungsflow,
+9. der Hardware-Config-State und
+10. dass keine alte DigitalOcean-Webhook-URL erneut aktiviert wurde.
+
+Der signierte Stripe-Webhook bleibt die maßgebliche serverseitige Kaufbestätigung; der Browser-Return allein genügt nicht.
+
 ## Hardware-Binding und Hardware-API
 
 `DemoHardwareBinding` koppelt `demo-device` nach ausdrücklichem Operator-Pairing an genau eine aktive `DemoSession`, einen `productKey` und eine Locale. Ein autorisiertes Rebinding derselben `deviceId` ersetzt das vorherige Binding atomar. Produktwechsel der gekoppelten Frontpage werden per PATCH übertragen. Es gibt keinen parallelen Hardware-Produktkatalog; Produktname, Preis, Status und QR werden aus `DemoSession` plus `DEMO_PRODUCTS` projiziert.
@@ -171,6 +197,11 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Frontend: 33/33 Tests grün
 - Frontend: ESLint grün
 - Frontend: Vite-Produktionsbuild grün
+- Beide produktiven Stripe-Webhooks: HTTP 200 auf ein kontrolliertes Stripe-Sandbox-Event
+- Beide produktiven Stripe-Webhooks: falsche Signaturen HTTP 400
+- Produktive Backend-Logs nach dem Fix: keine aktuellen HTTP-500
+- Produktiver Reservierungsflow und automatischer Reset auf `READY` live bestätigt
+- Manueller Stripe-Sandbox-Checkout mit offizieller 4242-Testkarte inklusive Return, Webhook und bestätigtem `DemoSession`-Zahlungsstatus durch den Nutzer live bestätigt
 - Firmware: 16/16 statische Vertragsprüfungen grün
 - Firmware: PlatformIO-Build `esp32dev_spi_cs5_rst4_app` grün
 - Firmwaregröße: 47.996 Byte RAM von 327.680 (14,6 %), 978.421 Byte Flash von 1.310.720 (74,6 %)
@@ -180,7 +211,7 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 ## Offene Punkte
 
 1. Detaildarstellung der realen TFT-Zustände `RESERVED`, `PAID` und `SOLD` nacharbeiten und anschließend den kompletten physischen End-to-End-Ablauf erneut abnehmen.
-2. Reservierung und Stripe-Sandbox-Testkauf inklusive signiertem Webhook, Smartphone-Rückkehr, Hardwarestatus und Tannen-Verhalten noch einmal als zusammenhängende End-to-End-Abnahme dokumentieren; keine Live-Zahlung ausführen.
+2. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
 3. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
 4. Backlight-Steuerung nur nach dokumentierter Verdrahtung an einen geeigneten GPIO ergänzen; aktuell keine Fake-PWM-Lösung.
 5. `GTS Root R4` beziehungsweise die reale Zertifikatskette bei künftigen Hosting-/Zertifikatsänderungen vor einem Firmware-Rollout prüfen.
