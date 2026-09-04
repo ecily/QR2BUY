@@ -2,17 +2,37 @@ import { Router } from 'express';
 import { createDemoService, createStripeDemoClient, constructDemoWebhookEvent, DemoError } from '../demo/service.js';
 import { createMongooseDemoRepository } from '../demo/repository.js';
 import { broadcastDemoSnapshot, registerDemoSse } from '../demo/events.js';
+import {
+  createDemoHardwareBindingService,
+  createMongooseDemoHardwareRepository,
+  DemoHardwareError
+} from '../demo/hardwareBinding.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 const repository = createMongooseDemoRepository();
 const service = createDemoService({ repository, broadcast: broadcastDemoSnapshot });
+const hardwareRepository = createMongooseDemoHardwareRepository();
+const hardwareService = createDemoHardwareBindingService({
+  repository: hardwareRepository,
+  demoService: service
+});
 
 const createSessionLimit = createRateLimiter({ windowMs: 60_000, max: 20 });
 const actionLimit = createRateLimiter({
   windowMs: 60_000,
   max: 30,
   key: (req) => `${req.ip}:${req.params.token || 'new'}`
+});
+const hardwareBindingLimit = createRateLimiter({
+  windowMs: 60_000,
+  max: 10,
+  key: (req) => `${req.ip}:${req.body?.deviceId || 'unknown'}`
+});
+const hardwarePollingLimit = createRateLimiter({
+  windowMs: 60_000,
+  max: 60,
+  key: (req) => `${req.ip}:${req.query?.deviceId || 'unknown'}`
 });
 
 router.use((_req, res, next) => {
@@ -27,7 +47,7 @@ function baseUrls(req) {
 }
 
 function sendError(res, error) {
-  if (error instanceof DemoError) {
+  if (error instanceof DemoError || error instanceof DemoHardwareError) {
     return res.status(error.status).json({ ok: false, error: error.code });
   }
   reqLog(res)?.error?.({ err: error?.message }, '[demo] request failed');
@@ -49,6 +69,47 @@ router.post('/sessions', createSessionLimit, async (_req, res) => {
 router.get('/sessions/:token', actionLimit, async (req, res) => {
   try {
     return res.json(await service.getSnapshot(req.params.token));
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+router.post('/sessions/:token/hardware-binding', hardwareBindingLimit, async (req, res) => {
+  try {
+    return res.status(201).json(await hardwareService.bind({
+      token: req.params.token,
+      deviceId: req.body?.deviceId,
+      productKey: req.body?.productKey,
+      locale: req.body?.locale,
+      pairingSecret: req.header('x-demo-pairing-secret'),
+      baseUrls: baseUrls(req)
+    }));
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+router.patch('/sessions/:token/hardware-binding', hardwareBindingLimit, async (req, res) => {
+  try {
+    return res.json(await hardwareService.update({
+      token: req.params.token,
+      deviceId: req.body?.deviceId,
+      productKey: req.body?.productKey,
+      locale: req.body?.locale,
+      baseUrls: baseUrls(req)
+    }));
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+router.get('/hardware/config', hardwarePollingLimit, async (req, res) => {
+  try {
+    return res.json(await hardwareService.getConfig({
+      deviceId: req.query?.deviceId,
+      deviceSecret: req.header('x-device-secret'),
+      baseUrls: baseUrls(req)
+    }));
   } catch (error) {
     return sendError(res, error);
   }

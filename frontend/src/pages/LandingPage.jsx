@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { createDemoSession, getDemoSession } from "../api.js";
+import { bindDemoHardware, createDemoSession, getDemoSession, updateDemoHardwareBinding } from "../api.js";
+import {
+  bindHardwareForSession,
+  clearHardwareBinding,
+  createFreshDemoSession,
+  HARDWARE_OPERATOR_COPY,
+  readHardwareBinding,
+  restoreOrCreateDemoSession,
+  syncHardwareSelection
+} from "../demoHardwareBinding.js";
 import { getHardwareDisplayMode } from "../demoDisplayState.js";
 
 const ECILY_STARTUP_URL = "https://ecily.com/de/start-up";
@@ -390,8 +399,13 @@ function ProductDemo({ lang, t }) {
   const [live, setLive] = useState(null);
   const [error, setError] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [hardwareStatus, setHardwareStatus] = useState("disconnected");
+  const [showHardwarePairing, setShowHardwarePairing] = useState(false);
+  const [pairingSecret, setPairingSecret] = useState("");
+  const [hardwareError, setHardwareError] = useState("");
   const started = useRef(false);
   const eventVersions = useRef(new Map());
+  const lastHardwareSync = useRef(null);
   const catalog = live?.products || products;
   const product = catalog.find((item) => item.key === selectedId) || catalog[0];
   const state = live?.session?.products?.find((item) => item.productKey === selectedId) || { status: "READY" };
@@ -404,7 +418,19 @@ function ProductDemo({ lang, t }) {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    createDemoSession().then(setLive).catch(() => setError(true));
+    restoreOrCreateDemoSession({ storage: window.sessionStorage, getSession: getDemoSession, createSession: createDemoSession })
+      .then(({ live: nextLive, restored }) => {
+        if (restored) {
+          const binding = readHardwareBinding(window.sessionStorage);
+          if (binding) {
+            lastHardwareSync.current = binding;
+            setSelectedId(binding.productKey);
+            setHardwareStatus("connected");
+          }
+        }
+        setLive(nextLive);
+      })
+      .catch(() => setError(true));
   }, []);
 
   useEffect(() => {
@@ -438,9 +464,61 @@ function ProductDemo({ lang, t }) {
     };
   }, [live?.token]);
 
+  useEffect(() => {
+    if (hardwareStatus !== "connected" || !live?.token) return undefined;
+    let active = true;
+    syncHardwareSelection({
+      update: updateDemoHardwareBinding,
+      storage: window.sessionStorage,
+      token: live.token,
+      current: lastHardwareSync.current,
+      productKey: selectedId,
+      locale: lang
+    }).then(({ marker }) => {
+      if (active) lastHardwareSync.current = marker;
+    }).catch(() => {
+      if (!active) return;
+      clearHardwareBinding(window.sessionStorage);
+      lastHardwareSync.current = null;
+      setHardwareStatus("error");
+      setHardwareError(t.hardwareSyncError);
+    });
+    return () => { active = false; };
+  }, [hardwareStatus, lang, live?.token, selectedId, t.hardwareSyncError]);
+
   const retry = () => {
     setError(false);
-    createDemoSession().then(setLive).catch(() => setError(true));
+    clearHardwareBinding(window.sessionStorage);
+    lastHardwareSync.current = null;
+    setHardwareStatus("disconnected");
+    createFreshDemoSession({ storage: window.sessionStorage, createSession: createDemoSession }).then(setLive).catch(() => setError(true));
+  };
+
+  const pairHardware = async (event) => {
+    event.preventDefault();
+    if (!live?.token || !pairingSecret) return;
+    setHardwareStatus("connecting");
+    setHardwareError("");
+    try {
+      const { marker } = await bindHardwareForSession({
+        bind: bindDemoHardware,
+        storage: window.sessionStorage,
+        token: live.token,
+        pairingSecret,
+        productKey: selectedId,
+        locale: lang
+      });
+      lastHardwareSync.current = marker;
+      setHardwareStatus("connected");
+      setShowHardwarePairing(false);
+    } catch {
+      clearHardwareBinding(window.sessionStorage);
+      lastHardwareSync.current = null;
+      setHardwareStatus("error");
+      setHardwareError(t.hardwarePairError);
+    } finally {
+      setPairingSecret("");
+    }
   };
 
   return <section className="landing-section landing-demo" id="demo">
@@ -480,6 +558,19 @@ function ProductDemo({ lang, t }) {
           <a className="demo-button demo-button--primary demo-open-desktop" href={demoUrl}>{t.openHere}</a>
           <div className="demo-journey" aria-label={t.demoEyebrow}>{t.demoJourney.map((step, index) => <span key={step}><b>{index + 1}</b>{step}{index < t.demoJourney.length - 1 && <i>→</i>}</span>)}</div>
           <p className="demo-notice"><span>i</span>{t.demoNotice}</p>
+          <div className={`demo-hardware-operator demo-hardware-operator--${hardwareStatus}`}>
+            <span className="demo-hardware-operator__label">{t.hardwareOperatorLabel}</span>
+            {hardwareStatus === "connected" && <p className="demo-hardware-operator__status" role="status"><i />{t.hardwareConnected} · {title}</p>}
+            {hardwareStatus === "connecting" && <p className="demo-hardware-operator__status" role="status">{t.hardwareConnecting}</p>}
+            {hardwareError && <p className="demo-hardware-operator__error" role="alert">{hardwareError}</p>}
+            {!showHardwarePairing && hardwareStatus !== "connecting" && hardwareStatus !== "connected" && <button type="button" className="demo-hardware-operator__toggle" onClick={() => { setShowHardwarePairing(true); setHardwareError(""); }}>{hardwareStatus === "error" ? t.hardwareRetryPairing : t.hardwarePair}</button>}
+            {showHardwarePairing && hardwareStatus !== "connecting" && <form onSubmit={pairHardware}>
+              <label htmlFor="demo-hardware-pairing-secret">{t.hardwarePairingPrompt}</label>
+              <input id="demo-hardware-pairing-secret" type="password" value={pairingSecret} onChange={(event) => setPairingSecret(event.target.value)} autoComplete="off" required />
+              <small>{t.hardwarePairingHint}</small>
+              <div><button type="submit" disabled={!pairingSecret}>{t.hardwareConnect}</button><button type="button" onClick={() => { setPairingSecret(""); setShowHardwarePairing(false); }}>{t.hardwareCancel}</button></div>
+            </form>}
+          </div>
           {complete && <div className={`demo-complete demo-complete--${state.status.toLowerCase()}`} role="status" aria-live="polite">
             {state.status === "PAID" && <div className="demo-confetti" aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <i key={index} />)}</div>}
             <strong>{state.status === "SOLD" ? t.displaySoldTitle : state.status === "PAID" ? t.paidLive : product.unique ? t.displayTreeReservedTitle : t.reservedLive}</strong>
@@ -497,7 +588,7 @@ function ProductDemo({ lang, t }) {
 export default function LandingPage() {
   const initialLang = useMemo(() => (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("en") ? "en" : "de"), []);
   const [lang, setLang] = useState(initialLang);
-  const t = { ...copy[lang], ...merchantCopy[lang] };
+  const t = { ...copy[lang], ...merchantCopy[lang], ...HARDWARE_OPERATOR_COPY[lang] };
 
   useEffect(() => {
     const title = lang === "de" ? "qr2buy – Physisches QR-Verkaufsschild für Händler" : "qr2buy – Physical QR sales displays for merchants";

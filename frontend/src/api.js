@@ -53,6 +53,19 @@ export function getDemoSession(token) {
   return http('GET', `demo/sessions/${encodeURIComponent(token)}`);
 }
 
+export function bindDemoHardware(token, { deviceId, productKey, locale, pairingSecret }) {
+  return http('POST', `demo/sessions/${encodeURIComponent(token)}/hardware-binding`, {
+    json: { deviceId, productKey, locale },
+    headers: { 'x-demo-pairing-secret': pairingSecret }
+  });
+}
+
+export function updateDemoHardwareBinding(token, { deviceId, productKey, locale }) {
+  return http('PATCH', `demo/sessions/${encodeURIComponent(token)}/hardware-binding`, {
+    json: { deviceId, productKey, locale }
+  });
+}
+
 export function getDemoProduct(token, productKey) {
   return http('GET', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}`);
 }

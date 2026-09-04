@@ -346,6 +346,21 @@ html { scroll-behavior: smooth; }
 .demo-button--secondary { color: #e9f1e6; border-color: rgba(255,255,255,.3); background: transparent; }
 .demo-notice { display: flex; gap: 9px; margin: 18px 0 0; color: #d2e0d4; font-size: 12px; line-height: 1.55; }
 .demo-notice span { display: grid; flex: 0 0 15px; place-items: center; width: 15px; height: 15px; border: 1px solid #b8cbbb; border-radius: 50%; font-size: 9px; }
+.demo-hardware-operator { margin-top: 17px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); color: #d2e0d4; font-size: 11px; }
+.demo-hardware-operator__label { display: block; margin-bottom: 8px; color: #aebfb1; font-size: 9px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.demo-hardware-operator__toggle { padding: 0; border: 0; color: #d9e7d7; background: transparent; font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.demo-hardware-operator__status { display: flex; align-items: center; gap: 7px; margin: 0; color: #dcebd8; font-weight: 800; }
+.demo-hardware-operator__status i { width: 7px; height: 7px; border-radius: 50%; background: #91bd80; }
+.demo-hardware-operator__error { margin: 0 0 8px; color: #ffd2c8; line-height: 1.45; }
+.demo-hardware-operator form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+.demo-hardware-operator form label, .demo-hardware-operator form small { grid-column: 1 / -1; }
+.demo-hardware-operator form label { color: #e7efe5; font-weight: 800; }
+.demo-hardware-operator form input { min-width: 0; min-height: 38px; padding: 0 11px; border: 1px solid rgba(255,255,255,.28); border-radius: 8px; color: #fff; background: rgba(0,0,0,.18); }
+.demo-hardware-operator form small { color: #aebfb1; line-height: 1.45; }
+.demo-hardware-operator form div { display: flex; gap: 7px; }
+.demo-hardware-operator form button { min-height: 34px; padding: 0 11px; border: 1px solid rgba(255,255,255,.28); border-radius: 999px; color: #fff; background: transparent; font-size: 10px; font-weight: 800; cursor: pointer; }
+.demo-hardware-operator form button:first-child { border-color: transparent; background: var(--landing-copper); }
+.demo-hardware-operator form button:disabled { cursor: not-allowed; opacity: .45; }
 .demo-complete { margin-top: 22px; padding: 18px; border: 1px solid rgba(201, 107, 57, .5); border-radius: 12px; background: rgba(201, 107, 57, .12); }
 .demo-complete strong { display: block; color: #fff; font-size: 15px; }
 .demo-complete p { margin: 8px 0 12px; color: #d6e0d7; font-size: 12px; line-height: 1.55; }

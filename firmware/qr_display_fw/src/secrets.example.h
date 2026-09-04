@@ -3,12 +3,26 @@
 // Copy this file to src/secrets.h and adjust the placeholders locally.
 // Never commit src/secrets.h with real WiFi credentials, IPs, tokens, or secrets.
 
-#define WIFI_SSID "YOUR_WIFI_SSID"
-#define WIFI_PASS "YOUR_WIFI_PASSWORD"
+struct WifiCred {
+  const char* ssid;
+  const char* pass;
+};
 
-// Online qr2buy config endpoint used by static_app.cpp.
-// This URL is public, but keep device-specific secrets out of this file.
-#define QR2BUY_CONFIG_URL "https://lionfish-app-zidqr.ondigitalocean.app/api/config?deviceId=demo-device"
+static const WifiCred WIFI_LIST[] = {
+  { "YOUR_WIFI_SSID", "YOUR_WIFI_PASSWORD" },
+  { "YOUR_WIFI_SSID", "YOUR_WIFI_PASSWORD" }
+};
+
+constexpr size_t WIFI_LIST_LEN = sizeof(WIFI_LIST) / sizeof(WifiCred);
+
+// Compatibility aliases for the older main.cpp firmware path.
+#define WIFI_SSID (WIFI_LIST[0].ssid)
+#define WIFI_PASS (WIFI_LIST[0].pass)
+
+// Demo hardware identity used by static_app.cpp. The real secret must match the
+// demo-device entry in the backend ENV DEMO_HARDWARE_DEVICE_SECRETS.
+#define QR2BUY_DEVICE_ID "demo-device"
+#define QR2BUY_DEVICE_SECRET "YOUR_DEVICE_SECRET"
 
 // Backend health endpoint used by healthPing().
 #define BACKEND_URL "http://192.168.x.x:3001/api/health"
