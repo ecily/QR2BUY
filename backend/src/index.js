@@ -36,7 +36,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /* ───────────────── Logger ───────────────── */
-const logger = pino({ level: LOG_LEVEL, base: { service: 'qr2buy_api' } });
+const logger = pino({
+  level: LOG_LEVEL,
+  base: { service: 'qr2buy_api' },
+  redact: {
+    paths: [
+      'req.rawHeaders',
+      'req.headers.authorization',
+      'req.headers["x-device-secret"]',
+      'req.headers["x-demo-pairing-secret"]',
+      'res.req.rawHeaders',
+      'res.req.headers'
+    ],
+    censor: '[REDACTED]'
+  }
+});
 
 function sanitizeRequestUrl(url = '') {
   return String(url)
@@ -59,9 +73,10 @@ app.use(
         url: sanitizeRequestUrl(req.url),
         host: req.headers?.host,
         remoteAddress: req.socket?.remoteAddress
-      })
+      }),
+      res: (res) => ({ statusCode: res.statusCode })
     },
-    customLogLevel: (res, err) => {
+    customLogLevel: (_req, res, err) => {
       if (err || res.statusCode >= 500) return 'error';
       if (res.statusCode >= 400) return 'warn';
       return 'info';

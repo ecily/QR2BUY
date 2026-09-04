@@ -103,6 +103,60 @@ test("an unchanged selection does not produce a PATCH", async () => {
   assert.equal(calls, 0);
 });
 
+test("paired frontpage selection syncs bag to tree and back exactly once", async () => {
+  const storage = memoryStorage();
+  const patchCalls = [];
+  const { marker: bagMarker } = await bindHardwareForSession({
+    bind: async () => ({ ok: true, bound: true }),
+    storage,
+    token: "same-demo-session",
+    pairingSecret: "pairing-code-placeholder",
+    productKey: "bag",
+    locale: "de"
+  });
+  const update = async (token, body) => {
+    patchCalls.push({ token, body });
+    return { ok: true, bound: true };
+  };
+
+  const tree = await syncHardwareSelection({
+    update,
+    storage,
+    token: "same-demo-session",
+    current: bagMarker,
+    productKey: "tree",
+    locale: "de"
+  });
+  const unchangedTree = await syncHardwareSelection({
+    update,
+    storage,
+    token: "same-demo-session",
+    current: tree.marker,
+    productKey: "tree",
+    locale: "de"
+  });
+  await syncHardwareSelection({
+    update,
+    storage,
+    token: "same-demo-session",
+    current: tree.marker,
+    productKey: "bag",
+    locale: "de"
+  });
+
+  assert.equal(unchangedTree.synced, false);
+  assert.deepEqual(patchCalls, [
+    {
+      token: "same-demo-session",
+      body: { deviceId: DEMO_HARDWARE_DEVICE_ID, productKey: "tree", locale: "de" }
+    },
+    {
+      token: "same-demo-session",
+      body: { deviceId: DEMO_HARDWARE_DEVICE_ID, productKey: "bag", locale: "de" }
+    }
+  ]);
+});
+
 test("PATCH failure is exposed without replacing the browser demo session", async () => {
   const storage = memoryStorage({
     [DEMO_HARDWARE_STORAGE_KEY]: JSON.stringify({ deviceId: DEMO_HARDWARE_DEVICE_ID, productKey: "book", locale: "de" })
