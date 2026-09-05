@@ -74,6 +74,8 @@ static const uint16_t COLOR_LIVE_BRIGHT = 0x7D6D; // #78ac68
 
 struct ConfigPayload {
   bool bound = false;
+  bool interactionFieldPresent = false;
+  bool interactionParsedScanned = false;
   String productKey;
   String text;
   String priceText;
@@ -273,12 +275,23 @@ static bool scanInteractionVisible(const ConfigPayload& config) {
 }
 
 static void drawScanStatus(int16_t x, int16_t y) {
-  tft.fillRoundRect(x, y, 150, 28, 8, COLOR_READY_BG);
-  drawCenteredAt("SCAN ERKANNT", x + 75, y + 14, 2, COLOR_READY_FG, COLOR_READY_BG);
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
-  tft.drawString("Bitte am Smartphone", x, y + 39, 1);
-  tft.drawString("fortfahren", x, y + 56, 2);
+  static const int16_t FOOTER_TOP = 225;
+  const int16_t clearX = x - 5;
+  const int16_t blockY = y + 2;
+  const int16_t blockWidth = 150;
+  const int16_t blockHeight = 98;
+
+  tft.fillRect(clearX, y, tft.width() - clearX, FOOTER_TOP - y, COLOR_WARM);
+  tft.fillRoundRect(x, blockY, blockWidth, blockHeight, 8, COLOR_PINE_DARK);
+  drawCenteredAt("SCAN ERKANNT", x + blockWidth / 2, blockY + 17, 2,
+                 COLOR_PAPER, COLOR_PINE_DARK);
+  tft.drawFastHLine(x + 18, blockY + 33, blockWidth - 36, COLOR_READY_BG);
+  drawCenteredAt("Bitte am", x + blockWidth / 2, blockY + 48, 2,
+                 COLOR_PAPER, COLOR_PINE_DARK);
+  drawCenteredAt("Smartphone", x + blockWidth / 2, blockY + 69, 2,
+                 COLOR_PAPER, COLOR_PINE_DARK);
+  drawCenteredAt("fortfahren", x + blockWidth / 2, blockY + 90, 2,
+                 COLOR_PAPER, COLOR_PINE_DARK);
 }
 
 static void drawWrappedProductName(const String& text, int16_t x, int16_t y,
@@ -360,6 +373,23 @@ static bool knownStatus(const String& status) {
   return statusShowsQr(status) || status == "RESERVED" || status == "PAID" || status == "SOLD";
 }
 
+static const char* diagnosticDisplayMode(const ConfigPayload& config) {
+  if (!config.bound) return "UNBOUND";
+  if (scanInteractionVisible(config)) return "SCANNED";
+  if (config.status == "CHECKOUT_STARTED") return "CHECKOUT";
+  if (config.status == "CANCELLED") return "CANCELLED";
+  if (config.status == "RESERVED") return "RESERVED";
+  if (config.status == "PAID") return "PAID";
+  if (config.status == "SOLD") return "SOLD";
+  return "READY";
+}
+
+static const char* diagnosticRenderTarget(const ConfigPayload& config) {
+  if (!config.bound) return "drawMessageScreen";
+  if (scanInteractionVisible(config)) return "drawScanStatus";
+  return statusShowsQr(config.status) ? "drawProductScreen" : "drawTerminalScreen";
+}
+
 static bool connectionIsFresh(uint32_t now) {
   return hasSuccessfulConfigFetch
     && WiFi.status() == WL_CONNECTED
@@ -438,7 +468,7 @@ static void drawProductScreen(const ConfigPayload& config) {
   tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
   tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4);
   if (scanInteractionVisible(config)) {
-    drawScanStatus(CONTENT_X, 126);
+    drawScanStatus(CONTENT_X, 122);
   } else {
     drawStatusPill(config.status, CONTENT_X, 129);
     tft.setTextColor(COLOR_MUTED, COLOR_WARM);
@@ -692,6 +722,7 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
     return false;
   }
 
+  config.interactionFieldPresent = jsonValuePosition(body, "interactionState") >= 0;
   if (!jsonStringValue(body, "productKey", config.productKey)
       || !jsonStringValue(body, "text", config.text)
       || !jsonStringValue(body, "priceText", config.priceText)
@@ -707,6 +738,7 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
     Serial.println("Config Felder ungueltig");
     return false;
   }
+  config.interactionParsedScanned = config.interactionState == "SCANNED";
   if (statusShowsQr(config.status) && !validQrUrl(config.qr)) {
     Serial.println("QR URL ungueltig oder zu lang");
     return false;
@@ -782,7 +814,27 @@ static void applyPendingConfig() {
   lastSuccessfulConfigAt = configFetchedAt;
   hasSuccessfulConfigFetch = true;
 
-  if (hasRenderedConfig && sameVisibleConfig(renderedConfig, config)) return;
+  const bool redraw = !hasRenderedConfig || !sameVisibleConfig(renderedConfig, config);
+  const char* redrawReason = !hasRenderedConfig
+    ? "initial"
+    : (redraw ? "visible-change" : "same-visible-config");
+  const char* interaction = config.interactionState.isEmpty() ? "NONE" : config.interactionState.c_str();
+  const char* previousMode = hasRenderedConfig ? diagnosticDisplayMode(renderedConfig) : "NONE";
+  Serial.printf(
+    "CFG status=%s interaction=%s ev=%ld product=%s mode=%s prev=%s field=%s parsedScanned=%s redraw=%s render=%s reason=%s\n",
+    config.status.c_str(),
+    interaction,
+    config.eventVersion,
+    config.productKey.c_str(),
+    diagnosticDisplayMode(config),
+    previousMode,
+    config.interactionFieldPresent ? "yes" : "no",
+    config.interactionParsedScanned ? "yes" : "no",
+    redraw ? "yes" : "no",
+    redraw ? diagnosticRenderTarget(config) : "none",
+    redrawReason
+  );
+  if (!redraw) return;
   renderConfig(config);
   renderedConfig = config;
   hasRenderedConfig = true;

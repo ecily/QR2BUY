@@ -8,7 +8,7 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
 const RESET_MS = 20_000;
 const CHECKOUT_TIMEOUT_MS = 15 * 60 * 1000;
-export const SCAN_INTERACTION_TTL_MS = 10_000;
+export const SCAN_INTERACTION_TTL_MS = 120_000;
 
 export class DemoError extends Error {
   constructor(code, status = 400) {

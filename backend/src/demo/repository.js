@@ -32,6 +32,8 @@ export function createMongooseDemoRepository() {
           product.checkoutOperationId = null;
           product.checkoutSessionId = null;
           product.checkoutStartedAt = null;
+          product.lastScannedAt = null;
+          product.interactionExpiresAt = null;
           product.resetAt = null;
           product.demoOrderNumber = null;
           product.paidAt = null;
@@ -54,6 +56,7 @@ export function createMongooseDemoRepository() {
           products: {
             $elemMatch: {
               productKey,
+              status: DEMO_STATUS.READY,
               $or: [
                 { interactionExpiresAt: null },
                 { interactionExpiresAt: { $lte: now } }
@@ -81,6 +84,8 @@ export function createMongooseDemoRepository() {
         {
           $set: {
             'products.$.status': DEMO_STATUS.RESERVED,
+            'products.$.lastScannedAt': null,
+            'products.$.interactionExpiresAt': null,
             'products.$.changedAt': now,
             'products.$.resetAt': resetAt,
             'products.$.demoOrderNumber': null,
@@ -103,6 +108,8 @@ export function createMongooseDemoRepository() {
         {
           $set: {
             'products.$.status': DEMO_STATUS.CHECKOUT_STARTED,
+            'products.$.lastScannedAt': null,
+            'products.$.interactionExpiresAt': null,
             'products.$.checkoutOperationId': operationId,
             'products.$.checkoutStartedAt': now,
             'products.$.changedAt': now,
@@ -143,6 +150,8 @@ export function createMongooseDemoRepository() {
         {
           $set: {
             'products.$.status': DEMO_STATUS.READY,
+            'products.$.lastScannedAt': null,
+            'products.$.interactionExpiresAt': null,
             'products.$.checkoutOperationId': null,
             'products.$.checkoutSessionId': null,
             'products.$.checkoutStartedAt': null,
@@ -168,6 +177,8 @@ export function createMongooseDemoRepository() {
         {
           $set: {
             'products.$.status': DEMO_STATUS.CANCELLED,
+            'products.$.lastScannedAt': null,
+            'products.$.interactionExpiresAt': null,
             'products.$.changedAt': now,
             'products.$.resetAt': resetAt
           },
@@ -188,6 +199,8 @@ export function createMongooseDemoRepository() {
           $addToSet: { processedWebhookEvents: eventId },
           $set: {
             'products.$.status': DEMO_STATUS.PAID,
+            'products.$.lastScannedAt': null,
+            'products.$.interactionExpiresAt': null,
             'products.$.changedAt': now,
             'products.$.resetAt': resetAt,
             'products.$.paidAt': now,

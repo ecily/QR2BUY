@@ -44,7 +44,8 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("left.status == right.status", comparison)
         self.assertIn("left.interactionState == right.interactionState", comparison)
         self.assertIn("left.qr == right.qr", comparison)
-        self.assertIn("if (hasRenderedConfig && sameVisibleConfig(renderedConfig, config)) return;", SOURCE)
+        self.assertIn("const bool redraw = !hasRenderedConfig || !sameVisibleConfig(renderedConfig, config);", SOURCE)
+        self.assertIn("if (!redraw) return;", SOURCE)
 
     def test_http_and_json_failures_do_not_render_or_log_payload(self):
         self.assertIn("if (statusCode != HTTP_CODE_OK)", SOURCE)
@@ -158,12 +159,42 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn('config.status == "READY"', priority)
         self.assertIn('config.interactionState == "SCANNED"', priority)
         self.assertIn('drawCenteredAt("SCAN ERKANNT"', SOURCE)
-        self.assertIn('tft.drawString("Bitte am Smartphone"', SOURCE)
-        self.assertIn('tft.drawString("fortfahren"', SOURCE)
+        self.assertIn('drawCenteredAt("Bitte am"', SOURCE)
+        self.assertIn('drawCenteredAt("Smartphone"', SOURCE)
+        self.assertIn('drawCenteredAt("fortfahren"', SOURCE)
         scan_branch = SOURCE[SOURCE.index("if (scanInteractionVisible(config))"):SOURCE.index("tft.fillRect(0, 225")]
-        self.assertIn("drawScanStatus(CONTENT_X, 126)", scan_branch)
+        self.assertIn("drawScanStatus(CONTENT_X, 122)", scan_branch)
         self.assertIn("drawStatusPill(config.status", scan_branch)
         self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
+        self.assertNotIn("interactionExpiresAt", priority)
+        self.assertNotIn("millis()", priority)
+
+    def test_scanned_overlay_clears_ready_region_and_finishes_before_footer(self):
+        overlay = SOURCE[SOURCE.index("static void drawScanStatus"):SOURCE.index("static void drawWrappedProductName")]
+        self.assertIn("FOOTER_TOP = 225", overlay)
+        self.assertIn("tft.fillRect(clearX, y, tft.width() - clearX, FOOTER_TOP - y, COLOR_WARM)", overlay)
+        self.assertIn("tft.fillRoundRect(x, blockY, blockWidth, blockHeight, 8, COLOR_PINE_DARK)", overlay)
+        self.assertIn('drawCenteredAt("SCAN ERKANNT"', overlay)
+        self.assertIn('drawCenteredAt("Bitte am"', overlay)
+        self.assertIn('drawCenteredAt("Smartphone"', overlay)
+        self.assertIn('drawCenteredAt("fortfahren"', overlay)
+        product_screen = SOURCE[SOURCE.index("static void drawProductScreen"):SOURCE.index("static void drawTerminalScreen")]
+        self.assertLess(product_screen.index("drawScanStatus(CONTENT_X, 122)"), product_screen.index("drawConnectionFooter"))
+        self.assertIn("left.interactionState == right.interactionState", SOURCE)
+        self.assertIn("drawStatusPill(config.status", product_screen)
+
+    def test_scan_diagnostics_are_compact_and_secret_safe(self):
+        self.assertIn("interactionFieldPresent", SOURCE)
+        self.assertIn("interactionParsedScanned", SOURCE)
+        self.assertIn('diagnosticDisplayMode(config)', SOURCE)
+        self.assertIn('diagnosticDisplayMode(renderedConfig)', SOURCE)
+        self.assertIn('redraw ? "yes" : "no"', SOURCE)
+        self.assertIn('redraw ? diagnosticRenderTarget(config) : "none"', SOURCE)
+        self.assertIn('"visible-change" : "same-visible-config"', SOURCE)
+        self.assertIn('return "drawScanStatus"', SOURCE)
+        diagnostic = SOURCE[SOURCE.index('"CFG status=%s'):SOURCE.index("if (!redraw) return;")]
+        for forbidden in ("config.qr", "QR2BUY_DEVICE_SECRET", "body", "x-device-secret"):
+            self.assertNotIn(forbidden, diagnostic)
 
     def test_product_title_adapts_between_loaded_fonts_and_stays_two_lines(self):
         self.assertIn("#define LOAD_FONT2", ACTIVE_TFT_SETUP)

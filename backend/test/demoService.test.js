@@ -45,7 +45,8 @@ function fakeRepository() {
           const soldAfterConfirmation = completionDue && product.status === 'PAID' && product.productKey === 'tree';
           Object.assign(product, {
             status: soldAfterConfirmation ? 'SOLD' : 'READY', checkoutOperationId: null, checkoutSessionId: null,
-            checkoutStartedAt: null, resetAt: null, demoOrderNumber: null, paidAt: null,
+            checkoutStartedAt: null, lastScannedAt: null, interactionExpiresAt: null,
+            resetAt: null, demoOrderNumber: null, paidAt: null,
             mailAttemptedForCheckoutId: null, mailStatus: 'NONE', changedAt: now,
             eventVersion: product.eventVersion + 1
           });
@@ -56,7 +57,7 @@ function fakeRepository() {
     async recordScan(tokenHash, key, now, interactionExpiresAt) {
       const session = byHash(tokenHash);
       const product = state(session, key);
-      if (!product || (product.interactionExpiresAt && new Date(product.interactionExpiresAt) > now)) return null;
+      if (!product || product.status !== 'READY' || (product.interactionExpiresAt && new Date(product.interactionExpiresAt) > now)) return null;
       Object.assign(product, {
         lastScannedAt: now,
         interactionExpiresAt,
@@ -68,7 +69,10 @@ function fakeRepository() {
       const session = byHash(tokenHash);
       const product = state(session, key);
       if (!product || !['READY', 'CANCELLED'].includes(product.status)) return null;
-      Object.assign(product, { status: 'RESERVED', changedAt: now, resetAt, eventVersion: product.eventVersion + 1 });
+      Object.assign(product, {
+        status: 'RESERVED', lastScannedAt: null, interactionExpiresAt: null,
+        changedAt: now, resetAt, eventVersion: product.eventVersion + 1
+      });
       return clone(session);
     },
     async claimCheckout(tokenHash, key, operationId, now) {
@@ -77,7 +81,8 @@ function fakeRepository() {
       if (!product || !['READY', 'CANCELLED'].includes(product.status)) return null;
       Object.assign(product, {
         status: 'CHECKOUT_STARTED', checkoutOperationId: operationId,
-        checkoutStartedAt: now, changedAt: now, resetAt: null,
+        checkoutStartedAt: now, lastScannedAt: null, interactionExpiresAt: null,
+        changedAt: now, resetAt: null,
         eventVersion: product.eventVersion + 1
       });
       return clone(session);
@@ -95,7 +100,8 @@ function fakeRepository() {
       if (!product || product.checkoutOperationId !== operationId) return null;
       Object.assign(product, {
         status: 'READY', checkoutOperationId: null, checkoutSessionId: null,
-        checkoutStartedAt: null, changedAt: now, eventVersion: product.eventVersion + 1
+        checkoutStartedAt: null, lastScannedAt: null, interactionExpiresAt: null,
+        changedAt: now, eventVersion: product.eventVersion + 1
       });
       return clone(session);
     },
@@ -103,7 +109,10 @@ function fakeRepository() {
       const session = byHash(tokenHash);
       const product = state(session, key);
       if (!product || product.status !== 'CHECKOUT_STARTED') return null;
-      Object.assign(product, { status: 'CANCELLED', changedAt: now, resetAt, eventVersion: product.eventVersion + 1 });
+      Object.assign(product, {
+        status: 'CANCELLED', lastScannedAt: null, interactionExpiresAt: null,
+        changedAt: now, resetAt, eventVersion: product.eventVersion + 1
+      });
       return clone(session);
     },
     async markPaid({ sessionId, productKey, checkoutSessionId, eventId, now, resetAt, demoOrderNumber }) {
@@ -112,7 +121,8 @@ function fakeRepository() {
       if (!session || session.processedWebhookEvents.includes(eventId) || product?.checkoutSessionId !== checkoutSessionId || product.status !== 'CHECKOUT_STARTED') return null;
       session.processedWebhookEvents.push(eventId);
       Object.assign(product, {
-        status: 'PAID', changedAt: now, resetAt, paidAt: now, demoOrderNumber,
+        status: 'PAID', lastScannedAt: null, interactionExpiresAt: null,
+        changedAt: now, resetAt, paidAt: now, demoOrderNumber,
         mailStatus: 'NONE', eventVersion: product.eventVersion + 1
       });
       return clone(session);
@@ -246,18 +256,20 @@ test('records one transient scan without changing the commerce status', async ()
   assert.equal(state.status, 'READY');
   assert.equal(state.interactionState, 'SCANNED');
   assert.equal(state.eventVersion, 1);
-  assert.equal(new Date(state.interactionExpiresAt) - new Date(state.lastScannedAt), 10_000);
+  assert.equal(new Date(state.interactionExpiresAt) - new Date(state.lastScannedAt), 120_000);
   assert.equal(broadcasts.length, 1);
 });
 
 test('deduplicates reload scans while the interaction is fresh', async () => {
-  const { service, broadcasts } = harness();
+  const { service, broadcasts, repository } = harness();
   const created = await service.createSession();
   await service.recordScan(created.token, 'bag');
+  const originalExpiry = repository.sessions[0].products.find((item) => item.productKey === 'bag').interactionExpiresAt;
   const duplicate = await service.recordScan(created.token, 'bag');
   const state = duplicate.session.products.find((item) => item.productKey === 'bag');
   assert.equal(duplicate.interactionRecorded, false);
   assert.equal(state.eventVersion, 1);
+  assert.equal(new Date(state.interactionExpiresAt).toISOString(), new Date(originalExpiry).toISOString());
   assert.equal(broadcasts.length, 1);
 });
 
@@ -265,7 +277,9 @@ test('expires scan projection deterministically without changing commerce state'
   const { service, setClock } = harness();
   const created = await service.createSession();
   await service.recordScan(created.token, 'book');
-  setClock('2026-09-01T12:00:11.000Z');
+  setClock('2026-09-01T12:01:59.000Z');
+  assert.equal((await service.getProduct(created.token, 'book')).state.interactionState, 'SCANNED');
+  setClock('2026-09-01T12:02:01.000Z');
   const result = await service.getProduct(created.token, 'book');
   assert.equal(result.state.status, 'READY');
   assert.equal(result.state.interactionState, null);
@@ -297,6 +311,87 @@ test('commerce states override an otherwise fresh scan projection', async () => 
     product.status = status;
     assert.equal((await service.getProduct(created.token, 'bag')).state.interactionState, null);
   }
+});
+
+test('checkout and cancellation clear scan interaction without reviving it after reset', async () => {
+  const { service, repository, setClock } = harness();
+  const created = await service.createSession();
+  await service.recordScan(created.token, 'book');
+  await service.startCheckout(created.token, 'book', 'https://qr2buy.com');
+
+  let state = (await service.getProduct(created.token, 'book')).state;
+  assert.equal(state.status, 'CHECKOUT_STARTED');
+  assert.equal(state.interactionState, null);
+  let stored = repository.sessions[0].products.find((item) => item.productKey === 'book');
+  assert.equal(stored.lastScannedAt, null);
+  assert.equal(stored.interactionExpiresAt, null);
+
+  await service.cancelCheckout(created.token, 'book');
+  state = (await service.getProduct(created.token, 'book')).state;
+  assert.equal(state.status, 'CANCELLED');
+  assert.equal(state.interactionState, null);
+
+  setClock('2026-09-01T12:00:21.000Z');
+  state = (await service.getProduct(created.token, 'book')).state;
+  assert.equal(state.status, 'READY');
+  assert.equal(state.interactionState, null);
+  stored = repository.sessions[0].products.find((item) => item.productKey === 'book');
+  assert.equal(stored.lastScannedAt, null);
+  assert.equal(stored.interactionExpiresAt, null);
+});
+
+test('reservation clears scan interaction without reviving it after reset', async () => {
+  const { service, repository, setClock } = harness();
+  const created = await service.createSession();
+  await service.recordScan(created.token, 'bag');
+  await service.reserve(created.token, 'bag');
+
+  let state = (await service.getProduct(created.token, 'bag')).state;
+  assert.equal(state.status, 'RESERVED');
+  assert.equal(state.interactionState, null);
+  let stored = repository.sessions[0].products.find((item) => item.productKey === 'bag');
+  assert.equal(stored.lastScannedAt, null);
+  assert.equal(stored.interactionExpiresAt, null);
+
+  setClock('2026-09-01T12:00:21.000Z');
+  state = (await service.getProduct(created.token, 'bag')).state;
+  assert.equal(state.status, 'READY');
+  assert.equal(state.interactionState, null);
+  stored = repository.sessions[0].products.find((item) => item.productKey === 'bag');
+  assert.equal(stored.interactionExpiresAt, null);
+});
+
+test('paid and sold transitions keep cleared scan interaction fields', async () => {
+  const { service, repository, setClock } = harness();
+  const created = await service.createSession();
+  await service.recordScan(created.token, 'tree');
+  await service.startCheckout(created.token, 'tree', 'https://qr2buy.com');
+  await service.processWebhookEvent(paidEvent({ productKey: 'tree' }));
+
+  let state = (await service.getProduct(created.token, 'tree')).state;
+  assert.equal(state.status, 'PAID');
+  assert.equal(state.interactionState, null);
+  let stored = repository.sessions[0].products.find((item) => item.productKey === 'tree');
+  assert.equal(stored.lastScannedAt, null);
+  assert.equal(stored.interactionExpiresAt, null);
+
+  setClock('2026-09-01T12:00:21.000Z');
+  state = (await service.getProduct(created.token, 'tree')).state;
+  assert.equal(state.status, 'SOLD');
+  assert.equal(state.interactionState, null);
+  stored = repository.sessions[0].products.find((item) => item.productKey === 'tree');
+  assert.equal(stored.interactionExpiresAt, null);
+});
+
+test('scan recording is rejected while a commerce state owns the product', async () => {
+  const { service } = harness();
+  const created = await service.createSession();
+  await service.startCheckout(created.token, 'bag', 'https://qr2buy.com');
+  const result = await service.recordScan(created.token, 'bag');
+  const state = result.session.products.find((item) => item.productKey === 'bag');
+  assert.equal(result.interactionRecorded, false);
+  assert.equal(state.status, 'CHECKOUT_STARTED');
+  assert.equal(state.interactionState, null);
 });
 
 test('creates demo checkout from the server catalog price and metadata', async () => {
