@@ -42,6 +42,8 @@ function harness() {
       productKey,
       status: 'READY',
       eventVersion: 0,
+      interactionState: null,
+      interactionExpiresAt: null,
       resetAt: null
     };
   }
@@ -123,10 +125,32 @@ test('creates an encrypted hardware binding and returns the expected READY proje
   assert.equal(result.priceText, '129,00 €');
   assert.equal(result.status, 'READY');
   assert.equal(result.eventVersion, 0);
+  assert.equal(result.interactionState, null);
   assert.equal(stored.tokenHash, tokenHash(TOKEN_A));
   assert.ok(!stored.encryptedSessionToken.includes(TOKEN_A));
   assert.equal(result.tokenHash, undefined);
   assert.equal(result.encryptedSessionToken, undefined);
+});
+
+test('projects a fresh scan separately from the READY commerce status', async () => {
+  const { service, states, bind } = harness();
+  states.set(`${TOKEN_A}:bag`, {
+    productKey: 'bag',
+    status: 'READY',
+    eventVersion: 1,
+    interactionState: 'SCANNED',
+    interactionExpiresAt: '2026-09-04T12:00:10.000Z',
+    resetAt: null
+  });
+  await bind();
+  const result = await service.getConfig({
+    deviceId: DEVICE_ID,
+    deviceSecret: DEVICE_SECRET,
+    baseUrls: ['https://qr2buy.com']
+  });
+  assert.equal(result.status, 'READY');
+  assert.equal(result.interactionState, 'SCANNED');
+  assert.equal(result.interactionExpiresAt, '2026-09-04T12:00:10.000Z');
 });
 
 test('rejects an incorrect operator pairing secret', async () => {

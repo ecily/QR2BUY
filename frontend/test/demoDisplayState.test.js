@@ -11,6 +11,14 @@ test("keeps the regular product display for ready and checkout states", () => {
   assert.equal(getHardwareDisplayMode("CANCELLED"), "product");
 });
 
+test("shows scan presence only below every commerce priority", () => {
+  assert.equal(getHardwareDisplayMode("READY", "SCANNED"), "scan");
+  assert.equal(getHardwareDisplayMode("CHECKOUT_STARTED", "SCANNED"), "product");
+  assert.equal(getHardwareDisplayMode("RESERVED", "SCANNED"), "reserved");
+  assert.equal(getHardwareDisplayMode("PAID", "SCANNED"), "paid");
+  assert.equal(getHardwareDisplayMode("SOLD", "SCANNED"), "sold");
+});
+
 test("uses dedicated display confirmations only for terminal demo states", () => {
   assert.equal(getHardwareDisplayMode("PAID"), "paid");
   assert.equal(getHardwareDisplayMode("RESERVED"), "reserved");
@@ -46,7 +54,7 @@ test("keeps accessible live states and reduced-motion protection", async () => {
   assert.match(page, /aria-live="polite"/);
   assert.match(landing, /aria-live="polite"/);
   assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.match(css, /hardware-display-confirmation\s*\{\s*animation:\s*none/);
+  assert.match(css, /hardware-display-confirmation[^{]*\{[^}]*animation:\s*none/);
 });
 
 test("positions the public landing page for merchants in German and English", async () => {

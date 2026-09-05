@@ -24,6 +24,11 @@ const actionLimit = createRateLimiter({
   max: 30,
   key: (req) => `${req.ip}:${req.params.token || 'new'}`
 });
+const interactionLimit = createRateLimiter({
+  windowMs: 60_000,
+  max: 12,
+  key: (req) => `${req.ip}:${req.params.token || 'unknown'}:${req.params.productKey || 'unknown'}`
+});
 const hardwareBindingLimit = createRateLimiter({
   windowMs: 60_000,
   max: 10,
@@ -118,6 +123,14 @@ router.get('/hardware/config', hardwarePollingLimit, async (req, res) => {
 router.get('/sessions/:token/products/:productKey', actionLimit, async (req, res) => {
   try {
     return res.json(await service.getProduct(req.params.token, req.params.productKey));
+  } catch (error) {
+    return sendError(res, error);
+  }
+});
+
+router.post('/sessions/:token/products/:productKey/interaction', interactionLimit, async (req, res) => {
+  try {
+    return res.json(await service.recordScan(req.params.token, req.params.productKey));
   } catch (error) {
     return sendError(res, error);
   }

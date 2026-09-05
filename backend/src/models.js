@@ -116,6 +116,8 @@ const DemoProductStateSchema = new mongoose.Schema(
       default: DEMO_STATUS.READY
     },
     eventVersion: { type: Number, default: 0 },
+    lastScannedAt: { type: Date, default: null },
+    interactionExpiresAt: { type: Date, default: null },
     checkoutOperationId: { type: String, default: null },
     checkoutSessionId: { type: String, default: null },
     checkoutStartedAt: { type: Date, default: null },

@@ -8,6 +8,7 @@ const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
 const RESET_MS = 20_000;
 const CHECKOUT_TIMEOUT_MS = 15 * 60 * 1000;
+export const SCAN_INTERACTION_TTL_MS = 10_000;
 
 export class DemoError extends Error {
   constructor(code, status = 400) {
@@ -49,11 +50,16 @@ function productState(session, productKey) {
   return session?.products?.find((item) => item.productKey === productKey) || null;
 }
 
-function serializeProductState(item) {
+function serializeProductState(item, currentTime) {
+  const interactionFresh = item.status === DEMO_STATUS.READY && item.lastScannedAt && item.interactionExpiresAt &&
+    new Date(item.interactionExpiresAt) > currentTime;
   return {
     productKey: item.productKey,
     status: item.status,
     eventVersion: item.eventVersion,
+    interactionState: interactionFresh ? 'SCANNED' : null,
+    lastScannedAt: item.lastScannedAt ? new Date(item.lastScannedAt).toISOString() : null,
+    interactionExpiresAt: item.interactionExpiresAt ? new Date(item.interactionExpiresAt).toISOString() : null,
     changedAt: new Date(item.changedAt).toISOString(),
     resetAt: item.resetAt ? new Date(item.resetAt).toISOString() : null,
     demoOrderNumber: item.demoOrderNumber || null,
@@ -62,12 +68,12 @@ function serializeProductState(item) {
   };
 }
 
-function serializeSnapshot(session) {
+function serializeSnapshot(session, currentTime = new Date()) {
   return {
     ok: true,
     session: {
       expiresAt: new Date(session.expiresAt).toISOString(),
-      products: session.products.map((item) => serializeProductState(item))
+      products: session.products.map((item) => serializeProductState(item, currentTime))
     },
     products: DEMO_PRODUCTS.map(publicDemoProduct)
   };
@@ -157,7 +163,7 @@ export function createDemoService({
   }
 
   async function publish(tokenHash, session) {
-    const snapshot = serializeSnapshot(session);
+    const snapshot = serializeSnapshot(session, now());
     broadcast(tokenHash, snapshot);
     return snapshot;
   }
@@ -190,12 +196,12 @@ export function createDemoService({
         processedWebhookEvents: [],
         expiresAt: new Date(createdAt.getTime() + ttlMs)
       });
-      return { token, ...serializeSnapshot(session) };
+      return { token, ...serializeSnapshot(session, createdAt) };
     },
 
     async getSnapshot(token) {
       const { session } = await requireSession(token);
-      return serializeSnapshot(session);
+      return serializeSnapshot(session, now());
     },
 
     async getProduct(token, productKey) {
@@ -209,8 +215,20 @@ export function createDemoService({
       return {
         ok: true,
         product: publicDemoProduct(product),
-        state: { ...serializeProductState(state), maskedEmail: maskedMailHints.get(hintKey) || null }
+        state: { ...serializeProductState(state, now()), maskedEmail: maskedMailHints.get(hintKey) || null }
       };
+    },
+
+    async recordScan(token, productKey) {
+      if (!getDemoProduct(productKey)) throw new DemoError('product_not_found', 404);
+      const { tokenHash, session: currentSession } = await requireSession(token);
+      const scannedAt = now();
+      const interactionExpiresAt = new Date(scannedAt.getTime() + SCAN_INTERACTION_TTL_MS);
+      const updated = await repository.recordScan(tokenHash, productKey, scannedAt, interactionExpiresAt);
+      if (!updated) {
+        return { ...serializeSnapshot(currentSession, scannedAt), interactionRecorded: false };
+      }
+      return { ...(await publish(tokenHash, updated)), interactionRecorded: true };
     },
 
     async reserve(token, productKey) {
@@ -313,7 +331,7 @@ export function createDemoService({
       const session = await repository.cancel(tokenHash, productKey, changedAt, resetAt);
       if (!session) {
         const current = await requireSession(token);
-        return serializeSnapshot(current.session);
+        return serializeSnapshot(current.session, now());
       }
       scheduleProductReset(tokenHash, productKey, resetAt);
       return publish(tokenHash, session);

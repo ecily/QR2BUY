@@ -78,6 +78,8 @@ struct ConfigPayload {
   String text;
   String priceText;
   String status;
+  String interactionState;
+  String interactionExpiresAt;
   String qr;
   long eventVersion = -1;
   String resetAt;
@@ -266,6 +268,19 @@ static void drawStatusPill(const String& status, int16_t x, int16_t y) {
   tft.drawString(label, x + 20, y + 12, 1);
 }
 
+static bool scanInteractionVisible(const ConfigPayload& config) {
+  return config.status == "READY" && config.interactionState == "SCANNED";
+}
+
+static void drawScanStatus(int16_t x, int16_t y) {
+  tft.fillRoundRect(x, y, 150, 28, 8, COLOR_READY_BG);
+  drawCenteredAt("SCAN ERKANNT", x + 75, y + 14, 2, COLOR_READY_FG, COLOR_READY_BG);
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
+  tft.drawString("Bitte am Smartphone", x, y + 39, 1);
+  tft.drawString("fortfahren", x, y + 56, 2);
+}
+
 static void drawWrappedProductName(const String& text, int16_t x, int16_t y,
                                    int16_t maxWidth, uint16_t background) {
   String firstLine = text;
@@ -422,10 +437,14 @@ static void drawProductScreen(const ConfigPayload& config) {
   drawProminentProductName(config.text, CONTENT_X + 2, 145);
   tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
   tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4);
-  drawStatusPill(config.status, CONTENT_X, 129);
-  tft.setTextColor(COLOR_MUTED, COLOR_WARM);
-  tft.drawString("Fiktives Demo-Produkt", CONTENT_X, 176, 1);
-  tft.drawString("Status live synchronisiert", CONTENT_X, 194, 1);
+  if (scanInteractionVisible(config)) {
+    drawScanStatus(CONTENT_X, 126);
+  } else {
+    drawStatusPill(config.status, CONTENT_X, 129);
+    tft.setTextColor(COLOR_MUTED, COLOR_WARM);
+    tft.drawString("Fiktives Demo-Produkt", CONTENT_X, 176, 1);
+    tft.drawString("Status live synchronisiert", CONTENT_X, 194, 1);
+  }
   tft.fillRect(0, 225, tft.width(), 15, COLOR_WARM);
   tft.setTextColor(COLOR_PINE, COLOR_WARM);
   tft.drawString(APP_TITLE, 8, 229, 1);
@@ -485,6 +504,7 @@ static bool sameVisibleConfig(const ConfigPayload& left, const ConfigPayload& ri
     && left.text == right.text
     && left.priceText == right.priceText
     && left.status == right.status
+    && left.interactionState == right.interactionState
     && left.qr == right.qr;
 }
 
@@ -676,11 +696,14 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
       || !jsonStringValue(body, "text", config.text)
       || !jsonStringValue(body, "priceText", config.priceText)
       || !jsonStringValue(body, "status", config.status)
+      || !jsonStringValue(body, "interactionState", config.interactionState, true)
+      || !jsonStringValue(body, "interactionExpiresAt", config.interactionExpiresAt, true)
       || !jsonStringValue(body, "qr", config.qr)
       || !jsonLongValue(body, "eventVersion", config.eventVersion)
       || !jsonStringValue(body, "resetAt", config.resetAt, true)
       || config.productKey.isEmpty() || config.text.isEmpty() || config.priceText.isEmpty()
-      || config.eventVersion < 0 || !knownStatus(config.status)) {
+      || config.eventVersion < 0 || !knownStatus(config.status)
+      || (!config.interactionState.isEmpty() && config.interactionState != "SCANNED")) {
     Serial.println("Config Felder ungueltig");
     return false;
   }

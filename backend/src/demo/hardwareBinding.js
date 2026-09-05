@@ -132,6 +132,8 @@ function projectConfig({ binding, token, productResult, origin }) {
     text: product.name[binding.locale],
     priceText: formatPrice(product, binding.locale),
     status: state.status,
+    interactionState: state.interactionState,
+    interactionExpiresAt: state.interactionExpiresAt,
     qr: qrUrl(origin, product.key, token),
     eventVersion: state.eventVersion,
     resetAt: state.resetAt,

@@ -70,6 +70,10 @@ export function getDemoProduct(token, productKey) {
   return http('GET', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}`);
 }
 
+export function reportDemoProductInteraction(token, productKey) {
+  return http('POST', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}/interaction`);
+}
+
 export function reserveDemoProduct(token, productKey) {
   return http('POST', `demo/sessions/${encodeURIComponent(token)}/products/${encodeURIComponent(productKey)}/reserve`);
 }

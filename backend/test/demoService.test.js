@@ -53,6 +53,17 @@ function fakeRepository() {
       }
       return clone(session);
     },
+    async recordScan(tokenHash, key, now, interactionExpiresAt) {
+      const session = byHash(tokenHash);
+      const product = state(session, key);
+      if (!product || (product.interactionExpiresAt && new Date(product.interactionExpiresAt) > now)) return null;
+      Object.assign(product, {
+        lastScannedAt: now,
+        interactionExpiresAt,
+        eventVersion: product.eventVersion + 1
+      });
+      return clone(session);
+    },
     async reserve(tokenHash, key, now, resetAt) {
       const session = byHash(tokenHash);
       const product = state(session, key);
@@ -224,6 +235,68 @@ test('isolates two visitor sessions during reservation', async () => {
   const secondStatus = await service.getProduct(second.token, 'book');
   assert.equal(firstStatus.state.status, 'RESERVED');
   assert.equal(secondStatus.state.status, 'READY');
+});
+
+test('records one transient scan without changing the commerce status', async () => {
+  const { service, broadcasts } = harness();
+  const created = await service.createSession();
+  const result = await service.recordScan(created.token, 'bag');
+  const state = result.session.products.find((item) => item.productKey === 'bag');
+  assert.equal(result.interactionRecorded, true);
+  assert.equal(state.status, 'READY');
+  assert.equal(state.interactionState, 'SCANNED');
+  assert.equal(state.eventVersion, 1);
+  assert.equal(new Date(state.interactionExpiresAt) - new Date(state.lastScannedAt), 10_000);
+  assert.equal(broadcasts.length, 1);
+});
+
+test('deduplicates reload scans while the interaction is fresh', async () => {
+  const { service, broadcasts } = harness();
+  const created = await service.createSession();
+  await service.recordScan(created.token, 'bag');
+  const duplicate = await service.recordScan(created.token, 'bag');
+  const state = duplicate.session.products.find((item) => item.productKey === 'bag');
+  assert.equal(duplicate.interactionRecorded, false);
+  assert.equal(state.eventVersion, 1);
+  assert.equal(broadcasts.length, 1);
+});
+
+test('expires scan projection deterministically without changing commerce state', async () => {
+  const { service, setClock } = harness();
+  const created = await service.createSession();
+  await service.recordScan(created.token, 'book');
+  setClock('2026-09-01T12:00:11.000Z');
+  const result = await service.getProduct(created.token, 'book');
+  assert.equal(result.state.status, 'READY');
+  assert.equal(result.state.interactionState, null);
+});
+
+test('rejects scan interaction for an invalid session or product', async () => {
+  const { service } = harness();
+  const created = await service.createSession();
+  await assert.rejects(service.recordScan('invalid', 'bag'), (error) => error.code === 'invalid_session');
+  await assert.rejects(service.recordScan(created.token, 'missing'), (error) => error.code === 'product_not_found');
+});
+
+test('keeps scan interactions isolated to one session and product', async () => {
+  const { service } = harness();
+  const first = await service.createSession();
+  const second = await service.createSession();
+  await service.recordScan(first.token, 'tree');
+  assert.equal((await service.getProduct(first.token, 'tree')).state.interactionState, 'SCANNED');
+  assert.equal((await service.getProduct(first.token, 'bag')).state.interactionState, null);
+  assert.equal((await service.getProduct(second.token, 'tree')).state.interactionState, null);
+});
+
+test('commerce states override an otherwise fresh scan projection', async () => {
+  const { service, repository } = harness();
+  const created = await service.createSession();
+  await service.recordScan(created.token, 'bag');
+  const product = repository.sessions[0].products.find((item) => item.productKey === 'bag');
+  for (const status of ['CHECKOUT_STARTED', 'RESERVED', 'PAID', 'SOLD']) {
+    product.status = status;
+    assert.equal((await service.getProduct(created.token, 'bag')).state.interactionState, null);
+  }
 });
 
 test('creates demo checkout from the server catalog price and metadata', async () => {

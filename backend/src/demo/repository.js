@@ -47,6 +47,31 @@ export function createMongooseDemoRepository() {
       return session;
     },
 
+    recordScan(tokenHash, productKey, now, interactionExpiresAt) {
+      return DemoSession.findOneAndUpdate(
+        {
+          tokenHash,
+          products: {
+            $elemMatch: {
+              productKey,
+              $or: [
+                { interactionExpiresAt: null },
+                { interactionExpiresAt: { $lte: now } }
+              ]
+            }
+          }
+        },
+        {
+          $set: {
+            'products.$.lastScannedAt': now,
+            'products.$.interactionExpiresAt': interactionExpiresAt
+          },
+          $inc: { 'products.$.eventVersion': 1 }
+        },
+        { new: true }
+      );
+    },
+
     reserve(tokenHash, productKey, now, resetAt) {
       return DemoSession.findOneAndUpdate(
         {

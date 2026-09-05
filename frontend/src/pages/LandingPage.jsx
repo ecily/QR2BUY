@@ -79,6 +79,8 @@ const copy = {
     connectionPolling: "Verbindung wird wiederhergestellt",
     checkoutStarted: "Testcheckout geöffnet",
     cancelled: "Testcheckout abgebrochen",
+    scanDetected: "SCAN ERKANNT",
+    continueOnPhone: "Bitte am Smartphone fortfahren",
     selected: "Ausgewählt",
     scenariosEyebrow: "Warum das zählt",
     scenariosTitle: "Wenn Interesse da ist, soll der Kauf nicht warten.",
@@ -177,6 +179,8 @@ const copy = {
     connectionPolling: "Restoring live connection",
     checkoutStarted: "Test checkout opened",
     cancelled: "Test checkout cancelled",
+    scanDetected: "SCAN DETECTED",
+    continueOnPhone: "Please continue on your phone",
     selected: "Selected",
     scenariosEyebrow: "Why it matters",
     scenariosTitle: "When interest is there, the purchase should not have to wait.",
@@ -432,6 +436,14 @@ function HardwareDisplayConfirmation({ mode, title, unique, t }) {
   </div>;
 }
 
+function HardwareDisplayScan({ title, price, t }) {
+  return <div className="hardware-display-scan" role="status" aria-live="polite" aria-atomic="true">
+    <span>{t.scanDetected}</span>
+    <strong>{t.continueOnPhone}</strong>
+    <div><b>{title}</b><small>{price}</small></div>
+  </div>;
+}
+
 function ProductDemo({ lang, t }) {
   const [safetyConfirmed, setSafetyConfirmed] = useState(() => hasDemoSafetyConfirmation(window.sessionStorage));
   const [selectedId, setSelectedId] = useState("book");
@@ -452,7 +464,7 @@ function ProductDemo({ lang, t }) {
   const price = new Intl.NumberFormat(lang === "de" ? "de-DE" : "en-GB", { style: "currency", currency: product.currency }).format(product.price);
   const demoUrl = live?.token ? `${window.location.origin}/demo/p/${product.key}#session=${encodeURIComponent(live.token)}` : "";
   const complete = ["PAID", "RESERVED", "SOLD"].includes(state.status);
-  const displayMode = getHardwareDisplayMode(state.status);
+  const displayMode = getHardwareDisplayMode(state.status, state.interactionState);
 
   useEffect(() => {
     if (!safetyConfirmed) return;
@@ -588,7 +600,7 @@ function ProductDemo({ lang, t }) {
             {displayMode === "product" ? <>
               <div className="display-card__qr"><QrMockup value={demoUrl} label={t.scanHint} /><small>{t.noApp}</small><a className="demo-open-mobile" href={demoUrl}>{t.openHere}</a></div>
               <div className="display-card__product"><span className="display-card__label">{product.place[lang]}</span><strong>{title}</strong><span className="display-card__price">{price}</span><StatusPill status={state.status} t={t} /><span className="display-card__stock">{t.demoStock}: {product.stock} · {product.alternatives?.[lang]}</span></div>
-            </> : <HardwareDisplayConfirmation mode={displayMode} title={title} unique={product.unique} t={t} />}
+            </> : displayMode === "scan" ? <HardwareDisplayScan title={title} price={price} t={t} /> : <HardwareDisplayConfirmation mode={displayMode} title={title} unique={product.unique} t={t} />}
           </div>
           <div className="display-card__footer"><span>QR2BUY DISPLAY</span><span>v1.0 · LIVE</span></div>
           </div>

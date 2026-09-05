@@ -42,6 +42,7 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("left.productKey == right.productKey", comparison)
         self.assertIn("left.eventVersion == right.eventVersion", comparison)
         self.assertIn("left.status == right.status", comparison)
+        self.assertIn("left.interactionState == right.interactionState", comparison)
         self.assertIn("left.qr == right.qr", comparison)
         self.assertIn("if (hasRenderedConfig && sameVisibleConfig(renderedConfig, config)) return;", SOURCE)
 
@@ -148,6 +149,20 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn('drawCenteredAt("scannen", 79, 188, 4', SOURCE)
         self.assertIn("tft.fillRoundRect(20, 204, 118, 18, 9, COLOR_READY_BG)", SOURCE)
         self.assertIn('drawCenteredAt("KEINE APP NOETIG", 79, 213, 1', SOURCE)
+        self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
+
+    def test_transient_scan_display_preserves_commerce_priority_and_layout(self):
+        self.assertIn('String interactionState;', SOURCE)
+        self.assertIn('jsonStringValue(body, "interactionState", config.interactionState, true)', SOURCE)
+        priority = SOURCE[SOURCE.index("static bool scanInteractionVisible"):SOURCE.index("static void drawScanStatus")]
+        self.assertIn('config.status == "READY"', priority)
+        self.assertIn('config.interactionState == "SCANNED"', priority)
+        self.assertIn('drawCenteredAt("SCAN ERKANNT"', SOURCE)
+        self.assertIn('tft.drawString("Bitte am Smartphone"', SOURCE)
+        self.assertIn('tft.drawString("fortfahren"', SOURCE)
+        scan_branch = SOURCE[SOURCE.index("if (scanInteractionVisible(config))"):SOURCE.index("tft.fillRect(0, 225")]
+        self.assertIn("drawScanStatus(CONTENT_X, 126)", scan_branch)
+        self.assertIn("drawStatusPill(config.status", scan_branch)
         self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
 
     def test_product_title_adapts_between_loaded_fonts_and_stays_two_lines(self):

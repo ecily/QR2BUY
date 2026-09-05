@@ -4,10 +4,12 @@ import {
   cancelDemoCheckout,
   createDemoCheckout,
   getDemoProduct,
+  reportDemoProductInteraction,
   reserveDemoProduct
 } from '../api.js';
 import { copyStripeTestCard, prepareStripeRedirect } from '../demoCheckoutTransition.js';
 import { blocksDemoActions } from '../demoDisplayState.js';
+import { reportDemoScanOnce } from '../demoScanInteraction.js';
 import BrandLogo from '../components/BrandLogo.jsx';
 
 const copy = {
@@ -18,13 +20,15 @@ const copy = {
     safeCore: 'Nur Demo – keine Abbuchung und keine echte Bestellung.',
     noOrder: 'Es entsteht keine echte Bestellung, Reservierung oder Lieferung.',
     browser: 'Keine App · kein Benutzerkonto',
-    actionTrust: ['Keine echte Bestellung', 'Keine Abbuchung'],
+    trustTitle: 'Direkt am Produkt. Klar und sicher weiter.',
+    actionTrust: ['Keine App nötig', 'Sichere Zahlung über Stripe', 'Das Verkaufsschild bestätigt deinen Vorgang live'],
+    sandboxTrust: 'Stripe-Testmodus · keine echte Zahlung',
     available: 'Verfügbar',
     demoStock: 'Fiktiver Demo-Bestand: {stock}',
     realAction: 'Im echten Einsatz kaufst oder reservierst du hier. Auf dieser öffentlichen Seite testest du nur den Ablauf.',
-    buy: 'Testkauf starten',
+    buy: 'Jetzt kaufen',
     buyHint: 'Mit Stripe-Testkarte · garantiert keine Abbuchung',
-    reserve: 'Demo-Reservierung testen',
+    reserve: 'Reservieren',
     reserveHint: 'Keine echte Reservierung',
     testTitle: 'Ein letzter Demo-Schritt',
     checkpointSafety: 'Offizielle Stripe-Testkarte · garantiert keine Abbuchung',
@@ -77,13 +81,15 @@ const copy = {
     safeCore: 'Demo only – no charge and no real order.',
     noOrder: 'No real order, reservation or delivery is created.',
     browser: 'No app · no user account',
-    actionTrust: ['No real order', 'No charge'],
+    trustTitle: 'Right at the product. A clear, trusted next step.',
+    actionTrust: ['No app required', 'Secure payment through Stripe', 'The sales display confirms your action live'],
+    sandboxTrust: 'Stripe test mode · no real payment',
     available: 'Available',
     demoStock: 'Fictional demo stock: {stock}',
     realAction: 'In real use, this is where you buy or reserve. On this public page, you are only testing the flow.',
-    buy: 'Start test purchase',
+    buy: 'Buy now',
     buyHint: 'With Stripe test card · guaranteed no charge',
-    reserve: 'Try demo reservation',
+    reserve: 'Reserve',
     reserveHint: 'No real reservation',
     testTitle: 'One last demo step',
     checkpointSafety: 'Official Stripe test card · guaranteed no charge',
@@ -145,10 +151,13 @@ function ProductVisual({ color, name }) {
 export default function DemoProductPage() {
   const { productKey } = useParams();
   const [searchParams] = useSearchParams();
-  const token = useMemo(() => {
+  const fragmentToken = useMemo(() => {
     const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    return fragment.get('session') || searchParams.get('session') || sessionStorage.getItem('qr2buy_demo_token') || '';
-  }, [searchParams]);
+    return fragment.get('session') || '';
+  }, []);
+  const token = useMemo(() => {
+    return fragmentToken || searchParams.get('session') || sessionStorage.getItem('qr2buy_demo_token') || '';
+  }, [fragmentToken, searchParams]);
   const checkoutReturn = searchParams.get('checkout') || '';
   const initialLang = useMemo(() => (navigator.language?.toLowerCase().startsWith('en') ? 'en' : 'de'), []);
   const [lang, setLang] = useState(initialLang);
@@ -195,6 +204,16 @@ export default function DemoProductPage() {
     const poll = setInterval(load, checkoutReturn === 'return' ? 1500 : 3000);
     return () => { active = false; clearInterval(poll); events?.close(); };
   }, [checkoutReturn, productKey, token, t]);
+
+  useEffect(() => {
+    if (!fragmentToken || data?.product?.key !== productKey) return;
+    reportDemoScanOnce({
+      storage: window.sessionStorage,
+      token: fragmentToken,
+      productKey,
+      report: reportDemoProductInteraction
+    }).catch(() => undefined);
+  }, [data?.product?.key, fragmentToken, productKey]);
 
   useEffect(() => {
     if (checkoutReturn !== 'cancelled' || cancelSent.current || !token) return;
@@ -282,12 +301,12 @@ export default function DemoProductPage() {
 
     <article className={`demo-mobile-card ${completed ? 'is-complete' : ''}`}>
       <span className="demo-live-badge">{t.demo}</span>
-      <div className="demo-scan-context"><p>{t.scanContext}</p><strong>{t.scanSafety}</strong></div>
-      <ProductVisual color={product.color} name={name} />
-      <div className="demo-mobile-product-copy">
-        <div className={`demo-product-availability demo-product-availability--${String(status || 'ready').toLowerCase()}`}><span />{status === 'SOLD' ? t.soldLabel : status === 'RESERVED' ? t.reservedLabel : t.available}</div>
-        <small>{product.place[lang]}</small><h1>{name}</h1><strong className="demo-mobile-price">{price}</strong><p>{product.description[lang]}</p>
-        <p className="demo-fictional-stock"><strong>{t.demoStock.replace('{stock}', product.stock)}</strong><span>{product.alternatives?.[lang]}</span></p>
+      <div className="demo-mobile-identity">
+        <ProductVisual color={product.color} name={name} />
+        <div className="demo-mobile-product-copy">
+          <div className={`demo-product-availability demo-product-availability--${String(status || 'ready').toLowerCase()}`}><span />{status === 'SOLD' ? t.soldLabel : status === 'RESERVED' ? t.reservedLabel : t.available}</div>
+          <small>{product.place[lang]}</small><h1>{name}</h1><strong className="demo-mobile-price">{price}</strong>
+        </div>
       </div>
 
       {status === 'PAID' ? <div className="demo-mobile-success" role="status" aria-live="polite" aria-atomic="true">
@@ -320,6 +339,13 @@ export default function DemoProductPage() {
         <p className="demo-real-action">{t.realAction}</p>
         <button className="demo-commerce-button demo-commerce-button--primary demo-commerce-button--stacked" onClick={() => { setClipboardStatus('idle'); setView('checkout'); }} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}><strong>{checkoutReturn === 'cancelled' ? t.retry : t.buy}</strong><small>{t.buyHint}</small></button>
         <button className="demo-commerce-button demo-commerce-button--secondary demo-commerce-button--stacked" onClick={reserve} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}><strong>{t.reserve}</strong><small>{t.reserveHint}</small></button>
+        <div className="demo-action-trust"><strong>{t.trustTitle}</strong>{t.actionTrust.map((item) => <span key={item}>✓ {item}</span>)}<small>{t.sandboxTrust}</small></div>
+      </div>}
+
+      {!completed && <div className="demo-mobile-details">
+        <div className="demo-scan-context"><p>{t.scanContext}</p><strong>{t.scanSafety}</strong></div>
+        <p>{product.description[lang]}</p>
+        <p className="demo-fictional-stock"><strong>{t.demoStock.replace('{stock}', product.stock)}</strong><span>{product.alternatives?.[lang]}</span></p>
       </div>}
 
       {error && <p className="demo-friendly-error" role="alert">{error}</p>}
