@@ -67,13 +67,13 @@ Wichtige Demo-Routen:
 
 Ein optionaler qr2buy-eigener SMTP-over-TLS-Dienst kann nach `PAID` höchstens einen klar als Demo gekennzeichneten HTML-Beleg senden. Er ist standardmäßig deaktiviert; E-Mail-Adressen werden nicht in MongoDB gespeichert oder per SSE verteilt.
 
-## P0.2 Mobile Käufer-Journey – geprüfter Rollout-Stand
+## P0.2 Mobile Käufer-Journey – produktiver Stand
 
-Der erste P0.2-Schritt ist am 5. September 2026 lokal implementiert und automatisiert geprüft. Die zugehörige Firmware wurde bereits auf die reale Hardware geflasht; Backend und Frontend sind zu diesem Zeitpunkt noch nicht produktiv ausgerollt. Die mobile Demo-Produktseite priorisiert unmittelbar die vorhandene Produktvisualisierung, Verfügbarkeit, Produktname, Preis, den primären CTA `Jetzt kaufen`, den sekundären CTA `Reservieren` und einen kompakten DE/EN-Vertrauensblock. Der Katalog enthält aktuell keine echten Produktbilder; deshalb bleibt die bestehende farbcodierte Visualisierung erhalten und es wurden keine Bilder erfunden. Checkout-, Stripe- und Reservierungs-Handler bleiben unverändert.
+Der erste P0.2-Schritt ist seit dem 5. September 2026 produktiv; der funktionale Stand wurde mit Commit `bcb9239` live bestätigt. Die zugehörige Firmware war bereits zuvor auf die reale Hardware geflasht. Die mobile Demo-Produktseite priorisiert unmittelbar die vorhandene Produktvisualisierung, Verfügbarkeit, Produktname, Preis, den primären CTA `Jetzt kaufen`, den sekundären CTA `Reservieren` und einen kompakten DE/EN-Vertrauensblock. Der Katalog enthält aktuell keine echten Produktbilder; deshalb bleibt die bestehende farbcodierte Visualisierung erhalten und es wurden keine Bilder erfunden. Checkout-, Stripe- und Reservierungs-Handler bleiben unverändert.
 
 Ein validierter QR-Aufruf meldet einmalig `POST /api/demo/sessions/:token/products/:productKey/interaction`. `DemoProductState` speichert dafür getrennt vom Commerce-Status `lastScannedAt` und `interactionExpiresAt`; die Projektion liefert für zehn Sekunden `interactionState: SCANNED`. Wiederholungen im frischen Zeitfenster werden atomar ohne weitere DB-Schreibvorgänge oder Broadcasts dedupliziert. Ungültige Session-Token und unbekannte Produkte erzeugen keinen Interaction-State; ein eigenes Rate-Limit schützt den Endpunkt. Der Session-Token bleibt in den bestehenden URL-Logs redigiert.
 
-Die Anzeigepriorität lautet `SOLD`/`PAID`/`RESERVED` vor `CHECKOUT_STARTED`, danach frischer Scan und danach `READY`; die Projektion zeigt `SCANNED` nur bei unverändertem Commerce-Status `READY`. Frontpage-Simulation und Hardware-Config nutzen dieselbe Projektion. Die Firmware zeigt bei frischem Scan `SCAN ERKANNT` und `Bitte am Smartphone fortfahren`, behält Produktname, Preis, QR-Geometrie und LIVE-Footer und fällt durch das vorhandene Drei-Sekunden-Polling nach Ablauf wieder auf `READY` zurück. Die Firmware ist auf der realen Hardware installiert; die physische Prüfung dieses neuen Scan-Zustands bleibt bis zum produktiven Backend-Rollout offen.
+Die Anzeigepriorität lautet `SOLD`/`PAID`/`RESERVED` vor `CHECKOUT_STARTED`, danach frischer Scan und danach `READY`; die Projektion zeigt `SCANNED` nur bei unverändertem Commerce-Status `READY`. Frontpage-Simulation und Hardware-Config nutzen dieselbe Projektion. Die Firmware zeigt bei frischem Scan `SCAN ERKANNT` und `Bitte am Smartphone fortfahren`, behält Produktname, Preis, QR-Geometrie und LIVE-Footer und fällt durch das vorhandene Drei-Sekunden-Polling nach Ablauf wieder auf `READY` zurück. Produktiv bestätigt sind die getrennte `SCANNED`-/`READY`-Projektion, der Rückfall nach der Zehn-Sekunden-TTL und fortlaufende autorisierte Hardware-Abrufe mit HTTP 200 nach dem Backend-Rollout. Die physische Scan-Ansicht auf dem TFT bleibt visuell durch den Nutzer abzunehmen.
 
 ## Stripe-Sandbox und Webhooks
 
@@ -127,7 +127,7 @@ API-Vertrag:
   - Header: `x-device-secret`
   - Ohne gültiges Device-Secret fail-closed mit 401.
   - Ohne aktives Binding regulär HTTP 200 mit `{ "ok": true, "bound": false }`.
-  - Mit Binding: `ok`, `bound`, `deviceId`, `productKey`, `text`, `priceText`, `status`, `qr`, `eventVersion`, `resetAt`, `expiresAt`.
+  - Mit Binding: `ok`, `bound`, `deviceId`, `productKey`, `text`, `priceText`, `status`, `interactionState`, `interactionExpiresAt`, `qr`, `eventVersion`, `resetAt`, `expiresAt`.
 
 Bindings besitzen einen TTL-Index und laufen mit ihrer DemoSession ab. Das Session-Token wird im Binding ausschließlich AES-256-GCM-verschlüsselt gespeichert; der Schlüssel kommt nur aus ENV. Binding und Hardware-Polling besitzen getrennte Rate-Limits.
 
@@ -217,18 +217,21 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Erwartete einzige Buildwarnung: `TOUCH_CS` ist nicht definiert; Touch-Funktionen werden nicht verwendet.
 - `git diff --check` grün
 
-## Lokaler P0.2-Teststand vom 5. September 2026
+## Verifizierter P0.2-Test- und Livestand vom 5. September 2026
 
 - Backend: 50/50 Tests grün; alle `backend/src`-JavaScriptdateien mit `node --check` und Demo-/Stripe-/Checkout-Router-Import-Smoke grün
 - Frontend: 38/38 Tests, ESLint und Vite-Produktionsbuild grün
 - Firmware: 17/17 statische Vertragsprüfungen und PlatformIO-Build `esp32dev_spi_cs5_rst4_app` grün
 - Firmwaregröße: 48.060 Byte RAM von 327.680 (14,7 %), 979.305 Byte Flash von 1.310.720 (74,7 %)
 - Erwartete einzige Buildwarnung: `TOUCH_CS` ist nicht definiert; Touch-Funktionen werden nicht verwendet.
-- P0.2 ist noch nicht live; die Firmware ist bereits auf echter Hardware installiert, während die produktive Interaction-Projektion noch aussteht.
+- DigitalOcean: funktionaler Commit `bcb9239` für Backend und Frontend `ACTIVE` bestätigt; `/`, `/de`, `/en` und `/api/health` liefern HTTP 200.
+- Live-Interaction: `READY → SCANNED → READY` bestätigt; Commerce bleibt währenddessen `READY`, Hardware-Config übernimmt `SCANNED` und fällt nach der Zehn-Sekunden-TTL zurück.
+- Live-Regression: Reservierung wechselt auf `RESERVED` und nach 20 Sekunden zurück auf `READY`; Checkout-Erzeugung im Stripe-Testmodus, `CHECKOUT_STARTED` und Abbruch auf `CANCELLED` sind bestätigt, ohne Zahlung.
+- Reale Hardware: Firmware installiert; fortlaufende autorisierte Config-Abrufe mit HTTP 200 nach dem Rollout belegen automatische Wiederverbindung und aktives Polling ohne erneuten Flash.
 
 ## Offene Punkte
 
-1. Den ersten P0.2-Schritt deployen, produktiv einschließlich der Zehn-Sekunden-Interaction-Projektion prüfen und den neuen Scan-Zustand auf dem bereits geflashten realen TFT abnehmen.
+1. Den produktiv bestätigten P0.2-Scan-Zustand auf dem bereits geflashten realen TFT visuell abnehmen; die automatische Wiederverbindung und das Polling sind serverseitig bereits bestätigt.
 2. Detaildarstellung der realen TFT-Zustände `RESERVED`, `PAID` und `SOLD` nacharbeiten und anschließend den kompletten physischen End-to-End-Ablauf erneut abnehmen.
 3. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
 4. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
