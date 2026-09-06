@@ -73,7 +73,7 @@ const copy = {
     retry: 'Erneut versuchen',
     invalid: 'Diese Demo-Session ist ungültig oder abgelaufen.',
     unavailable: 'Die Verbindung ist gerade unterbrochen. Bitte versuche es noch einmal.',
-    busy: 'Dieses Produkt wurde gerade verkauft oder reserviert. Eine Reservierung ist deshalb nicht möglich.',
+    busy: 'Dieses Produkt wurde gerade verkauft oder reserviert. Es ist deshalb nicht mehr verfügbar.',
     home: 'Zur qr2buy-Startseite'
   },
   en: {
@@ -136,7 +136,7 @@ const copy = {
     retry: 'Try again',
     invalid: 'This demo session is invalid or has expired.',
     unavailable: 'The connection is temporarily unavailable. Please try again.',
-    busy: 'This product has just been sold or reserved, so it cannot be reserved now.',
+    busy: 'This product has just been sold or reserved, so it is no longer available.',
     home: 'Back to qr2buy'
   }
 };

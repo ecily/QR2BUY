@@ -176,8 +176,8 @@ test("keeps the mobile buyer journey direct, truthful and linked to the physical
     "The sales display now shows your reservation too.",
     "Die Verbindung ist gerade unterbrochen. Bitte versuche es noch einmal.",
     "The connection is temporarily unavailable. Please try again.",
-    "Dieses Produkt wurde gerade verkauft oder reserviert.",
-    "This product has just been sold or reserved",
+    "Dieses Produkt wurde gerade verkauft oder reserviert. Es ist deshalb nicht mehr verfügbar.",
+    "This product has just been sold or reserved, so it is no longer available.",
     "Kauf abgebrochen. Es wurde nichts belastet.",
     "Purchase cancelled. Nothing was charged."
   ]) assert.ok(page.includes(phrase), `missing buyer journey copy: ${phrase}`);
