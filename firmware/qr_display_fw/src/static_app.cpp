@@ -294,6 +294,28 @@ static void drawScanStatus(int16_t x, int16_t y) {
                  COLOR_PAPER, COLOR_PINE_DARK);
 }
 
+static void drawCancelledStatus(int16_t x, int16_t y) {
+  static const int16_t FOOTER_TOP = 225;
+  const int16_t clearX = x - 5;
+  const int16_t blockY = y + 2;
+  const int16_t blockWidth = 150;
+  const int16_t blockHeight = 98;
+
+  tft.fillRect(clearX, y, tft.width() - clearX, FOOTER_TOP - y, COLOR_WARM);
+  tft.fillRoundRect(x, blockY, blockWidth, blockHeight, 8, COLOR_CANCELLED_BG);
+  drawCenteredAt("ZAHLUNG NICHT", x + blockWidth / 2, blockY + 14, 2,
+                 COLOR_CANCELLED_FG, COLOR_CANCELLED_BG);
+  drawCenteredAt("ABGESCHLOSSEN", x + blockWidth / 2, blockY + 33, 2,
+                 COLOR_CANCELLED_FG, COLOR_CANCELLED_BG);
+  tft.drawFastHLine(x + 18, blockY + 47, blockWidth - 36, COLOR_CANCELLED_FG);
+  drawCenteredAt("NICHTS ABGEBUCHT", x + blockWidth / 2, blockY + 61, 1,
+                 COLOR_CANCELLED_FG, COLOR_CANCELLED_BG);
+  drawCenteredAt("AM HANDY ERNEUT", x + blockWidth / 2, blockY + 77, 1,
+                 COLOR_CANCELLED_FG, COLOR_CANCELLED_BG);
+  drawCenteredAt("VERSUCHEN", x + blockWidth / 2, blockY + 90, 1,
+                 COLOR_CANCELLED_FG, COLOR_CANCELLED_BG);
+}
+
 static void drawWrappedProductName(const String& text, int16_t x, int16_t y,
                                    int16_t maxWidth, uint16_t background) {
   String firstLine = text;
@@ -469,6 +491,8 @@ static void drawProductScreen(const ConfigPayload& config) {
   tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4);
   if (scanInteractionVisible(config)) {
     drawScanStatus(CONTENT_X, 122);
+  } else if (config.status == "CANCELLED") {
+    drawCancelledStatus(CONTENT_X, 122);
   } else {
     drawStatusPill(config.status, CONTENT_X, 129);
     tft.setTextColor(COLOR_MUTED, COLOR_WARM);

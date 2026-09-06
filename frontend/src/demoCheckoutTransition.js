@@ -15,3 +15,13 @@ export async function prepareStripeRedirect({ writeText, createCheckout }) {
   if (!copied) return { copied: false, checkout: null };
   return { copied: true, checkout: await createCheckout() };
 }
+
+export async function redirectOrCancelCheckout({ url, navigate, cancelCheckout }) {
+  try {
+    navigate(url);
+    return 'redirected';
+  } catch {
+    await cancelCheckout();
+    return 'cancelled';
+  }
+}

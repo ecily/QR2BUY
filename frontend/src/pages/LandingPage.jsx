@@ -63,6 +63,9 @@ const copy = {
     displayPaidMessage: "Danke! Viel Freude mit deinem Produkt.",
     displayReservedTitle: "Für dich reserviert",
     displayReservedMessage: "Zur Abholung vorgemerkt.",
+    displayCancelledLabel: "NICHT ABGESCHLOSSEN",
+    displayCancelledTitle: "Zahlung nicht abgeschlossen",
+    displayCancelledMessage: "Nichts abgebucht. Am Smartphone erneut versuchen.",
     displaySoldLabel: "VERKAUFT",
     displaySoldTitle: "Diese Tanne wurde schon verkauft.",
     displaySoldMore: "Wir haben aber noch andere für dich.",
@@ -163,6 +166,9 @@ const copy = {
     displayPaidMessage: "Thank you! Enjoy your product.",
     displayReservedTitle: "Reserved for you",
     displayReservedMessage: "Set aside for collection.",
+    displayCancelledLabel: "NOT COMPLETED",
+    displayCancelledTitle: "Payment not completed",
+    displayCancelledMessage: "Nothing was charged. Try again on your phone.",
     displaySoldLabel: "SOLD",
     displaySoldTitle: "This tree has already been sold.",
     displaySoldMore: "We still have others for you.",
@@ -426,13 +432,14 @@ function ResetCountdown({ resetAt, t }) {
 function HardwareDisplayConfirmation({ mode, title, unique, t }) {
   const paid = mode === "paid";
   const sold = mode === "sold";
+  const cancelled = mode === "cancelled";
   const permanentlyReserved = mode === "reserved" && unique;
   return <div className={`hardware-display-confirmation hardware-display-confirmation--${mode}`} role="status" aria-live="polite" aria-atomic="true">
-    <span className="hardware-display-confirmation__icon" aria-hidden="true">{sold ? "×" : "✓"}</span>
-    <span className="hardware-display-confirmation__state">{sold ? t.displaySoldLabel : permanentlyReserved ? t.displayTreeReservedLabel : ""}</span>
-    <strong>{sold ? t.displaySoldTitle : permanentlyReserved ? t.displayTreeReservedTitle : paid ? t.displayPaidTitle : t.displayReservedTitle}</strong>
+    <span className="hardware-display-confirmation__icon" aria-hidden="true">{sold ? "×" : cancelled ? "!" : "✓"}</span>
+    <span className="hardware-display-confirmation__state">{sold ? t.displaySoldLabel : cancelled ? t.displayCancelledLabel : permanentlyReserved ? t.displayTreeReservedLabel : ""}</span>
+    <strong>{sold ? t.displaySoldTitle : cancelled ? t.displayCancelledTitle : permanentlyReserved ? t.displayTreeReservedTitle : paid ? t.displayPaidTitle : t.displayReservedTitle}</strong>
     <span className="hardware-display-confirmation__product">{title}</span>
-    {sold ? <><p>{t.displaySoldMore}</p><p>{t.displaySoldWish}</p></> : <p>{permanentlyReserved ? t.displayTreeReservedMore : paid ? t.displayPaidMessage : t.displayReservedMessage}</p>}
+    {sold ? <><p>{t.displaySoldMore}</p><p>{t.displaySoldWish}</p></> : <p>{cancelled ? t.displayCancelledMessage : permanentlyReserved ? t.displayTreeReservedMore : paid ? t.displayPaidMessage : t.displayReservedMessage}</p>}
   </div>;
 }
 

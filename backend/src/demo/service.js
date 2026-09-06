@@ -7,7 +7,9 @@ import { buildDemoMail, createDemoMailTransport, maskDemoEmail, validDemoEmail }
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
 const RESET_MS = 20_000;
-const CHECKOUT_TIMEOUT_MS = 15 * 60 * 1000;
+// Stripe accepts explicit expiries from 30 minutes; one minute of headroom avoids clock/transport skew.
+const STRIPE_CHECKOUT_TTL_MS = 31 * 60 * 1000;
+const CHECKOUT_TIMEOUT_MS = 32 * 60 * 1000;
 export const SCAN_INTERACTION_TTL_MS = 120_000;
 
 export class DemoError extends Error {
@@ -253,8 +255,10 @@ export function createDemoService({
       if (!claimed) throw new DemoError('product_busy', 409);
       await publish(tokenHash, claimed);
 
+      let stripe = null;
+      let checkout = null;
       try {
-        const stripe = stripeClientFactory();
+        stripe = stripeClientFactory();
         const origin = publicBaseUrl(baseUrl, requirePublicHttps);
         const returnPath = `/demo/p/${encodeURIComponent(productKey)}`;
         const checkoutLocale = locale === 'en' ? 'en' : 'de';
@@ -264,9 +268,10 @@ export function createDemoService({
         const addressNotice = checkoutLocale === 'en'
           ? 'Use fictional test details for name and shipping address.'
           : 'Für Name und Lieferadresse bitte frei erfundene Testdaten verwenden.';
-        const checkout = await stripe.checkout.sessions.create({
+        checkout = await stripe.checkout.sessions.create({
           mode: 'payment',
           locale: checkoutLocale,
+          expires_at: Math.floor((changedAt.getTime() + STRIPE_CHECKOUT_TTL_MS) / 1000),
           success_url: `${origin}${returnPath}?checkout=return`,
           cancel_url: `${origin}${returnPath}?checkout=cancelled`,
           payment_method_types: ['card'],
@@ -304,6 +309,7 @@ export function createDemoService({
             demoLocale: checkoutLocale
           }
         });
+        if (!checkout?.id || !checkout?.url) throw new Error('checkout session incomplete');
 
         const attached = await repository.attachCheckout(
           tokenHash,
@@ -316,19 +322,50 @@ export function createDemoService({
         await publish(tokenHash, attached);
         return { ok: true, url: checkout.url };
       } catch (error) {
-        const rolledBack = await repository.rollbackCheckout(tokenHash, productKey, operationId, now());
-        if (rolledBack) await publish(tokenHash, rolledBack);
+        let safeToRetry = !checkout?.id;
+        if (checkout?.id) {
+          try {
+            const expired = await stripe.checkout.sessions.expire(checkout.id);
+            safeToRetry = expired?.status === 'expired';
+          } catch {
+            safeToRetry = false;
+          }
+        }
+        if (safeToRetry) {
+          const rolledBack = await repository.rollbackCheckout(tokenHash, productKey, operationId, now());
+          if (rolledBack) await publish(tokenHash, rolledBack);
+        }
         if (error instanceof DemoError) throw error;
+        if (!safeToRetry) throw new DemoError('checkout_status_unknown', 503);
         throw new DemoError('checkout_unavailable', 503);
       }
     },
 
     async cancelCheckout(token, productKey) {
       if (!getDemoProduct(productKey)) throw new DemoError('product_not_found', 404);
-      const { tokenHash } = await requireSession(token);
+      const { tokenHash, session: currentSession } = await requireSession(token);
+      const currentProduct = productState(currentSession, productKey);
+      if (currentProduct?.status !== DEMO_STATUS.CHECKOUT_STARTED) {
+        return serializeSnapshot(currentSession, now());
+      }
+      if (!currentProduct.checkoutSessionId) throw new DemoError('checkout_status_unknown', 503);
+
+      try {
+        const expired = await stripeClientFactory().checkout.sessions.expire(currentProduct.checkoutSessionId);
+        if (expired?.status !== 'expired') throw new Error('checkout session not expired');
+      } catch {
+        throw new DemoError('checkout_status_unknown', 503);
+      }
+
       const changedAt = now();
       const resetAt = new Date(changedAt.getTime() + RESET_MS);
-      const session = await repository.cancel(tokenHash, productKey, changedAt, resetAt);
+      const session = await repository.cancel(
+        tokenHash,
+        productKey,
+        currentProduct.checkoutSessionId,
+        changedAt,
+        resetAt
+      );
       if (!session) {
         const current = await requireSession(token);
         return serializeSnapshot(current.session, now());

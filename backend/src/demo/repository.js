@@ -163,14 +163,15 @@ export function createMongooseDemoRepository() {
       );
     },
 
-    cancel(tokenHash, productKey, now, resetAt) {
+    cancel(tokenHash, productKey, checkoutSessionId, now, resetAt) {
       return DemoSession.findOneAndUpdate(
         {
           tokenHash,
           products: {
             $elemMatch: {
               productKey,
-              status: DEMO_STATUS.CHECKOUT_STARTED
+              status: DEMO_STATUS.CHECKOUT_STARTED,
+              checkoutSessionId
             }
           }
         },

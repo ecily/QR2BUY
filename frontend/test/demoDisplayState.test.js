@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { copyStripeTestCard, prepareStripeRedirect, STRIPE_TEST_CARD } from "../src/demoCheckoutTransition.js";
+import { copyStripeTestCard, prepareStripeRedirect, redirectOrCancelCheckout, STRIPE_TEST_CARD } from "../src/demoCheckoutTransition.js";
 import { blocksDemoActions, getHardwareDisplayMode } from "../src/demoDisplayState.js";
 
 test("keeps the regular product display for ready and checkout states", () => {
   assert.equal(getHardwareDisplayMode("READY"), "product");
   assert.equal(getHardwareDisplayMode("CHECKOUT_STARTED"), "product");
-  assert.equal(getHardwareDisplayMode("CANCELLED"), "product");
+  assert.equal(getHardwareDisplayMode("CANCELLED"), "cancelled");
 });
 
 test("shows scan presence only below every commerce priority", () => {
@@ -147,12 +147,35 @@ test("keeps checkout closed and exposes a manual fallback when clipboard access 
   assert.ok(page.includes("Done. Your test purchase is confirmed."));
 });
 
+test("cancels the server checkout before exposing retry when browser navigation fails", async () => {
+  const calls = [];
+  const result = await redirectOrCancelCheckout({
+    url: "https://checkout.stripe.test/session",
+    navigate: () => { calls.push("navigate"); throw new Error("navigation failed"); },
+    cancelCheckout: async () => calls.push("cancel")
+  });
+  assert.equal(result, "cancelled");
+  assert.deepEqual(calls, ["navigate", "cancel"]);
+
+  const successCalls = [];
+  assert.equal(await redirectOrCancelCheckout({
+    url: "https://checkout.stripe.test/session",
+    navigate: () => successCalls.push("navigate"),
+    cancelCheckout: async () => successCalls.push("cancel")
+  }), "redirected");
+  assert.deepEqual(successCalls, ["navigate"]);
+});
+
 test("handles mobile Stripe return and cancellation through the session state", async () => {
   const page = await readFile(new URL("../src/pages/DemoProductPage.jsx", import.meta.url), "utf8");
   assert.match(page, /checkoutReturn === 'return' \? 1500 : 3000/);
   assert.match(page, /checkoutReturn !== 'cancelled'/);
   assert.match(page, /cancelDemoCheckout\(token, productKey\)/);
-  assert.match(page, /checkoutReturn === 'return' && status === 'CHECKOUT_STARTED'/);
+  assert.match(page, /status === 'CHECKOUT_STARTED'/);
+  assert.match(page, /checkoutReturn !== 'return'/);
+  assert.match(page, /status === 'CANCELLED'/);
+  assert.match(page, /t\.paymentCheckingTitle/);
+  assert.match(page, /t\.cancelledTitle/);
   assert.match(page, /status === 'PAID' \?/);
   assert.match(page, /new EventSource\(`\/api\/demo\/sessions\/\$\{encodeURIComponent\(token\)\}\/events`\)/);
 });
@@ -180,12 +203,22 @@ test("keeps the mobile buyer journey direct, truthful and linked to the physical
     "This product has just been sold or reserved, so it is no longer available.",
     "Kauf abgebrochen. Es wurde nichts belastet.",
     "Purchase cancelled. Nothing was charged."
+    ,"Der sichere Zahlungsbereich konnte gerade nicht geladen werden."
+    ,"The secure payment area could not be loaded right now."
+    ,"Zahlung wird geprüft"
+    ,"Payment is being checked"
+    ,"Erneut kaufen"
+    ,"Buy again"
   ]) assert.ok(page.includes(phrase), `missing buyer journey copy: ${phrase}`);
 
   assert.match(page, /demo-purchase-summary[\s\S]*\{t\.purchaseLabel\}[\s\S]*\{name\}[\s\S]*\{price\}/);
   assert.match(page, /status === 'PAID'[\s\S]*demo-hardware-confirmation/);
   assert.match(page, /status === 'RESERVED'[\s\S]*demo-hardware-confirmation/);
   assert.match(page, /onClick=\{reserve\}/);
+  assert.match(page, /status === 'CANCELLED'/);
+  assert.match(page, /status === 'CHECKOUT_STARTED'/);
+  assert.match(page, /onClick=\{safelyCancelCheckout\}/);
+  assert.match(page, /checkoutFailure &&/);
   assert.doesNotMatch(page, /<input|telephone|Telefonnummer/i);
   assert.match(css, /\.demo-purchase-summary\s*\{[^}]*grid-template-columns:\s*1fr auto/);
   assert.match(css, /@media \(max-width: 430px\)[\s\S]*\.demo-commerce-actions\s*\{[^}]*margin-top:\s*13px/);

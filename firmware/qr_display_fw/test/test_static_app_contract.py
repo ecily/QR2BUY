@@ -183,6 +183,22 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("left.interactionState == right.interactionState", SOURCE)
         self.assertIn("drawStatusPill(config.status", product_screen)
 
+    def test_cancelled_checkout_has_a_clear_safe_retry_overlay(self):
+        overlay = SOURCE[SOURCE.index("static void drawCancelledStatus"):SOURCE.index("static void drawWrappedProductName")]
+        self.assertIn('drawCenteredAt("ZAHLUNG NICHT"', overlay)
+        self.assertIn('drawCenteredAt("ABGESCHLOSSEN"', overlay)
+        self.assertIn('drawCenteredAt("NICHTS ABGEBUCHT"', overlay)
+        self.assertIn('drawCenteredAt("AM HANDY ERNEUT"', overlay)
+        self.assertIn('drawCenteredAt("VERSUCHEN"', overlay)
+        self.assertIn("tft.fillRect(clearX, y, tft.width() - clearX, FOOTER_TOP - y, COLOR_WARM)", overlay)
+        product_screen = SOURCE[SOURCE.index("static void drawProductScreen"):SOURCE.index("static void drawTerminalScreen")]
+        self.assertIn('config.status == "CANCELLED"', product_screen)
+        self.assertIn("drawCancelledStatus(CONTENT_X, 122)", product_screen)
+        self.assertLess(product_screen.index("drawCancelledStatus(CONTENT_X, 122)"), product_screen.index("drawConnectionFooter"))
+        self.assertIn('return status == "READY" || status == "CHECKOUT_STARTED" || status == "CANCELLED"', SOURCE)
+        self.assertIn('if (config.status == "PAID") return "PAID"', SOURCE)
+        self.assertIn('if (config.status == "SOLD") return "SOLD"', SOURCE)
+
     def test_scan_diagnostics_are_compact_and_secret_safe(self):
         self.assertIn("interactionFieldPresent", SOURCE)
         self.assertIn("interactionParsedScanned", SOURCE)

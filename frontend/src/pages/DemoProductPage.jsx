@@ -7,7 +7,7 @@ import {
   reportDemoProductInteraction,
   reserveDemoProduct
 } from '../api.js';
-import { copyStripeTestCard, prepareStripeRedirect } from '../demoCheckoutTransition.js';
+import { copyStripeTestCard, prepareStripeRedirect, redirectOrCancelCheckout } from '../demoCheckoutTransition.js';
 import { blocksDemoActions } from '../demoDisplayState.js';
 import { reportDemoScanOnce } from '../demoScanInteraction.js';
 import BrandLogo from '../components/BrandLogo.jsx';
@@ -70,6 +70,14 @@ const copy = {
     treeReservedMore: 'Andere Demo-Produkte sind weiterhin verfügbar.',
     chooseAnother: 'Zur Demo und Produktauswahl',
     cancelled: 'Kauf abgebrochen. Es wurde nichts belastet. Du kannst den Test erneut starten.',
+    cancelledTitle: 'Zahlung nicht abgeschlossen',
+    cancelledText: 'Es wurde nichts abgebucht. Du kannst den Kauf einfach erneut starten.',
+    retryPurchase: 'Erneut kaufen',
+    checkoutUnavailableTitle: 'Der sichere Zahlungsbereich konnte gerade nicht geladen werden.',
+    checkoutUnavailableText: 'Es wurde nichts abgebucht. Du kannst es einfach erneut versuchen.',
+    paymentCheckingTitle: 'Zahlung wird geprüft',
+    paymentCheckingText: 'Wir warten auf die sichere Bestätigung von Stripe. Solange ist kein neuer Kauf möglich.',
+    checkoutNotOpened: 'Zahlungsbereich nicht geöffnet? Sicher abbrechen',
     retry: 'Erneut versuchen',
     invalid: 'Diese Demo-Session ist ungültig oder abgelaufen.',
     unavailable: 'Die Verbindung ist gerade unterbrochen. Bitte versuche es noch einmal.',
@@ -133,6 +141,14 @@ const copy = {
     treeReservedMore: 'Other demo products are still available.',
     chooseAnother: 'Back to demo and product selection',
     cancelled: 'Purchase cancelled. Nothing was charged. You can start the test again.',
+    cancelledTitle: 'Payment not completed',
+    cancelledText: 'Nothing was charged. You can simply start the purchase again.',
+    retryPurchase: 'Buy again',
+    checkoutUnavailableTitle: 'The secure payment area could not be loaded right now.',
+    checkoutUnavailableText: 'Nothing was charged. You can simply try again.',
+    paymentCheckingTitle: 'Payment is being checked',
+    paymentCheckingText: 'We are waiting for secure confirmation from Stripe. A new purchase is blocked until then.',
+    checkoutNotOpened: 'Payment area did not open? Cancel safely',
     retry: 'Try again',
     invalid: 'This demo session is invalid or has expired.',
     unavailable: 'The connection is temporarily unavailable. Please try again.',
@@ -171,6 +187,7 @@ export default function DemoProductPage() {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [clipboardStatus, setClipboardStatus] = useState('idle');
+  const [checkoutFailure, setCheckoutFailure] = useState(false);
   const [seconds, setSeconds] = useState(20);
   const cancelSent = useRef(false);
   const t = copy[lang];
@@ -251,10 +268,19 @@ export default function DemoProductPage() {
 
   async function openCheckout() {
     if (busy) return;
-    setBusy(true); setError('');
+    setBusy(true); setError(''); setCheckoutFailure(false);
+    let result;
     try {
-      const result = await createDemoCheckout(token, productKey, lang);
-      window.location.assign(result.url);
+      result = await createDemoCheckout(token, productKey, lang);
+    } catch {
+      setCheckoutFailure(true); setBusy(false); return;
+    }
+    try {
+      await redirectOrCancelCheckout({
+        url: result.url,
+        navigate: (url) => window.location.assign(url),
+        cancelCheckout: cancelStartedCheckout
+      });
     } catch (requestError) { setError(friendlyError(requestError, t)); setBusy(false); }
   }
 
@@ -269,9 +295,10 @@ export default function DemoProductPage() {
 
   async function copyAndOpenCheckout() {
     if (busy) return;
-    setBusy(true); setError(''); setClipboardStatus('idle');
+    setBusy(true); setError(''); setCheckoutFailure(false); setClipboardStatus('idle');
+    let result;
     try {
-      const result = await prepareStripeRedirect({
+      result = await prepareStripeRedirect({
         writeText: navigator.clipboard?.writeText ? (value) => navigator.clipboard.writeText(value) : null,
         createCheckout: () => createDemoCheckout(token, productKey, lang)
       });
@@ -280,10 +307,39 @@ export default function DemoProductPage() {
         setBusy(false);
         return;
       }
-      setClipboardStatus('success');
-      window.location.assign(result.checkout.url);
+    } catch {
+      setCheckoutFailure(true);
+      setBusy(false);
+      return;
+    }
+    setClipboardStatus('success');
+    try {
+      await redirectOrCancelCheckout({
+        url: result.checkout.url,
+        navigate: (url) => window.location.assign(url),
+        cancelCheckout: cancelStartedCheckout
+      });
     } catch (requestError) {
       setError(friendlyError(requestError, t));
+      setBusy(false);
+    }
+  }
+
+  async function cancelStartedCheckout() {
+    const snapshot = await cancelDemoCheckout(token, productKey);
+    const state = snapshot.session.products.find((item) => item.productKey === productKey);
+    setData((current) => ({ ...current, state }));
+    setView('product');
+  }
+
+  async function safelyCancelCheckout() {
+    if (busy) return;
+    setBusy(true); setError('');
+    try {
+      await cancelStartedCheckout();
+    } catch (requestError) {
+      setError(friendlyError(requestError, t));
+    } finally {
       setBusy(false);
     }
   }
@@ -328,6 +384,12 @@ export default function DemoProductPage() {
         <dl><div><dt>{lang === 'de' ? 'Produkt' : 'Product'}</dt><dd>{name}</dd></div><div><dt>{lang === 'de' ? 'Status' : 'Status'}</dt><dd>{t.reservationStatus}</dd></div></dl>
         <p className="demo-hardware-confirmation">{t.reservationHardware}</p>
         {resetAt && <p className="demo-reset-note">{t.reset.replace('{seconds}', seconds)}</p>}<Link to="/#demo">{t.chooseAnother}</Link>
+      </div> : status === 'CANCELLED' ? <div className="demo-checkout-result demo-checkout-result--cancelled" role="status" aria-live="polite">
+        <h2>{t.cancelledTitle}</h2><p>{t.cancelledText}</p>
+        <button className="demo-commerce-button demo-commerce-button--primary" onClick={() => { setCheckoutFailure(false); setClipboardStatus('idle'); setView('checkout'); }}>{t.retryPurchase}</button>
+      </div> : status === 'CHECKOUT_STARTED' ? <div className="demo-checkout-result demo-checkout-result--pending" role="status" aria-live="polite">
+        <h2>{t.paymentCheckingTitle}</h2><p>{t.paymentCheckingText}</p>
+        {checkoutReturn !== 'return' && <button className="demo-commerce-button demo-commerce-button--secondary" onClick={safelyCancelCheckout} disabled={busy}>{busy ? t.loading : t.checkoutNotOpened}</button>}
       </div> : view === 'checkout' ? <div className="demo-checkout-notice">
         <span className="demo-sandbox-label">Stripe Sandbox</span><h2>{t.testTitle}</h2>
         <div className="demo-purchase-summary"><span>{t.purchaseLabel}</span><strong>{name}</strong><b>{price}</b></div>
@@ -336,13 +398,12 @@ export default function DemoProductPage() {
         <p className="demo-test-data">{t.testData}</p>
         <p className="demo-email-note">{t.emailOptional}</p>
         <p className={`demo-clipboard-status demo-clipboard-status--${clipboardStatus}`} role="status" aria-live="polite">{clipboardStatus === 'error' ? t.copyFailed : clipboardStatus === 'success' ? t.copySuccess : ''}</p>
+        {checkoutFailure && <div className="demo-checkout-start-error" role="alert"><strong>{t.checkoutUnavailableTitle}</strong><span>{t.checkoutUnavailableText}</span></div>}
         {clipboardStatus === 'error'
-          ? <button className="demo-commerce-button demo-commerce-button--primary" onClick={openCheckout} disabled={busy}>{busy ? t.loading : t.continueAfterCopy}</button>
-          : <button className="demo-commerce-button demo-commerce-button--primary" onClick={copyAndOpenCheckout} disabled={busy}>{busy ? t.loading : t.continue}</button>}
+          ? <button className="demo-commerce-button demo-commerce-button--primary" onClick={openCheckout} disabled={busy}>{busy ? t.loading : checkoutFailure ? t.retry : t.continueAfterCopy}</button>
+          : <button className="demo-commerce-button demo-commerce-button--primary" onClick={copyAndOpenCheckout} disabled={busy}>{busy ? t.loading : checkoutFailure ? t.retry : t.continue}</button>}
         <button className="demo-commerce-button demo-commerce-button--text" onClick={() => setView('product')} disabled={busy}>{t.back}</button>
       </div> : <div className="demo-commerce-actions">
-        {checkoutReturn === 'return' && status === 'CHECKOUT_STARTED' && <p className="demo-waiting" role="status" aria-live="polite">{t.waiting}</p>}
-        {checkoutReturn === 'cancelled' && <p className="demo-cancelled" role="status">{t.cancelled}</p>}
         <p className="demo-decision-lead">{t.decisionLead}</p>
         <button className="demo-commerce-button demo-commerce-button--primary demo-commerce-button--stacked" onClick={() => { setClipboardStatus('idle'); setView('checkout'); }} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}><strong>{checkoutReturn === 'cancelled' ? t.retry : t.buy}</strong><small>{t.buyHint}</small></button>
         <button className="demo-commerce-button demo-commerce-button--secondary demo-commerce-button--stacked" onClick={reserve} disabled={busy || status === 'CHECKOUT_STARTED' || blocksDemoActions(status)}><strong>{t.reserve}</strong><small>{t.reserveHint}</small></button>

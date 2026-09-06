@@ -105,10 +105,10 @@ function fakeRepository() {
       });
       return clone(session);
     },
-    async cancel(tokenHash, key, now, resetAt) {
+    async cancel(tokenHash, key, checkoutSessionId, now, resetAt) {
       const session = byHash(tokenHash);
       const product = state(session, key);
-      if (!product || product.status !== 'CHECKOUT_STARTED') return null;
+      if (!product || product.status !== 'CHECKOUT_STARTED' || product.checkoutSessionId !== checkoutSessionId) return null;
       Object.assign(product, {
         status: 'CANCELLED', lastScannedAt: null, interactionExpiresAt: null,
         changedAt: now, resetAt, eventVersion: product.eventVersion + 1
@@ -147,7 +147,7 @@ function fakeRepository() {
   };
 }
 
-function harness({ tokens = ['A'.repeat(43), 'B'.repeat(43)], stripeFailure = false, email = null, mailFailure = false, requirePublicHttps = false } = {}) {
+function harness({ tokens = ['A'.repeat(43), 'B'.repeat(43)], stripeFailure = false, stripeExpireFailure = false, attachFailure = false, email = null, mailFailure = false, requirePublicHttps = false } = {}) {
   const repository = fakeRepository();
   let clock = new Date('2026-09-01T12:00:00.000Z');
   let stripeNumber = 0;
@@ -156,7 +156,10 @@ function harness({ tokens = ['A'.repeat(43), 'B'.repeat(43)], stripeFailure = fa
   const checkoutSessions = new Map();
   const mailTransport = createMemoryDemoMailTransport({ fail: mailFailure });
   const service = createDemoService({
-    repository,
+    repository: {
+      ...repository,
+      attachCheckout: attachFailure ? async () => null : repository.attachCheckout
+    },
     now: () => new Date(clock),
     tokenFactory: () => tokens.shift(),
     schedule: () => {},
@@ -176,6 +179,14 @@ function harness({ tokens = ['A'.repeat(43), 'B'.repeat(43)], stripeFailure = fa
             checkoutSessions.set(checkout.id, checkout);
             return checkout;
           },
+          async expire(id) {
+            if (stripeExpireFailure) throw new Error('Stripe status unavailable');
+            const checkout = checkoutSessions.get(id);
+            if (!checkout) throw new Error('missing checkout');
+            checkout.status = 'expired';
+            checkout.url = null;
+            return clone(checkout);
+          },
           async retrieve(id) {
             const checkout = checkoutSessions.get(id);
             if (!checkout) throw new Error('missing checkout');
@@ -188,7 +199,7 @@ function harness({ tokens = ['A'.repeat(43), 'B'.repeat(43)], stripeFailure = fa
     requirePublicHttps
   });
   return {
-    repository, service, stripeCalls, broadcasts, mailTransport,
+    repository, service, stripeCalls, broadcasts, mailTransport, checkoutSessions,
     setClock(value) { clock = new Date(value); }
   };
 }
@@ -409,6 +420,7 @@ test('creates demo checkout from the server catalog price and metadata', async (
   assert.match(stripeCalls[0].line_items[0].price_data.product_data.description, /^qr2buy Live-Demo/);
   assert.match(stripeCalls[0].custom_text.submit.message, /4242 4242 4242 4242/);
   assert.match(stripeCalls[0].success_url, /\?checkout=return$/);
+  assert.equal(stripeCalls[0].expires_at, Math.floor(new Date('2026-09-01T12:31:00.000Z').getTime() / 1000));
   assert.doesNotMatch(stripeCalls[0].success_url, /\?session=/);
   assert.doesNotMatch(stripeCalls[0].success_url, /#session=/);
 });
@@ -480,11 +492,13 @@ test('does not apply a webhook to the wrong demo session or product', async () =
   assert.equal((await service.getProduct(created.token, 'tree')).state.status, 'READY');
 });
 
-test('ignores a delayed paid retry after the checkout claim has timed out', async () => {
+test('keeps payment pending until the Stripe session has safely expired', async () => {
   const { service, setClock } = harness();
   const created = await service.createSession();
   await service.startCheckout(created.token, 'bag', 'https://qr2buy.com');
   setClock('2026-09-01T12:16:00.000Z');
+  assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'CHECKOUT_STARTED');
+  setClock('2026-09-01T12:32:00.001Z');
   assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'READY');
   assert.equal((await service.processWebhookEvent(paidEvent({ id: 'evt_delayed' }))).duplicate, true);
   assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'READY');
@@ -625,7 +639,44 @@ test('handles checkout failure, cancellation, invalid session and duplicate acti
   const session = await normal.service.createSession();
   await normal.service.startCheckout(session.token, 'tree', 'https://qr2buy.com');
   assert.equal((await normal.service.cancelCheckout(session.token, 'tree')).session.products.find((item) => item.productKey === 'tree').status, 'CANCELLED');
+  assert.equal(normal.checkoutSessions.get('cs_test_1').status, 'expired');
   await assert.rejects(normal.service.getSnapshot('not-a-token'), (error) => error.code === 'invalid_session');
   await normal.service.reserve(session.token, 'book');
   await assert.rejects(normal.service.reserve(session.token, 'book'), (error) => error.code === 'product_busy');
+});
+
+test('keeps CHECKOUT_STARTED and blocks retry when Stripe cancellation is uncertain', async () => {
+  const { service } = harness({ stripeExpireFailure: true });
+  const created = await service.createSession();
+  await service.startCheckout(created.token, 'bag', 'https://qr2buy.com');
+  await assert.rejects(
+    service.cancelCheckout(created.token, 'bag'),
+    (error) => error.code === 'checkout_status_unknown'
+  );
+  assert.equal((await service.getProduct(created.token, 'bag')).state.status, 'CHECKOUT_STARTED');
+  await assert.rejects(
+    service.startCheckout(created.token, 'bag', 'https://qr2buy.com'),
+    (error) => error.code === 'product_busy'
+  );
+});
+
+test('expires an unattached Stripe session before rolling back to a safe retry state', async () => {
+  const { service, checkoutSessions } = harness({ attachFailure: true });
+  const created = await service.createSession();
+  await assert.rejects(
+    service.startCheckout(created.token, 'book', 'https://qr2buy.com'),
+    (error) => error.code === 'checkout_unavailable'
+  );
+  assert.equal(checkoutSessions.get('cs_test_1').status, 'expired');
+  assert.equal((await service.getProduct(created.token, 'book')).state.status, 'READY');
+});
+
+test('does not roll back when an unattached Stripe session cannot be invalidated', async () => {
+  const { service } = harness({ attachFailure: true, stripeExpireFailure: true });
+  const created = await service.createSession();
+  await assert.rejects(
+    service.startCheckout(created.token, 'book', 'https://qr2buy.com'),
+    (error) => error.code === 'checkout_status_unknown'
+  );
+  assert.equal((await service.getProduct(created.token, 'book')).state.status, 'CHECKOUT_STARTED');
 });
