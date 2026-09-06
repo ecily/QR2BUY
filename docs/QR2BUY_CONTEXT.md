@@ -268,10 +268,19 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Technisch live bestätigt: `READY → SCANNED → RESERVED → READY`, abgewiesene Doppelreservierung mit HTTP 409 sowie `READY → SCANNED → CHECKOUT_STARTED → CANCELLED → READY`; es wurde keine Zahlung ausgeführt.
 - Mangels steuerbarer Browser-Sitzung bleiben die visuelle Viewport-Abnahme bei 320/375/390/430 Pixeln und ein interaktiver Stripe-Sandbox-Checkout bis `PAID` manuell offen.
 
+## Verifizierter Checkout-Fehler- und Retrystand vom 6. September 2026
+
+- Der funktionale Fix-Commit `19ab483` ist auf `origin/main` und im DigitalOcean-Rollout für Backend und Frontend `ACTIVE`; `/`, `/de`, `/en` und `/api/health` liefern HTTP 200. Das produktive Bundle enthält die DE/EN-Zustände für Startfehler, laufende Zahlungsprüfung und bestätigten Abbruch.
+- Die reale Fehlerspur ist eingegrenzt: `tree`-Checkout HTTP 201 in 483 ms, gültige Stripe-Testsession mit URL, `open`, `unpaid`, `livemode=false`, kein Cancel und kein Webhook. Der Checkout-Link war per `curl` mit HTTP 200 erreichbar; ein .NET-TLS-Transport schlug beim selben Link fehl. Ein konkreter Browserfehler ist mangels Client-Telemetrie nicht beweisbar, Backend- oder Stripe-Session-Erzeugung waren aber nicht die Ursache. Die identifizierte alte Testsession wurde anschließend als `expired/unpaid` entwertet.
+- Produktiv bestätigt ist `READY/SCANNED → CHECKOUT_STARTED → CANCELLED`, einschließlich Stripe `open/unpaid → expired/unpaid`, direktem Retry mit genau einer neuen Checkout-Session und erneutem sicheren Cancel. Neue Stripe-Sessions verwenden 31 Minuten Ablauf; qr2buy fällt erst nach 32 Minuten zurück. Bei nicht bestätigbarer Stripe-Entwertung bleibt `CHECKOUT_STARTED` ohne Retry bestehen.
+- Hardware-Config lieferte für das gebundene `demo-device` `CANCELLED` ohne Interaction-State und nach 20 Sekunden wieder `READY` mit erhöhter Event-Version. Die neue physische `CANCELLED`-Overlay-Darstellung ist gebaut, aber noch nicht auf den ESP32 geflasht oder real am TFT abgenommen.
+- Backend: 57/57 Tests, Syntaxprüfung und Demo-Router-Import-Smoke grün. Frontend: 42/42 Tests, ESLint und Produktionsbuild grün. Firmware: 20/20 Vertragsprüfungen und PlatformIO-Build grün; 48.060 Byte RAM (14,7 %) und 980.745 Byte Flash (74,8 %). `git diff --check` und Secretprüfung sind grün; produktive Logs enthalten keine Session-Token und im geprüften Rollout keine HTTP-500.
+- Ein neuer interaktiver Checkout bis `PAID` und die visuelle Mobile-/Frontpage-Abnahme bleiben mangels verfügbarer Browserinstanz manuell offen. Die frühere produktive Webhook-/PAID-Abnahme bleibt gültig, ersetzt aber nicht diesen erneuten visuellen Lauf.
+
 ## Offene Punkte
 
-1. Den produktiven P0.2-Teil-2-Mobile-Stand auf 320/375/390/430 Pixeln visuell manuell abnehmen und anschließend einen interaktiven Stripe-Sandbox-Testkauf bis zum webhookbestätigten `PAID`-Screen prüfen.
-2. Detaildarstellung der realen TFT-Zustände `RESERVED`, `PAID` und `SOLD` nacharbeiten und anschließend den kompletten physischen End-to-End-Ablauf erneut abnehmen.
+1. Den produktiven P0.2-Teil-2-Mobile- und Checkout-Fehlerstand auf 320/375/390/430 Pixeln visuell manuell abnehmen und anschließend einen interaktiven Stripe-Sandbox-Testkauf bis zum webhookbestätigten `PAID`-Screen prüfen.
+2. Die gebaute `CANCELLED`-Overlay-Firmware auf den ESP32 flashen und real abnehmen; danach die Detaildarstellung von `RESERVED`, `PAID` und `SOLD` nacharbeiten und den kompletten physischen End-to-End-Ablauf erneut prüfen.
 3. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
 4. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
 5. Backlight-Steuerung nur nach dokumentierter Verdrahtung an einen geeigneten GPIO ergänzen; aktuell keine Fake-PWM-Lösung.
