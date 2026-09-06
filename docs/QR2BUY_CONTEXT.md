@@ -1,6 +1,6 @@
 # qr2buy.com – operativer Projektkontext
 
-Stand: 5. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
+Stand: 6. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
 ## Verbindliche Arbeitsregeln
 
@@ -74,6 +74,14 @@ Der erste P0.2-Schritt ist seit dem 5. September 2026 produktiv; der funktionale
 Ein validierter QR-Aufruf meldet einmalig `POST /api/demo/sessions/:token/products/:productKey/interaction`. `DemoProductState` speichert dafür getrennt vom Commerce-Status `lastScannedAt` und `interactionExpiresAt`; das produktive Scanfenster beträgt 120 Sekunden. Wiederholungen im frischen Zeitfenster werden atomar ohne weitere DB-Schreibvorgänge, Broadcasts oder TTL-Verlängerung dedupliziert; das Frontend übernimmt dafür die vom Backend gelieferte Ablaufzeit und besitzt keine eigene Scan-TTL. Ungültige Session-Token und unbekannte Produkte erzeugen keinen Interaction-State; ein eigenes Rate-Limit schützt den Endpunkt. Der Session-Token bleibt in den bestehenden URL-Logs redigiert.
 
 Die Anzeigepriorität lautet `SOLD`/`PAID`/`RESERVED` vor `CHECKOUT_STARTED`, danach frischer Scan und danach `READY`; die Projektion zeigt `SCANNED` nur bei unverändertem Commerce-Status `READY`. Frontpage-Simulation und Hardware-Config nutzen dieselbe Projektion. Bei Checkout-Start, Reservierung, Abbruch, Zahlung, Verkauf und zeitgesteuertem Commerce-Reset werden die Interaction-Felder explizit gelöscht, sodass kein alter Scan nach einem Reset wieder erscheint. Die Firmware zeigt bei frischem Scan `SCAN ERKANNT` und `Bitte am Smartphone fortfahren`, behält Produktname, Preis, QR-Geometrie und LIVE-Footer und folgt ohne eigene Scan-TTL ausschließlich der Hardware-Config. Der kontrastreiche SCANNED-Overlay ist auf dem realen TFT bestätigt; produktiv bestätigt sind außerdem die getrennte `SCANNED`-/`READY`-Projektion und fortlaufende autorisierte Hardware-Abrufe mit HTTP 200.
+
+### P0.2 Teil 2 – Mobile Kauf-/Reservierungs-Journey
+
+Lokal verifiziert und noch nicht produktiv ausgerollt ist die finale Mobile-Hierarchie für 320 bis 430 Pixel: kompakte Produktvisualisierung, Demo-/Händlerkontext, Verfügbarkeit, prominenter Produktname und Preis, `Jetzt kaufen`, `Reservieren` und ein direkt an der Entscheidung sichtbarer Trust-Block. Die Seite bleibt die digitale Verlängerung genau des physischen Produkts und erhält weder Warenkorb, Shop-Navigation, Login noch Cross-Selling.
+
+Der Kaufpfad zeigt vor dem unveränderten Stripe-Sandbox-Checkout eine kompakte Zusammenfassung aus Produkt und Preis sowie die offizielle Testkarte; nur der bestehende serverseitig verifizierte Stripe-Webhook darf `PAID` setzen. Die Reservierung bleibt mit der vorhandenen Backendlogik ohne Formular oder neue Kundendatenarchitektur direkt: wiederverwendbare Produkte nennen die bestehende 20-Sekunden-Demodauer, das Einzelstück bleibt entsprechend der bestehenden Logik reserviert. `PAID` und `RESERVED` bestätigen Produkt, Status und die synchrone Reaktion des Verkaufsschilds; E-Mail-Zustellung wird nur bei tatsächlich bestätigtem Mailstatus behauptet.
+
+Abbruch, Nichtverfügbarkeit und Netzwerkfehler werden in DE/EN ohne technische Codes erklärt. Der Trust-Bereich nennt App-Freiheit, Stripe, Live-Schildbestätigung und den klar abgegrenzten Testmodus ohne echte Abbuchung. DemoSession, 120-Sekunden-SCAN-TTL, Statusprioritäten, SSE/Polling, Hardware-Config, Firmware, Reservierungslogik und Stripe-Webhooks bleiben unverändert.
 
 ## Stripe-Sandbox und Webhooks
 
@@ -240,16 +248,25 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Live bestätigt: `SCANNED` bleibt nach 30 und 60 Sekunden aktiv, fällt nach ungefähr 120 Sekunden auf `READY` zurück, wird sofort von `RESERVED` überschrieben und erscheint nach dem Reservierungs-Reset nicht erneut.
 - Die Firmware benötigt für die TTL-Änderung keinen erneuten Flash; sie zeigt `SCANNED`, solange die Backend-Projektion diesen Zustand liefert.
 
+## Lokal verifizierter P0.2-Teil-2-Teststand vom 6. September 2026
+
+- Backend unverändert: 54/54 Tests, Syntaxprüfung und Router-Import-Smoke grün
+- Frontend: 41/41 Tests, ESLint und Vite-Produktionsbuild grün
+- Firmware unverändert: 19/19 statische Vertragsprüfungen und PlatformIO-Build `esp32dev_spi_cs5_rst4_app` grün
+- Firmwaregröße unverändert: 48.060 Byte RAM von 327.680 (14,7 %), 980.437 Byte Flash von 1.310.720 (74,8 %)
+- `git diff --check` grün; keine Secrets, Secret-Zuweisungen oder unsicheren Token-/QR-Logs im Diff
+
 ## Offene Punkte
 
-1. Detaildarstellung der realen TFT-Zustände `RESERVED`, `PAID` und `SOLD` nacharbeiten und anschließend den kompletten physischen End-to-End-Ablauf erneut abnehmen.
-2. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
-3. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
-4. Backlight-Steuerung nur nach dokumentierter Verdrahtung an einen geeigneten GPIO ergänzen; aktuell keine Fake-PWM-Lösung.
-5. `GTS Root R4` beziehungsweise die reale Zertifikatskette bei künftigen Hosting-/Zertifikatsänderungen vor einem Firmware-Rollout prüfen.
-6. Optionale SMTP-Zustellung nur mit vollständiger TLS-Konfiguration und echtem Zustelltest aktivieren.
-7. Legacy-Admin-/Device-Pfade mit Basic Auth, optionaler Klartext-Geräteauthentifizierung, SSE/WS und Auto-Provisioning bleiben getrennte MVP-Schulden; die sichere Demo-Hardwarekopplung verwendet sie nicht.
-8. Wildcard-DNS und eine möglicherweise noch vorhandene ältere separate Frontend-App bei Gelegenheit aufräumen, ohne Mail-DNS zu verändern.
+1. Den lokal verifizierten P0.2-Teil-2-Mobile-Stand ausrollen und auf 320/375/390/430 Pixeln visuell manuell abnehmen.
+2. Detaildarstellung der realen TFT-Zustände `RESERVED`, `PAID` und `SOLD` nacharbeiten und anschließend den kompletten physischen End-to-End-Ablauf erneut abnehmen.
+3. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
+4. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
+5. Backlight-Steuerung nur nach dokumentierter Verdrahtung an einen geeigneten GPIO ergänzen; aktuell keine Fake-PWM-Lösung.
+6. `GTS Root R4` beziehungsweise die reale Zertifikatskette bei künftigen Hosting-/Zertifikatsänderungen vor einem Firmware-Rollout prüfen.
+7. Optionale SMTP-Zustellung nur mit vollständiger TLS-Konfiguration und echtem Zustelltest aktivieren.
+8. Legacy-Admin-/Device-Pfade mit Basic Auth, optionaler Klartext-Geräteauthentifizierung, SSE/WS und Auto-Provisioning bleiben getrennte MVP-Schulden; die sichere Demo-Hardwarekopplung verwendet sie nicht.
+9. Wildcard-DNS und eine möglicherweise noch vorhandene ältere separate Frontend-App bei Gelegenheit aufräumen, ohne Mail-DNS zu verändern.
 
 ## Historische Meilensteine
 

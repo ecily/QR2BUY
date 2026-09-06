@@ -42,8 +42,8 @@ test("contains the complete German and English demo safety contract", async () =
     "4242 4242 4242 4242",
     "Eine echte E-Mail-Adresse brauchst du nur, wenn du auch die Demo-Bestätigung erhalten möchtest",
     "You only need a real email address if you would also like to receive the demo confirmation",
-    "Testkarte kopieren & Stripe öffnen",
-    "Copy test card & open Stripe"
+    "Weiter zur sicheren Testzahlung",
+    "Continue to secure test payment"
   ]) assert.match(source, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
 });
 
@@ -143,8 +143,8 @@ test("keeps checkout closed and exposes a manual fallback when clipboard access 
   assert.match(page, /status === 'RESERVED'/);
   assert.ok(page.includes("Offizielle Stripe-Testkarte · garantiert keine Abbuchung"));
   assert.ok(page.includes("Official Stripe test card · guaranteed no charge"));
-  assert.ok(page.includes("Demo erfolgreich · 0 € abgebucht"));
-  assert.ok(page.includes("Demo successful · €0 charged"));
+  assert.ok(page.includes("Geschafft. Dein Testkauf ist bestätigt."));
+  assert.ok(page.includes("Done. Your test purchase is confirmed."));
 });
 
 test("handles mobile Stripe return and cancellation through the session state", async () => {
@@ -155,4 +155,38 @@ test("handles mobile Stripe return and cancellation through the session state", 
   assert.match(page, /checkoutReturn === 'return' && status === 'CHECKOUT_STARTED'/);
   assert.match(page, /status === 'PAID' \?/);
   assert.match(page, /new EventSource\(`\/api\/demo\/sessions\/\$\{encodeURIComponent\(token\)\}\/events`\)/);
+});
+
+test("keeps the mobile buyer journey direct, truthful and linked to the physical display", async () => {
+  const page = await readFile(new URL("../src/pages/DemoProductPage.jsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../src/App.css", import.meta.url), "utf8");
+
+  for (const phrase of [
+    "Genau dieses Produkt – direkt vom Verkaufsschild.",
+    "This exact product – directly from the sales display.",
+    "Du kaufst",
+    "You are buying",
+    "Zahlung im Stripe-Testmodus bestätigt",
+    "Payment confirmed in Stripe test mode",
+    "Schau auf das Verkaufsschild – es bestätigt deinen Testkauf jetzt ebenfalls.",
+    "Look at the sales display – it now confirms your test purchase too.",
+    "Für dich reserviert.",
+    "Reserved for you.",
+    "Das Verkaufsschild zeigt deine Reservierung jetzt ebenfalls an.",
+    "The sales display now shows your reservation too.",
+    "Die Verbindung ist gerade unterbrochen. Bitte versuche es noch einmal.",
+    "The connection is temporarily unavailable. Please try again.",
+    "Dieses Produkt wurde gerade verkauft oder reserviert.",
+    "This product has just been sold or reserved",
+    "Kauf abgebrochen. Es wurde nichts belastet.",
+    "Purchase cancelled. Nothing was charged."
+  ]) assert.ok(page.includes(phrase), `missing buyer journey copy: ${phrase}`);
+
+  assert.match(page, /demo-purchase-summary[\s\S]*\{t\.purchaseLabel\}[\s\S]*\{name\}[\s\S]*\{price\}/);
+  assert.match(page, /status === 'PAID'[\s\S]*demo-hardware-confirmation/);
+  assert.match(page, /status === 'RESERVED'[\s\S]*demo-hardware-confirmation/);
+  assert.match(page, /onClick=\{reserve\}/);
+  assert.doesNotMatch(page, /<input|telephone|Telefonnummer/i);
+  assert.match(css, /\.demo-purchase-summary\s*\{[^}]*grid-template-columns:\s*1fr auto/);
+  assert.match(css, /@media \(max-width: 430px\)[\s\S]*\.demo-commerce-actions\s*\{[^}]*margin-top:\s*13px/);
 });
