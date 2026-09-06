@@ -147,6 +147,22 @@ API-Vertrag:
 
 Bindings besitzen einen TTL-Index und laufen mit ihrer DemoSession ab. Das Session-Token wird im Binding ausschließlich AES-256-GCM-verschlüsselt gespeichert; der Schlüssel kommt nur aus ENV. Binding und Hardware-Polling besitzen getrennte Rate-Limits.
 
+## P0.3.1 Merchant-/Device-Fundament – lokal implementiert
+
+Neben der unveränderten öffentlichen `DemoSession`-Marketing-Demo existiert lokal eine eigenständige Merchant-Domain für das spätere echte Händlersystem. Die bisherigen normalen `Product`-/`Device`-Modelle bleiben als Legacy-Commerce-Pfad bestehen, weil sie Preis und Gerät historisch direkt 1:1 koppeln, Geräte optional unsicher auto-provisionieren und daher nicht als Grundlage der neuen Zuordnungs- und Angebotshistorie dienen.
+
+Die neue Domain trennt `Merchant`, `Location`, permanente `ManagedDevice`-Identität, `MerchantProduct`-Stammdaten und standortbezogene `Offer`-Verkaufsbedingungen. Geldbeträge liegen ohne binäre Fließkommawerte als ganzzahliges `priceMinor` in der kleinsten Währungseinheit am Offer, beispielsweise `2490` EUR-Cent für 24,90 EUR; `currency`, numerischer Bestand, Kauf-/Reservierbarkeit und Bedingungen gehören ebenfalls zum Offer. `inventorySource=QR2BUY|EXTERNAL` und eine optionale externe Referenz halten eine spätere, ausdrücklich noch nicht implementierte ERP-/Warenwirtschaftsanbindung offen.
+
+`DeviceMerchantAssignment` historisiert Händler-, Standort- und Nutzungszuordnung mit `INTERNAL`, `PILOT`, `RENTAL` oder `SOLD`; pro Device erzwingt ein partieller Unique-Index höchstens eine aktive Zuordnung. `DisplayAssignment` bildet `PENDING → ACTIVE → REPLACED|ENDED` ab. Ein Device darf höchstens ein aktives Offer zeigen, während ein Produkt auf mehreren Devices aktiv sein darf. Aktivierung verlangt eine Vor-Ort-Verifikationsmethode; reine Remote-Änderungen bleiben später auf Preis, Bestand, Kauf-/Reservierbarkeit und Bedingungen begrenzt. Händlerwechsel und aktive Displayablösung laufen transaktional und erhalten die Historie.
+
+Die zwei permanenten Prototypidentitäten sind für den kontrollierten Seed vorbereitet: `QR2B-000001` / `ESP32_ILI9341_CS5` / `Schild 1` und `QR2B-000002` / `ESP32_ILI9341_NOCS` / `Schild 2`. Ihre bekannten ESP32-MACs dienen ausschließlich als eindeutige Hardware-UID, nie als Authentifizierungssecret. Beide werden als `PILOT` demselben Demo-Händler und Standort zugeordnet. Drei getrennte Merchant-Produkte und Offers sind vorgesehen; Displayzuordnungen bleiben zunächst bewusst `PENDING`, bis eine echte Vor-Ort-Bestätigung erfolgt.
+
+Die minimale Lese-API unter `/api/merchant-domain/merchants/:merchantId/...` liefert Merchant, Locations, Devices, Products, Offers und aktuelle Assignments. Sie ist nicht öffentlich und reagiert ohne vollständig konfigurierte Admin-Credentials fail-closed. Diese Basic-Auth-Schicht ist ausschließlich ein interner Übergangsschutz und ausdrücklich kein finales Händler-Login; Merchant-Authentifizierung, Onboarding, Rollen und Sessions bilden einen eigenen Folgemeilenstein. Der idempotente Seed `npm run seed:merchant-demo` verändert nur seine stabilen Demo-IDs, verweigert Identitätskonflikte und benötigt `MERCHANT_DEMO_SEED_ENABLED=true`; Produktion erfordert zusätzlich eine zweite ausdrückliche Freigabe. Er wurde noch nicht gegen eine lokale oder produktive MongoDB ausgeführt. P0.3.1 ist weder committed noch deployt oder live.
+
+Für die spätere echte Device-API gilt verbindlich: Jedes physische Schild authentifiziert ausschließlich seine permanente `deviceId` mit einem eigenen rotierbaren Credential. Credentials dürfen niemals im Klartext gespeichert werden. Die MAC bleibt reine Hardware-UID und kein Secret; Händler und Standort werden serverseitig aus der aktuellen Assignment-Historie ermittelt. Dadurch benötigen Händler-, Standort- oder Nutzungswechsel keinen Firmware-Reflash. Credential-Provisioning, Hashing beziehungsweise gleichwertig sichere Verifikation und Rotation sind der nächste technische Meilenstein und noch nicht implementiert.
+
+Lokal verifiziert: Backend 68/68 Tests plus Syntax- und Import-Smoke, Frontend unverändert 42/42 plus ESLint und Produktionsbuild, aktueller Firmware-Workspace 21/21 plus PlatformIO-Build `esp32dev_spi_cs5_rst4_app`. Es erfolgte kein Firmware-Flash für P0.3.1.
+
 ## Physischer Hardware-Prototyp
 
 - Controller: ESP32 Dev Module, Arduino-Framework über PlatformIO

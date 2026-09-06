@@ -11,6 +11,7 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
+    "seed:merchant-demo": "node src/scripts/seedMerchantDemo.js",
     "test": "node --test"
   },
   "dependencies": {

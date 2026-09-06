@@ -21,6 +21,7 @@ import checkoutRouter from './routes/checkout.js';
 import stripeWebhookRouter from './routes/stripeWebhook.js';
 import publicRouter from './routes/public.js';
 import demoRouter from './routes/demo.js';
+import merchantRouter from './routes/merchant.js';
 
 dotenv.config();
 
@@ -149,6 +150,7 @@ app.use('/api', legacyDisplayRouter);
 /* 2) Buyer/Public + Admin + Checkout + Webhook + Firmware */
 app.use('/api/public', publicRouter);
 app.use('/api/demo', demoRouter);
+app.use('/api/merchant-domain', merchantRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/stripe', stripeWebhookRouter);
