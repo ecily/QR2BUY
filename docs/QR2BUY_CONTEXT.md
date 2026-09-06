@@ -77,7 +77,7 @@ Die Anzeigepriorität lautet `SOLD`/`PAID`/`RESERVED` vor `CHECKOUT_STARTED`, da
 
 ### P0.2 Teil 2 – Mobile Kauf-/Reservierungs-Journey
 
-Lokal verifiziert und noch nicht produktiv ausgerollt ist die finale Mobile-Hierarchie für 320 bis 430 Pixel: kompakte Produktvisualisierung, Demo-/Händlerkontext, Verfügbarkeit, prominenter Produktname und Preis, `Jetzt kaufen`, `Reservieren` und ein direkt an der Entscheidung sichtbarer Trust-Block. Die Seite bleibt die digitale Verlängerung genau des physischen Produkts und erhält weder Warenkorb, Shop-Navigation, Login noch Cross-Selling.
+Produktiv ausgerollt ist die finale Mobile-Hierarchie für 320 bis 430 Pixel: kompakte Produktvisualisierung, Demo-/Händlerkontext, Verfügbarkeit, prominenter Produktname und Preis, `Jetzt kaufen`, `Reservieren` und ein direkt an der Entscheidung sichtbarer Trust-Block. Die Seite bleibt die digitale Verlängerung genau des physischen Produkts und erhält weder Warenkorb, Shop-Navigation, Login noch Cross-Selling.
 
 Der Kaufpfad zeigt vor dem unveränderten Stripe-Sandbox-Checkout eine kompakte Zusammenfassung aus Produkt und Preis sowie die offizielle Testkarte; nur der bestehende serverseitig verifizierte Stripe-Webhook darf `PAID` setzen. Die Reservierung bleibt mit der vorhandenen Backendlogik ohne Formular oder neue Kundendatenarchitektur direkt: wiederverwendbare Produkte nennen die bestehende 20-Sekunden-Demodauer, das Einzelstück bleibt entsprechend der bestehenden Logik reserviert. `PAID` und `RESERVED` bestätigen Produkt, Status und die synchrone Reaktion des Verkaufsschilds; E-Mail-Zustellung wird nur bei tatsächlich bestätigtem Mailstatus behauptet.
 
@@ -248,17 +248,21 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Live bestätigt: `SCANNED` bleibt nach 30 und 60 Sekunden aktiv, fällt nach ungefähr 120 Sekunden auf `READY` zurück, wird sofort von `RESERVED` überschrieben und erscheint nach dem Reservierungs-Reset nicht erneut.
 - Die Firmware benötigt für die TTL-Änderung keinen erneuten Flash; sie zeigt `SCANNED`, solange die Backend-Projektion diesen Zustand liefert.
 
-## Lokal verifizierter P0.2-Teil-2-Teststand vom 6. September 2026
+## Verifizierter P0.2-Teil-2-Test- und Livestand vom 6. September 2026
 
 - Backend unverändert: 54/54 Tests, Syntaxprüfung und Router-Import-Smoke grün
 - Frontend: 41/41 Tests, ESLint und Vite-Produktionsbuild grün
 - Firmware unverändert: 19/19 statische Vertragsprüfungen und PlatformIO-Build `esp32dev_spi_cs5_rst4_app` grün
 - Firmwaregröße unverändert: 48.060 Byte RAM von 327.680 (14,7 %), 980.437 Byte Flash von 1.310.720 (74,8 %)
 - `git diff --check` grün; keine Secrets, Secret-Zuweisungen oder unsicheren Token-/QR-Logs im Diff
+- Feature-Commit `0566945` ist auf `origin/main` und für `qr2buy-backend` sowie `qr2buy-frontend` in DigitalOcean `ACTIVE`; `/`, `/de`, `/en` und `/api/health` liefern HTTP 200.
+- Das produktive Frontend-Bundle enthält die neue DE/EN-Kauf-/Reservierungs-Journey und die kompakte Kaufzusammenfassung.
+- Technisch live bestätigt: `READY → SCANNED → RESERVED → READY`, abgewiesene Doppelreservierung mit HTTP 409 sowie `READY → SCANNED → CHECKOUT_STARTED → CANCELLED → READY`; es wurde keine Zahlung ausgeführt.
+- Mangels steuerbarer Browser-Sitzung bleiben die visuelle Viewport-Abnahme bei 320/375/390/430 Pixeln und ein interaktiver Stripe-Sandbox-Checkout bis `PAID` manuell offen.
 
 ## Offene Punkte
 
-1. Den lokal verifizierten P0.2-Teil-2-Mobile-Stand ausrollen und auf 320/375/390/430 Pixeln visuell manuell abnehmen.
+1. Den produktiven P0.2-Teil-2-Mobile-Stand auf 320/375/390/430 Pixeln visuell manuell abnehmen und anschließend einen interaktiven Stripe-Sandbox-Testkauf bis zum webhookbestätigten `PAID`-Screen prüfen.
 2. Detaildarstellung der realen TFT-Zustände `RESERVED`, `PAID` und `SOLD` nacharbeiten und anschließend den kompletten physischen End-to-End-Ablauf erneut abnehmen.
 3. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
 4. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
