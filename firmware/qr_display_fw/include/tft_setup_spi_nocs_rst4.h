@@ -2,6 +2,9 @@
 
 #define QR2BUY_TFT_SETUP_SPI_NOCS_RST4
 
+// NOCS prototype is mounted 180 degrees relative to the CS5 prototype.
+#define QR2BUY_DISPLAY_ROTATION 3
+
 #define ILI9341_DRIVER
 #define TFT_WIDTH 240
 #define TFT_HEIGHT 320

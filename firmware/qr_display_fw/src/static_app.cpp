@@ -50,6 +50,12 @@ static_assert(sizeof(QR2BUY_DEVICE_SECRET) == 65, "Merchant device requires a 32
 #define QR2BUY_DEVICE_SECRET "YOUR_DEVICE_SECRET"
 #endif
 
+#ifndef QR2BUY_DISPLAY_ROTATION
+#define QR2BUY_DISPLAY_ROTATION 1
+#endif
+static_assert(QR2BUY_DISPLAY_ROTATION == 1 || QR2BUY_DISPLAY_ROTATION == 3,
+              "qr2buy layouts require 320x240 landscape");
+
 static TFT_eSPI tft;
 
 static const char* APP_TITLE = "qr2buy";
@@ -986,7 +992,7 @@ void setup() {
   enableBacklightIfConfigured();
   pulseResetIfConfigured();
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(QR2BUY_DISPLAY_ROTATION);
   tft.invertDisplay(false);
 
   WiFi.mode(WIFI_STA);

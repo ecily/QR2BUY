@@ -19,6 +19,8 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertEqual(nc['upload_port'], 'COM4')
         self.assertIn('tft_setup_spi_nocs_rst4.h', nc['build_flags'])
         self.assertIn('#define TFT_CS -1', (ROOT / 'include/tft_setup_spi_nocs_rst4.h').read_text())
+        self.assertIn('#define QR2BUY_DISPLAY_ROTATION 3', (ROOT / 'include/tft_setup_spi_nocs_rst4.h').read_text())
+        self.assertNotIn('QR2BUY_DISPLAY_ROTATION', (ROOT / 'include/tft_setup_spi_cs5_rst4.h').read_text())
         source = (ROOT / 'src/static_app.cpp').read_text()
         for device in (1, 2):
             self.assertIn(f'#include "secrets.device{device}.h"', source)

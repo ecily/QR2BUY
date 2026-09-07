@@ -94,7 +94,9 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("if (scale < 2) return false", SOURCE)
 
     def test_landscape_frontpage_inspired_sales_display_contract(self):
-        self.assertIn("tft.setRotation(1)", SOURCE)
+        self.assertIn("tft.setRotation(QR2BUY_DISPLAY_ROTATION)", SOURCE)
+        self.assertIn("#ifndef QR2BUY_DISPLAY_ROTATION\n#define QR2BUY_DISPLAY_ROTATION 1", SOURCE)
+        self.assertIn("QR2BUY_DISPLAY_ROTATION == 1 || QR2BUY_DISPLAY_ROTATION == 3", SOURCE)
         self.assertIn("QR_PANEL_WIDTH = 146", SOURCE)
         self.assertIn("CONTENT_X = 164", SOURCE)
         self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
