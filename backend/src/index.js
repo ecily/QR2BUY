@@ -22,6 +22,7 @@ import stripeWebhookRouter from './routes/stripeWebhook.js';
 import publicRouter from './routes/public.js';
 import demoRouter from './routes/demo.js';
 import merchantRouter from './routes/merchant.js';
+import deviceRouter, { createPublicOfferRouter } from './routes/device.js';
 
 dotenv.config();
 
@@ -54,6 +55,7 @@ const logger = pino({
 });
 
 function sanitizeRequestUrl(url = '') {
+  if (String(url).startsWith('/api/device/')) return String(url).split('?')[0];
   return String(url)
     .replace(/(\/api\/demo\/sessions\/)[^/?#]+/g, '$1[SESSION]')
     .replace(/([?&]session=)[^&#]+/g, '$1[SESSION]');
@@ -151,6 +153,8 @@ app.use('/api', legacyDisplayRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/demo', demoRouter);
 app.use('/api/merchant-domain', merchantRouter);
+app.use('/api/device', deviceRouter);
+app.use('/api/public/merchant-offers', createPublicOfferRouter());
 app.use('/api/admin', adminRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/stripe', stripeWebhookRouter);

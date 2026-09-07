@@ -13,6 +13,9 @@ backend/.env.*
 !backend/.env.example
 
 # Firmware secrets
+firmware/**/src/secrets.device1.h
+firmware/**/src/secrets.device2.h
+firmware/**/test/__pycache__/
 firmware/**/src/secrets.h
 firmware/**/include/secrets.h
 firmware/**/src/credentials.h

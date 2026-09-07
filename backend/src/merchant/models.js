@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { randomBytes } from 'node:crypto';
 
 export const MERCHANT_STATUS = Object.freeze({ ACTIVE: 'ACTIVE', SUSPENDED: 'SUSPENDED', INACTIVE: 'INACTIVE' });
 export const LOCATION_STATUS = Object.freeze({ ACTIVE: 'ACTIVE', INACTIVE: 'INACTIVE' });
@@ -52,6 +53,7 @@ const ManagedDeviceSchema = new mongoose.Schema({
   hardwareUid: { type: String, trim: true, lowercase: true, default: null },
   hardwareVariant: { type: String, required: true, enum: Object.values(HARDWARE_VARIANT), immutable: true },
   firmwareVersion: { type: String, trim: true, default: null },
+  firmwareVersionExpected: { type: String, trim: true, default: null },
   status: { type: String, enum: Object.values(DEVICE_STATUS), default: DEVICE_STATUS.PROVISIONED, index: true },
   lastSeenAt: { type: Date, default: null, index: true },
   activatedAt: { type: Date, default: null }
@@ -98,6 +100,7 @@ MerchantProductSchema.index(
 );
 
 const OfferSchema = new mongoose.Schema({
+  publicOfferId: { type: String, default: () => randomBytes(16).toString('hex'), immutable: true, match: /^[a-f0-9]{32}$/ },
   offerId: { type: String, required: true, unique: true, trim: true, immutable: true },
   merchantId: { type: String, required: true, trim: true, immutable: true, index: true },
   productId: { type: String, required: true, trim: true, immutable: true, index: true },
@@ -114,6 +117,18 @@ const OfferSchema = new mongoose.Schema({
   active: { type: Boolean, required: true, default: true, index: true }
 }, { timestamps: true, collection: 'merchant_offers' });
 OfferSchema.index({ merchantId: 1, productId: 1, locationId: 1, active: 1 });
+OfferSchema.index({ publicOfferId: 1 }, { unique: true, partialFilterExpression: { publicOfferId: { $type: 'string' } } });
+
+// Kept separate so existing merchant device queries cannot expose verifiers.
+const DeviceCredentialSchema = new mongoose.Schema({
+  deviceId: { type: String, required: true, unique: true, immutable: true },
+  verifier: { type: String, required: true, select: false, match: /^[a-f0-9]{64}$/ },
+  credentialVersion: { type: Number, required: true, min: 1, validate: Number.isSafeInteger },
+  credentialCreatedAt: { type: Date, required: true },
+  credentialRotatedAt: { type: Date, default: null },
+  credentialStatus: { type: String, enum: ['ACTIVE', 'REVOKED'], required: true }
+}, { collection: 'device_credentials', timestamps: true });
+export const DeviceCredential = mongoose.models.DeviceCredential || mongoose.model('DeviceCredential', DeviceCredentialSchema);
 
 const DisplayAssignmentSchema = new mongoose.Schema({
   deviceId: { type: String, required: true, trim: true, immutable: true },

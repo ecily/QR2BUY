@@ -8,7 +8,14 @@
 
 #include "qr2buy_root_ca.h"
 
-#if __has_include("secrets.h")
+#if defined(QR2BUY_MERCHANT_DEVICE)
+#include "merchant_config.h"
+#if defined(QR2BUY_ENV_SPI_CS5_RST4)
+#include "secrets.device1.h"
+#else
+#include "secrets.device2.h"
+#endif
+#elif __has_include("secrets.h")
 #include "secrets.h"
 #else
 struct WifiCred {
@@ -23,6 +30,18 @@ static const WifiCred WIFI_LIST[] = {
 constexpr size_t WIFI_LIST_LEN = sizeof(WIFI_LIST) / sizeof(WifiCred);
 #endif
 
+#if defined(QR2BUY_MERCHANT_DEVICE)
+constexpr bool sameIdentity(const char* a, const char* b) {
+  return *a == *b && (*a == '\0' || sameIdentity(a + 1, b + 1));
+}
+#if defined(QR2BUY_ENV_SPI_CS5_RST4)
+static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000001"), "CS5 requires Device 1 identity");
+#else
+static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000002"), "NOCS requires Device 2 identity");
+#endif
+static_assert(sizeof(QR2BUY_DEVICE_SECRET) == 65, "Merchant device requires a 32-byte hex credential");
+#endif
+
 #ifndef QR2BUY_DEVICE_ID
 #define QR2BUY_DEVICE_ID "demo-device"
 #endif
@@ -34,8 +53,12 @@ constexpr size_t WIFI_LIST_LEN = sizeof(WIFI_LIST) / sizeof(WifiCred);
 static TFT_eSPI tft;
 
 static const char* APP_TITLE = "qr2buy";
+#if defined(QR2BUY_MERCHANT_DEVICE)
+static const char* HARDWARE_CONFIG_URL = QR2BUY_API_ORIGIN "/api/device/config";
+#else
 static const char* HARDWARE_CONFIG_URL =
   "https://qr2buy.com/api/demo/hardware/config?deviceId=" QR2BUY_DEVICE_ID;
+#endif
 static const uint32_t WIFI_TIMEOUT_PER_NETWORK_MS = 15000UL;
 static const uint32_t WIFI_RETRY_INTERVAL_MS = 5000UL;
 static const uint32_t CONFIG_POLL_INTERVAL_MS = 3000UL;
@@ -86,6 +109,10 @@ struct ConfigPayload {
   String interactionExpiresAt;
   String qr;
   long eventVersion = -1;
+  String merchantEventVersion;
+  int64_t stockQuantity = 0;
+  bool purchasable = false;
+  bool reservable = false;
   String resetAt;
 };
 
@@ -187,9 +214,13 @@ static uint8_t selectQrVersion(size_t textLength) {
 }
 
 static bool validQrUrl(const String& url) {
+#if defined(QR2BUY_MERCHANT_DEVICE)
+  return url.startsWith(QR2BUY_API_ORIGIN "/o/") && selectQrVersion(url.length()) > 0;
+#else
   return url.startsWith("https://qr2buy.com/demo/p/")
     && url.indexOf("#session=") > 0
     && selectQrVersion(url.length()) > 0;
+#endif
 }
 
 static bool drawQrCode(const String& url, int16_t areaLeft, int16_t areaTop,
@@ -490,7 +521,11 @@ static void drawProductScreen(const ConfigPayload& config) {
 
   tft.setTextDatum(TL_DATUM);
   tft.setTextColor(COLOR_MUTED, COLOR_WARM);
+#if defined(QR2BUY_MERCHANT_DEVICE)
+  tft.drawString("QR2BUY", CONTENT_X, 17, 1);
+#else
   tft.drawString("QR2BUY LIVE-DEMO", CONTENT_X, 17, 1);
+#endif
   tft.fillRoundRect(CONTENT_X - 5, 31, 156, 58, 6, COLOR_PAPER);
   drawProminentProductName(config.text, CONTENT_X + 2, 145);
   tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
@@ -502,7 +537,11 @@ static void drawProductScreen(const ConfigPayload& config) {
   } else {
     drawStatusPill(config.status, CONTENT_X, 129);
     tft.setTextColor(COLOR_MUTED, COLOR_WARM);
+#if defined(QR2BUY_MERCHANT_DEVICE)
+    tft.drawString(String("Bestand: ") + String((long)config.stockQuantity), CONTENT_X, 176, 1);
+#else
     tft.drawString("Fiktives Demo-Produkt", CONTENT_X, 176, 1);
+#endif
     tft.drawString("Status live synchronisiert", CONTENT_X, 194, 1);
   }
   tft.fillRect(0, 225, tft.width(), 15, COLOR_WARM);
@@ -582,7 +621,11 @@ static void drawTerminalScreen(const ConfigPayload& config) {
 static void renderConfig(const ConfigPayload& config) {
   bootstrapScreenKey = "";
   if (!config.bound) {
+#if defined(QR2BUY_MERCHANT_DEVICE)
+    drawMessageScreen("Kein Produkt", "zugewiesen");
+#else
     drawMessageScreen("Hardware nicht", "gekoppelt");
+#endif
   } else if (statusShowsQr(config.status)) {
     drawProductScreen(config);
   } else if (config.status == "PAID") {
@@ -596,6 +639,7 @@ static bool sameVisibleConfig(const ConfigPayload& left, const ConfigPayload& ri
   return left.bound == right.bound
     && left.productKey == right.productKey
     && left.eventVersion == right.eventVersion
+    && left.merchantEventVersion == right.merchantEventVersion
     && left.text == right.text
     && left.priceText == right.priceText
     && left.status == right.status
@@ -775,6 +819,25 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
   }
 
   bool ok = false;
+#if defined(QR2BUY_MERCHANT_DEVICE)
+  MerchantConfig merchant;
+  if (!parseMerchantConfig(body.c_str(), QR2BUY_DEVICE_ID, QR2BUY_API_ORIGIN, merchant)) return false;
+  config.bound = merchant.assigned;
+  config.productKey = merchant.productId.c_str();
+  config.text = merchant.name.c_str();
+  config.priceText = merchant.priceText.c_str();
+  config.status = merchant.status.c_str();
+  config.qr = merchant.qr.c_str();
+  config.merchantEventVersion = merchant.eventVersion.c_str();
+  config.stockQuantity = merchant.stockQuantity;
+  config.purchasable = merchant.purchasable;
+  config.reservable = merchant.reservable;
+  config.interactionState = config.status == "SCANNED" ? "SCANNED" : "";
+  config.interactionFieldPresent = true;
+  config.interactionParsedScanned = config.status == "SCANNED";
+  if (config.interactionParsedScanned) config.status = "READY";
+  return true;
+#else
   if (!jsonBoolValue(body, "ok", ok) || !ok || !jsonBoolValue(body, "bound", config.bound)) {
     Serial.println("Config Antwort unvollstaendig");
     return false;
@@ -809,6 +872,7 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
     return false;
   }
   return true;
+#endif
 }
 
 static bool fetchConfig(ConfigPayload& config) {
@@ -823,6 +887,11 @@ static bool fetchConfig(ConfigPayload& config) {
     return false;
   }
   http.addHeader("x-device-secret", QR2BUY_DEVICE_SECRET);
+#if defined(QR2BUY_MERCHANT_DEVICE)
+  http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
+  http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
+  http.addHeader("x-firmware-version", "0.3.2");
+#endif
 
   const int statusCode = http.GET();
   if (statusCode != HTTP_CODE_OK) {
@@ -908,7 +977,11 @@ static void applyPendingConfig() {
 void setup() {
   Serial.begin(115200);
   delay(500);
+#if defined(QR2BUY_MERCHANT_DEVICE)
+  Serial.println("QR2BUY MERCHANT HARDWARE APP START");
+#else
   Serial.println("QR2BUY DEMO HARDWARE APP START");
+#endif
 
   enableBacklightIfConfigured();
   pulseResetIfConfigured();
