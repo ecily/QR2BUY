@@ -1,6 +1,6 @@
 # qr2buy.com – operativer Projektkontext
 
-Stand: 6. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
+Stand: 7. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
 ## Verbindliche Arbeitsregeln
 
@@ -293,10 +293,18 @@ Der exakte produktive Commit wird nach jedem Rollout gegen `origin/main` und den
 - Backend: 57/57 Tests, Syntaxprüfung und Demo-Router-Import-Smoke grün. Frontend: 42/42 Tests, ESLint und Produktionsbuild grün. Firmware: 20/20 Vertragsprüfungen und PlatformIO-Build grün; 48.060 Byte RAM (14,7 %) und 980.745 Byte Flash (74,8 %). `git diff --check` und Secretprüfung sind grün; produktive Logs enthalten keine Session-Token und im geprüften Rollout keine HTTP-500.
 - Ein neuer interaktiver Checkout bis `PAID` und die visuelle Mobile-/Frontpage-Abnahme bleiben mangels verfügbarer Browserinstanz manuell offen. Die frühere produktive Webhook-/PAID-Abnahme bleibt gültig, ersetzt aber nicht diesen erneuten visuellen Lauf.
 
+## PAID-Firmware – real abgenommen am 7. September 2026
+
+- Der Nutzer hat den neuen PAID-Erfolgsbildschirm nach erfolgreichem realem Stripe-Sandbox-Testkauf auf Prototyp 1 ausdrücklich akzeptiert: `KAUF ERFOLGREICH`, `BEZAHLT`, korrektes Produkt und korrekter Preis sichtbar, positive grüne Erfolgsgestaltung, kein QR im PAID-Zustand und keine offensichtlichen Textabschneidungen oder Artefakte. Dies ist eine Nutzerabnahme am physischen TFT, keine aus statischen Tests abgeleitete Sichtprüfung.
+- Bestätigter Hardwarestand: vollständige qr2buy-Demo-App, ESP32 mit CS5-Hardwarepfad, Environment `esp32dev_spi_cs5_rst4_app`, COM3, MAC `78:1c:3c:2c:82:50`. Der zuvor durchgeführte Upload war einschließlich Hashverifikation erfolgreich. Prototyp 2 wurde nicht verändert.
+- Vor dem separaten PAID-Abschlusscommit erneut geprüft: 21/21 Firmware-Vertragstests, PlatformIO-Build und `git diff --check` grün. RAM: 48.060 Byte; Flash: 981.353 Byte. Der Firmware-Diff enthält ausschließlich den PAID-Screen und seine Tests, keine Secrets, QR-/Session-Token-Logs oder TLS-Abschwächung.
+- Die vorherige UNBOUND-Diagnose beschrieb nur den Zustand unmittelbar nach dem Flash vor der inzwischen bestätigten Sandbox-Abnahme. Eine erneute vollständige visuelle Mobile-/Frontpage-Viewport-Abnahme und die separate CANCELLED-Abnahme werden daraus nicht abgeleitet.
+- P0.3.2 beginnt erst nach geprüftem Push-/Deploymentabschluss dieses separaten Firmwarestands; kein Production-Seed und keine Merchant-Firmware-Umstellung sind damit verbunden.
+
 ## Offene Punkte
 
 1. Den produktiven P0.2-Teil-2-Mobile- und Checkout-Fehlerstand auf 320/375/390/430 Pixeln visuell manuell abnehmen und anschließend einen interaktiven Stripe-Sandbox-Testkauf bis zum webhookbestätigten `PAID`-Screen prüfen.
-2. Die gebaute `CANCELLED`-Overlay-Firmware auf den ESP32 flashen und real abnehmen; danach die Detaildarstellung von `RESERVED`, `PAID` und `SOLD` nacharbeiten und den kompletten physischen End-to-End-Ablauf erneut prüfen.
+2. Der neue PAID-Erfolgsbildschirm auf Prototyp 1 ist real akzeptiert. Offen bleiben die separate CANCELLED-Abnahme, verbleibende Detaildarstellungen und ein vollständiger physischer End-to-End-Regressionslauf.
 3. Die bereits bestätigte Web-Journey bei der physischen TFT-Nacharbeit noch einmal zusammenhängend mit den realen Hardwareansichten für `RESERVED`, `PAID`, Reset und dem dauerhaften `SOLD`-Verhalten der Tanne abnehmen; ausschließlich Stripe-Sandbox verwenden.
 4. Gehäuse, Stromversorgung, Kabelentlastung und weitere mechanische Prototypenarbeit für einen Pilotstand planen.
 5. Backlight-Steuerung nur nach dokumentierter Verdrahtung an einen geeigneten GPIO ergänzen; aktuell keine Fake-PWM-Lösung.

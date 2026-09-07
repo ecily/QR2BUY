@@ -112,6 +112,8 @@ class StaticAppContractTest(unittest.TestCase):
             "COLOR_PINE": "0x1A47",
             "COLOR_READY_BG": "0xB6B5",
             "COLOR_READY_FG": "0x11A3",
+            "COLOR_PAID_BG": "0xDF5A",
+            "COLOR_PAID_FG": "0x2B48",
         }
         for name, value in expected_colors.items():
             self.assertRegex(SOURCE, rf"{name}\s*=\s*{value}")
@@ -228,6 +230,35 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("tft.fillRoundRect(CONTENT_X - 5, 31, 156, 58, 6, COLOR_PAPER)", SOURCE)
         self.assertIn("drawProminentProductName(config.text, CONTENT_X + 2, 145)", SOURCE)
         self.assertIn("tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4)", SOURCE)
+
+    def test_paid_has_a_dedicated_positive_success_screen(self):
+        paid = SOURCE[SOURCE.index("static void drawPaidScreen"):SOURCE.index("static void drawTerminalScreen")]
+        self.assertIn('tft.drawString("KAUF ERFOLGREICH"', paid)
+        self.assertIn('tft.drawString("BEZAHLT"', paid)
+        self.assertIn("tft.fillCircle(54, 99, 29, COLOR_PAID_FG)", paid)
+        self.assertIn("drawWrappedProductName(config.text, 98, 94, 198, COLOR_PAPER)", paid)
+        self.assertIn("tft.drawString(displayPrice(config.priceText), 98, 141, 2)", paid)
+        self.assertIn('tft.drawString("Zahlung bestaetigt."', paid)
+        self.assertIn('tft.drawString("Bitte auf dem Smartphone fortfahren."', paid)
+        self.assertIn("COLOR_PAID_BG", paid)
+        self.assertIn("COLOR_PAID_FG", paid)
+        self.assertNotIn("COLOR_SOLD", paid)
+        self.assertNotIn("drawQrCode", paid)
+        self.assertNotIn("Der QR-Code ist jetzt deaktiviert.", paid)
+        self.assertIn("footerIndicatorVisible = false", paid)
+
+        renderer = SOURCE[SOURCE.index("static void renderConfig"):SOURCE.index("static bool sameVisibleConfig")]
+        self.assertIn('config.status == "PAID"', renderer)
+        self.assertIn("drawPaidScreen(config)", renderer)
+        self.assertLess(renderer.index('config.status == "PAID"'), renderer.index("drawTerminalScreen(config)"))
+        self.assertIn('if (config.status == "PAID") return "drawPaidScreen"', SOURCE)
+
+        palette = SOURCE[SOURCE.index("static void statusColors"):SOURCE.index("static void drawStatusPill")]
+        self.assertIn('status == "PAID"', palette)
+        self.assertIn("fg = COLOR_PAID_FG", palette)
+        self.assertIn("bg = COLOR_PAID_BG", palette)
+        self.assertIn('status == "SOLD"', palette)
+        self.assertNotIn('status == "PAID" || status == "SOLD"', palette)
 
 
 if __name__ == "__main__":

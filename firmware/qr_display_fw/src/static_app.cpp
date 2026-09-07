@@ -64,6 +64,8 @@ static const uint16_t COLOR_CANCELLED_BG = 0xEF1A;// #e8e1d7
 static const uint16_t COLOR_CANCELLED_FG = 0x6B0B;// #6b6258
 static const uint16_t COLOR_RESERVED_BG = 0xF6F9; // #f5dfcb
 static const uint16_t COLOR_RESERVED_FG = 0xA2E5; // #a65d2f
+static const uint16_t COLOR_PAID_BG = 0xDF5A;     // #d8e8d5
+static const uint16_t COLOR_PAID_FG = 0x2B48;     // #2f6b45
 static const uint16_t COLOR_SOLD_BG = 0xF6DA;     // #f0d8d4
 static const uint16_t COLOR_SOLD_FG = 0xA269;     // #a04d49
 static const uint16_t COLOR_COPPER = 0xAA85;      // #a9502d
@@ -248,7 +250,10 @@ static void statusColors(const String& status, uint16_t& fg, uint16_t& bg) {
   } else if (status == "RESERVED") {
     fg = COLOR_RESERVED_FG;
     bg = COLOR_RESERVED_BG;
-  } else if (status == "PAID" || status == "SOLD") {
+  } else if (status == "PAID") {
+    fg = COLOR_PAID_FG;
+    bg = COLOR_PAID_BG;
+  } else if (status == "SOLD") {
     fg = COLOR_SOLD_FG;
     bg = COLOR_SOLD_BG;
   } else {
@@ -409,6 +414,7 @@ static const char* diagnosticDisplayMode(const ConfigPayload& config) {
 static const char* diagnosticRenderTarget(const ConfigPayload& config) {
   if (!config.bound) return "drawMessageScreen";
   if (scanInteractionVisible(config)) return "drawScanStatus";
+  if (config.status == "PAID") return "drawPaidScreen";
   return statusShowsQr(config.status) ? "drawProductScreen" : "drawTerminalScreen";
 }
 
@@ -507,6 +513,39 @@ static void drawProductScreen(const ConfigPayload& config) {
   drawConnectionFooter(connectionIsFresh(now), now);
 }
 
+static void drawPaidScreen(const ConfigPayload& config) {
+  footerIndicatorVisible = false;
+  tft.fillScreen(COLOR_WARM);
+
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
+  tft.drawString(APP_TITLE, 14, 12, 2);
+  tft.setTextDatum(TR_DATUM);
+  tft.setTextColor(COLOR_PAID_FG, COLOR_WARM);
+  tft.drawString("KAUF ERFOLGREICH", 306, 15, 1);
+  tft.drawFastHLine(14, 32, 292, COLOR_PAID_FG);
+
+  tft.fillRoundRect(10, 40, 300, 128, 10, COLOR_PAPER);
+  tft.fillRoundRect(18, 50, 72, 108, 8, COLOR_PAID_BG);
+  tft.fillCircle(54, 99, 29, COLOR_PAID_FG);
+  for (int8_t offset = -2; offset <= 2; ++offset) {
+    tft.drawLine(39, 98 + offset, 49, 108 + offset, COLOR_PAPER);
+    tft.drawLine(49, 108 + offset, 69, 84 + offset, COLOR_PAPER);
+  }
+
+  tft.setTextDatum(TL_DATUM);
+  tft.setTextColor(COLOR_PINE_DARK, COLOR_PAPER);
+  tft.drawString("BEZAHLT", 98, 52, 4);
+  drawWrappedProductName(config.text, 98, 94, 198, COLOR_PAPER);
+  tft.setTextColor(COLOR_PAID_FG, COLOR_PAPER);
+  tft.drawString(displayPrice(config.priceText), 98, 141, 2);
+
+  tft.fillRoundRect(10, 176, 300, 52, 10, COLOR_PINE_DARK);
+  tft.setTextColor(COLOR_PAPER, COLOR_PINE_DARK);
+  tft.drawString("Zahlung bestaetigt.", 24, 184, 2);
+  tft.drawString("Bitte auf dem Smartphone fortfahren.", 24, 210, 1);
+}
+
 static void drawTerminalScreen(const ConfigPayload& config) {
   footerIndicatorVisible = false;
   uint16_t accent;
@@ -546,6 +585,8 @@ static void renderConfig(const ConfigPayload& config) {
     drawMessageScreen("Hardware nicht", "gekoppelt");
   } else if (statusShowsQr(config.status)) {
     drawProductScreen(config);
+  } else if (config.status == "PAID") {
+    drawPaidScreen(config);
   } else {
     drawTerminalScreen(config);
   }
