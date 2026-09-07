@@ -24,6 +24,8 @@ test('actual production logger omits credential headers and device query strings
   logger.info({ req: { rawHeaders: ['x-device-secret', secret], headers: { authorization, 'x-device-secret': secret, 'x-demo-pairing-secret': secret } },
     res: { req: { rawHeaders: ['x-device-secret', secret], headers: { 'x-device-secret': secret } } } });
   const app = express(); app.use(middleware);
+  app.use(express.json());
+  app.post('/api/binding/operator/devices/:deviceId/confirm', (_req,res) => res.status(400).json({ok:false,error:'incorrect_display_code'}));
   app.use('/api/device', createDeviceRouter({ config: async () => { throw new Error(secret); } }));
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
@@ -35,7 +37,12 @@ test('actual production logger omits credential headers and device query strings
   assert.deepEqual(await error.json(), { ok: false, error: 'device_unavailable' });
   const query = await fetch(`${origin}/api/device/config?x-device-secret=${secret}`, { headers });
   assert.equal(query.status, 401); await query.text();
+  const binding = await fetch(`${origin}/api/binding/operator/devices/QR2B-000001/confirm?code=${secret}`, {
+    method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify({ code: secret, previewId: secret })
+  });
+  assert.equal(binding.status,400);await binding.text();
   assert.ok(captured.includes('/api/device/config'));
   assert.ok(!captured.includes(secret)); assert.ok(!captured.includes(authorization));
   assert.ok(!captured.includes('?x-device-secret='));
+  assert.ok(!captured.includes('?code='));
 });

@@ -29,6 +29,14 @@ int main() {
   assert(!parse(fixture("UNKNOWN"), c));
   assert(parse(R"({"ok":true,"deviceId":"QR2B-000001","assigned":false})",c));
   assert(!c.assigned && c.name.empty() && c.qr.empty());
+  const std::string preview = R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"bindingPreview":{"previewId":"0123456789abcdef0123456789abcdef","productName":"Ledertasche","priceMinor":12900,"currency":"EUR","code":"012345","expiresAt":1900000000},"display":{"qr":"https://evil.invalid"}})";
+  assert(parse(preview,c)); assert(c.preview && !c.assigned && c.qr.empty());
+  assert(c.name=="Ledertasche" && c.priceText=="129,00 EUR" && c.previewCode=="012345");
+  assert(c.previewExpiresAt==1900000000);
+  assert(!parseMerchantConfig(preview,"QR2B-000002","https://qr2buy.com",c));
+  { JsonDocument p; deserializeJson(p,preview);p["bindingPreview"]["code"]="123";std::string b;serializeJson(p,b);assert(!parse(b,c)); }
+  { JsonDocument p; deserializeJson(p,preview);p["assigned"]=true;std::string b;serializeJson(p,b);assert(!parse(b,c)); }
+  assert(parse(fixture(),c)); assert(c.assigned && !c.preview && !c.qr.empty());
   assert(!parse(R"({"ok":true,"deviceId":"QR2B-000002","assigned":false})",c));
   assert(!parseMerchantConfig(fixture(), "QR2B-000002", "https://qr2buy.com", c));
   JsonDocument doc; deserializeJson(doc,fixture()); doc["deviceId"]="QR2B-000002";

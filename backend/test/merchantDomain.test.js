@@ -25,6 +25,13 @@ function model(initial) {
     documents,
     findOne(filter) { return Promise.resolve(documents.find((doc) => matches(doc, filter)) || null); },
     async create(value) { const doc = { _id: String(documents.length + 1), ...value }; documents.push(doc); return doc; },
+    async updateOne(filter, update) {
+      const doc = documents.find(entry => matches(entry, filter));
+      if (!doc) return { modifiedCount: 0 };
+      for (const [key, value] of Object.entries(update.$inc || {})) doc[key] = (doc[key] || 0) + value;
+      Object.assign(doc, update.$set || {});
+      return { modifiedCount: 1 };
+    },
     async updateMany(filter, update) {
       let modifiedCount = 0;
       for (const doc of documents.filter((entry) => matches(entry, filter))) { Object.assign(doc, update.$set); modifiedCount += 1; }

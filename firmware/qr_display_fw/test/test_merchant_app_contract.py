@@ -8,6 +8,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MerchantAppContractTest(unittest.TestCase):
+    def test_preview_has_no_buyer_qr_and_expires_without_network(self):
+        source = (ROOT / 'src/static_app.cpp').read_text()
+        preview = source.split('if (config.bindingPreview) {', 1)[1].split('} else if (!config.bound)', 1)[0]
+        self.assertIn('ZUORDNUNG PRUEFEN', preview)
+        self.assertIn('config.text', preview)
+        self.assertIn('config.priceText', preview)
+        self.assertIn('config.previewCode', preview)
+        self.assertNotIn('drawQrCode', preview)
+        self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
+        self.assertIn('left.previewCode == right.previewCode', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.4")', source)
+        self.assertNotIn('Serial.println(config.previewCode', source)
+
     def test_shared_app_and_separate_hardware_and_secret_configs(self):
         ini = configparser.ConfigParser(interpolation=None)
         ini.read(ROOT / 'platformio.ini')

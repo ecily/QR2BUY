@@ -15,6 +15,7 @@ import LandingPage from "./pages/LandingPage.jsx";
 import Admin from "./pages/Admin.jsx"; // Admin-Seite
 import DemoProductPage from "./pages/DemoProductPage.jsx";
 import MerchantOfferPage from "./pages/MerchantOfferPage.jsx";
+import DeviceBindingPage from "./pages/DeviceBindingPage.jsx";
 import { getPublicProductByShort, startCheckoutRedirectByShort } from "./api.js";
 
 /* -------------------------------------------------------------------------- */
@@ -717,6 +718,8 @@ export default function App() {
       <Route path="/admin" element={<Admin />} />
       <Route path="/p/:shortId" element={<ProductRoute />} />
       <Route path="/o/:publicOfferId" element={<MerchantOfferPage />} />
+      <Route path="/device/:deviceId" element={<DeviceBindingPage />} />
+      <Route path="/binding/:deviceId" element={<DeviceBindingPage />} />
       <Route path="/demo/p/:productKey" element={<DemoProductPage />} />
       <Route path="/success" element={<SuccessPage />} />
       <Route path="/cancel" element={<CancelPage />} />

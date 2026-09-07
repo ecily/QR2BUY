@@ -8,6 +8,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
+      '/device': { target: 'http://127.0.0.1:3001', changeOrigin: true },
       '/api': {
         target: 'http://127.0.0.1:3001', // ← IPv4 erzwingen
         changeOrigin: true,

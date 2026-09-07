@@ -74,6 +74,8 @@ export function createMerchantDomainService({
   async function assignDeviceToMerchant({ deviceId, merchantId, locationId, usageType }) {
     return runTransaction(async (session) => {
       await requireScope({ merchantId, locationId, deviceId }, session);
+      // Serialize ownership changes against preview/confirmation transactions.
+      await DeviceModel.updateOne({ deviceId }, { $inc: { bindingRevision: 1 } }, { session });
       const current = await findOne(DeviceMerchantAssignmentModel, { deviceId, status: ASSIGNMENT_STATUS.ACTIVE }, session);
       if (current && current.merchantId === merchantId && current.locationId === locationId && current.usageType === usageType) return current;
       const changedAt = now();

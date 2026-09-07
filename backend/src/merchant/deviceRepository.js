@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { DeviceCredential, ManagedDevice, DeviceMerchantAssignment, DisplayAssignment, Merchant, Location, Offer, MerchantProduct } from './models.js';
+import { DeviceCredential, ManagedDevice, DeviceMerchantAssignment, DisplayAssignment, Merchant, Location, Offer, MerchantProduct, BindingPreview } from './models.js';
 
 export function createDeviceRepository() {
   return {
@@ -12,6 +12,7 @@ export function createDeviceRepository() {
           credential: id => DeviceCredential.findOne({ deviceId: id }).select('+verifier').session(session).lean(),
           assignment: id => DeviceMerchantAssignment.findOne({ deviceId: id, status: 'ACTIVE' }).session(session).lean(),
           display: id => DisplayAssignment.findOne({ deviceId: id, status: 'ACTIVE' }).session(session).lean(),
+          preview: id => BindingPreview.findOne({ deviceId: id, status: 'PREVIEW' }).select('+nonce').session(session).lean(),
           merchant: id => Merchant.findOne({ merchantId: id }).session(session).lean(),
           location: id => Location.findOne({ locationId: id }).session(session).lean(),
           offer: id => Offer.findOne({ offerId: id }).session(session).lean(),

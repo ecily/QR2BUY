@@ -105,6 +105,9 @@ static const uint16_t COLOR_LIVE_BRIGHT = 0x7D6D; // #78ac68
 
 struct ConfigPayload {
   bool bound = false;
+  bool bindingPreview = false;
+  String previewCode;
+  int64_t previewExpiresAt = 0;
   bool interactionFieldPresent = false;
   bool interactionParsedScanned = false;
   String productKey;
@@ -404,13 +407,13 @@ static bool splitTitleForFont(const String& text, uint8_t font, int16_t maxWidth
   return !firstLine.isEmpty();
 }
 
-static void drawProminentProductName(const String& text, int16_t x, int16_t maxWidth) {
+static void drawProminentProductName(const String& text, int16_t x, int16_t maxWidth, int16_t yOffset = 0) {
   String firstLine;
   String secondLine;
   tft.setTextDatum(TL_DATUM);
 
   if (splitTitleForFont(text, 4, maxWidth, firstLine, secondLine)) {
-    const int16_t y = secondLine.isEmpty() ? 47 : 34;
+    const int16_t y = (secondLine.isEmpty() ? 47 : 34) + yOffset;
     tft.setTextColor(COLOR_INK, COLOR_PAPER);
     tft.drawString(firstLine, x, y, 4);
     if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 27, 4);
@@ -420,7 +423,7 @@ static void drawProminentProductName(const String& text, int16_t x, int16_t maxW
   firstLine = "";
   secondLine = "";
   splitTitleForFont(text, 2, maxWidth - 1, firstLine, secondLine);
-  const int16_t y = secondLine.isEmpty() ? 52 : 42;
+  const int16_t y = (secondLine.isEmpty() ? 52 : 42) + yOffset;
   tft.setTextColor(COLOR_INK, COLOR_PAPER);
   tft.drawString(firstLine, x, y, 2);
   if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 22, 2);
@@ -438,6 +441,7 @@ static bool knownStatus(const String& status) {
 }
 
 static const char* diagnosticDisplayMode(const ConfigPayload& config) {
+  if (config.bindingPreview) return "BINDING_PREVIEW";
   if (!config.bound) return "UNBOUND";
   if (scanInteractionVisible(config)) return "SCANNED";
   if (config.status == "CHECKOUT_STARTED") return "CHECKOUT";
@@ -449,6 +453,7 @@ static const char* diagnosticDisplayMode(const ConfigPayload& config) {
 }
 
 static const char* diagnosticRenderTarget(const ConfigPayload& config) {
+  if (config.bindingPreview) return "bindingPreview";
   if (!config.bound) return "drawMessageScreen";
   if (scanInteractionVisible(config)) return "drawScanStatus";
   if (config.status == "PAID") return "drawPaidScreen";
@@ -626,7 +631,17 @@ static void drawTerminalScreen(const ConfigPayload& config) {
 
 static void renderConfig(const ConfigPayload& config) {
   bootstrapScreenKey = "";
-  if (!config.bound) {
+  if (config.bindingPreview) {
+    footerIndicatorVisible = false;
+    tft.fillScreen(COLOR_PAPER);
+    drawCentered("qr2buy", 15, 2, COLOR_PINE, COLOR_PAPER);
+    drawCentered("ZUORDNUNG PRUEFEN", 43, 2, COLOR_INK, COLOR_PAPER);
+    drawProminentProductName(config.text, 18, 284, 35);
+    drawCentered(displayPrice(config.priceText).c_str(), 123, 4, COLOR_PINE_DARK, COLOR_PAPER);
+    drawCentered("Code am Smartphone eingeben", 164, 2, COLOR_MUTED, COLOR_PAPER);
+    drawCentered(config.previewCode.c_str(), 191, 4, COLOR_PINE_DARK, COLOR_PAPER);
+    drawCentered("Ist das das Produkt vor dir?", 225, 2, COLOR_MUTED, COLOR_PAPER);
+  } else if (!config.bound) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
     drawMessageScreen("Kein Produkt", "zugewiesen");
 #else
@@ -642,7 +657,10 @@ static void renderConfig(const ConfigPayload& config) {
 }
 
 static bool sameVisibleConfig(const ConfigPayload& left, const ConfigPayload& right) {
-  return left.bound == right.bound
+  return left.bindingPreview == right.bindingPreview
+    && left.previewCode == right.previewCode
+    && left.previewExpiresAt == right.previewExpiresAt
+    && left.bound == right.bound
     && left.productKey == right.productKey
     && left.eventVersion == right.eventVersion
     && left.merchantEventVersion == right.merchantEventVersion
@@ -829,6 +847,9 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
   MerchantConfig merchant;
   if (!parseMerchantConfig(body.c_str(), QR2BUY_DEVICE_ID, QR2BUY_API_ORIGIN, merchant)) return false;
   config.bound = merchant.assigned;
+  config.bindingPreview = merchant.preview;
+  config.previewCode = merchant.previewCode.c_str();
+  config.previewExpiresAt = merchant.previewExpiresAt;
   config.productKey = merchant.productId.c_str();
   config.text = merchant.name.c_str();
   config.priceText = merchant.priceText.c_str();
@@ -896,7 +917,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.2");
+  http.addHeader("x-firmware-version", "0.3.4");
 #endif
 
   const int statusCode = http.GET();
@@ -1025,6 +1046,13 @@ void loop() {
   serviceWifi();
   serviceClock();
   applyPendingConfig();
+  // Expire locally even when WiFi/API is unavailable; never leave a code on screen.
+  if (hasRenderedConfig && renderedConfig.bindingPreview
+      && (time(nullptr) >= renderedConfig.previewExpiresAt
+          || renderedConfig.previewExpiresAt - time(nullptr) > 120)) {
+    renderedConfig = ConfigPayload{};
+    renderConfig(renderedConfig);
+  }
   serviceConnectionIndicator();
   delay(10);
 }

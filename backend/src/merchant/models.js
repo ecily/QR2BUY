@@ -56,7 +56,8 @@ const ManagedDeviceSchema = new mongoose.Schema({
   firmwareVersionExpected: { type: String, trim: true, default: null },
   status: { type: String, enum: Object.values(DEVICE_STATUS), default: DEVICE_STATUS.PROVISIONED, index: true },
   lastSeenAt: { type: Date, default: null, index: true },
-  activatedAt: { type: Date, default: null }
+  activatedAt: { type: Date, default: null },
+  bindingRevision: { type: Number, default: 0 }
 }, { timestamps: true, collection: 'managed_devices' });
 ManagedDeviceSchema.index(
   { hardwareUid: 1 },
@@ -80,6 +81,7 @@ DeviceMerchantAssignmentSchema.index({ merchantId: 1, locationId: 1, status: 1 }
 DeviceMerchantAssignmentSchema.index({ deviceId: 1, validFrom: -1 });
 
 const MerchantProductSchema = new mongoose.Schema({
+  productBindingId: { type: String, default: () => randomBytes(16).toString('hex'), immutable: true, match: /^[a-f0-9]{32}$/ },
   productId: { type: String, required: true, unique: true, trim: true, immutable: true },
   merchantId: { type: String, required: true, trim: true, immutable: true, index: true },
   name: { type: String, required: true, trim: true },
@@ -94,6 +96,7 @@ MerchantProductSchema.index(
   { merchantId: 1, sku: 1 },
   { unique: true, partialFilterExpression: { sku: { $type: 'string' } } }
 );
+MerchantProductSchema.index({ productBindingId: 1 }, { unique: true, partialFilterExpression: { productBindingId: { $type: 'string' } } });
 MerchantProductSchema.index(
   { merchantId: 1, ean: 1 },
   { unique: true, partialFilterExpression: { ean: { $type: 'string' } } }
@@ -158,3 +161,25 @@ export const DeviceMerchantAssignment = mongoose.models.DeviceMerchantAssignment
 export const MerchantProduct = mongoose.models.MerchantProduct || mongoose.model('MerchantProduct', MerchantProductSchema);
 export const Offer = mongoose.models.MerchantOffer || mongoose.model('MerchantOffer', OfferSchema);
 export const DisplayAssignment = mongoose.models.DisplayAssignment || mongoose.model('DisplayAssignment', DisplayAssignmentSchema);
+
+const BindingPreviewSchema = new mongoose.Schema({
+  merchantAssignmentId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  deviceId: { type: String, required: true, unique: true },
+  previewId: { type: String, required: true },
+  merchantId: { type: String, required: true },
+  locationId: { type: String, required: true },
+  assignmentId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  productId: { type: String, required: true },
+  offerId: { type: String, required: true },
+  productName: { type: String, required: true },
+  priceMinor: { type: Number, required: true },
+  currency: { type: String, required: true },
+  verificationMethod: { type: String, enum: Object.values(VERIFICATION_METHOD), required: true },
+  nonce: { type: String, required: true, select: false },
+  expiresAt: { type: Date, required: true },
+  attempts: { type: Number, default: 0 },
+  status: { type: String, enum: ['PREVIEW', 'CONFIRMED', 'CANCELLED'], required: true },
+  confirmedAt: { type: Date, default: null },
+  boundBy: { type: String, required: true }
+}, { timestamps: true, collection: 'binding_previews' });
+export const BindingPreview = mongoose.models.BindingPreview || mongoose.model('BindingPreview', BindingPreviewSchema);

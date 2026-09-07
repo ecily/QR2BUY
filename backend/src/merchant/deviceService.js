@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { DeviceApiError, verifyCredential } from './deviceCredentials.js';
 import { createDeviceRepository } from './deviceRepository.js';
+import { bindingCode } from './binding.js';
 
 export const deviceOnline = (device, at = new Date()) => !!device.lastSeenAt
   && ['ACTIVE', 'PROVISIONED'].includes(device.status)
@@ -44,6 +45,25 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         const assignment = await read.assignment(device.deviceId);
         if (!assignment || new Date(assignment.validFrom) > at || (assignment.validUntil && new Date(assignment.validUntil) <= at)) return { config: unassigned, device };
         const display = await read.display(device.deviceId);
+        const preview = await read.preview?.(device.deviceId);
+        // Merchant commerce is currently READY/SOLD only. Never preview a sold active offer.
+        const activeOffer = display ? await read.offer(display.offerId) : null;
+        if (preview && preview.expiresAt > at && preview.attempts < 5
+            && String(preview.merchantAssignmentId) === String(assignment._id)
+            && preview.merchantId === assignment.merchantId && preview.locationId === assignment.locationId
+            && (!activeOffer || activeOffer.stockQuantity > 0)) {
+          const resolvedPreview = await resolveOffer(read, await read.offer(preview.offerId));
+          if (resolvedPreview && resolvedPreview.merchant.merchantId === assignment.merchantId
+              && resolvedPreview.location.locationId === assignment.locationId && resolvedPreview.product.productId === preview.productId
+              && resolvedPreview.product.name === preview.productName && resolvedPreview.offer.priceMinor === preview.priceMinor
+              && resolvedPreview.offer.currency === preview.currency && resolvedPreview.offer.stockQuantity > 0) {
+            return { device, config: { ...unassigned, bindingPreview: {
+              previewId: preview.previewId, expiresAt: Math.floor(new Date(preview.expiresAt).getTime() / 1000),
+              productName: preview.productName, priceMinor: preview.priceMinor, currency: preview.currency,
+              code: bindingCode(preview, pepper())
+            } } };
+          }
+        }
         if (!display || !display.verifiedAt || display.endedAt || display.merchantId !== assignment.merchantId || display.locationId !== assignment.locationId) return { config: unassigned, device };
         const resolved = await resolveOffer(read, await read.offer(display.offerId));
         if (!resolved || resolved.offer.merchantId !== assignment.merchantId || resolved.offer.locationId !== assignment.locationId || resolved.product.productId !== display.productId) return { config: unassigned, device };

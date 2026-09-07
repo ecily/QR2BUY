@@ -7,6 +7,9 @@
 // Portable parser: the exact same code is exercised by host tests and ESP32.
 struct MerchantConfig {
   bool assigned = false;
+  bool preview = false;
+  std::string previewCode;
+  int64_t previewExpiresAt = 0;
   std::string productId, name, priceText, status, qr, eventVersion;
   int64_t stockQuantity = 0;
   bool purchasable = false, reservable = false;
@@ -40,6 +43,25 @@ inline bool parseMerchantConfig(const std::string& body, const std::string& devi
       || !doc["deviceId"].is<const char*>() || doc["deviceId"].as<std::string>() != deviceId) return false;
   MerchantConfig result;
   result.assigned = doc["assigned"].as<bool>();
+  if (!doc["bindingPreview"].isNull()) {
+    auto preview = doc["bindingPreview"].as<JsonObjectConst>();
+    if (result.assigned || !preview["previewId"].is<const char*>() || !preview["productName"].is<const char*>()
+        || !preview["code"].is<const char*>() || !preview["expiresAt"].is<int64_t>()
+        || !preview["priceMinor"].is<int64_t>() || !preview["currency"].is<const char*>()) return false;
+    result.eventVersion = preview["previewId"].as<std::string>();
+    result.name = preview["productName"].as<std::string>();
+    result.previewCode = preview["code"].as<std::string>();
+    result.previewExpiresAt = preview["expiresAt"].as<int64_t>();
+    if (!lowerHex(result.eventVersion, 32) || result.name.empty() || result.name.size() > 256
+        || result.previewCode.size() != 6 || result.previewCode.find_first_not_of("0123456789") != std::string::npos
+        || result.previewExpiresAt < 1700000000LL || result.previewExpiresAt > 4102444800LL
+        || !merchantPrice(preview["priceMinor"].as<int64_t>(), preview["currency"].as<std::string>(), result.priceText)) return false;
+    result.preview = true;
+    result.status = "BINDING_PREVIEW";
+    result.qr.clear();
+    output = result;
+    return true;
+  }
   if (!result.assigned) { output = result; return true; }
   auto product = doc["product"].as<JsonObjectConst>();
   auto offer = doc["offer"].as<JsonObjectConst>();
