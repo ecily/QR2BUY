@@ -42,7 +42,7 @@ test('both identities authenticate independently and resolve scoped config and s
     const c=await f.service.config(f.auth(i),'0.3.2');
     assert.equal(c.deviceId,ids[i]); assert.equal(c.assigned,true); assert.equal(c.merchantId,`M${i}`);
     assert.equal(c.locationId,`L${i}`); assert.equal(c.product.productId,`P${i}`); assert.equal(c.product.name,`Product ${i}`);
-    assert.equal(c.product.image,null); assert.deepEqual(c.offer,{offerId:`O${i}`,priceMinor:12900+i,currency:'EUR',stockQuantity:2,purchasable:true,reservable:false});
+    assert.equal(c.product.image,null); assert.deepEqual(c.offer,{offerId:`O${i}`,priceMinor:12900+i,currency:'EUR',stockQuantity:2,purchasable:true,reservable:false,reservationDuration:null,conditions:null});
     assert.equal(c.display.qr,`https://qr2buy.com/o/${f.offers[i].publicOfferId}`);
     assert.match(c.display.eventVersion,/^[a-f0-9]{16}$/); assert.equal(c.display.status,'READY');
     assert.ok(!JSON.stringify(c).includes(f.secrets[i])); assert.ok(!JSON.stringify(c).includes('verifier'));

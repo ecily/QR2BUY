@@ -74,7 +74,8 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
           hardwareVariant: device.hardwareVariant, firmwareVersionExpected: device.firmwareVersionExpected || null, assigned: true,
           product: { productId: product.productId, name: product.name, image: product.image || null },
           offer: { offerId: offer.offerId, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
-            purchasable: offer.purchasable, reservable: offer.reservable },
+            purchasable: offer.purchasable, reservable: offer.reservable,
+            reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
           display: { status: offer.stockQuantity === 0 ? 'SOLD' : 'READY',
             qr: offer.stockQuantity === 0 ? '' : `${origin(publicOrigin())}/o/${offer.publicOfferId}` }
         };
@@ -96,7 +97,8 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         return { ok: true, publicOfferId, merchant: { displayName: merchant.displayName }, location: { name: location.name },
           product: { name: product.name, description: product.description || null },
           offer: { priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
-            purchasable: offer.purchasable, reservable: offer.reservable }, checkoutAvailable: false };
+            purchasable: offer.purchasable, reservable: offer.reservable,
+            reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null }, checkoutAvailable: false };
       });
     }
   };

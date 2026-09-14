@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
+import { merchantRequest } from '../merchantApi.js';
 import { bindingText, bindingRequest, bindingError, previewExpired, codeFromScan } from '../binding.js';
 import BrandLogo from '../components/BrandLogo.jsx';
 import './DeviceBindingPage.css';
 
-function Binding({ deviceId }) {
+function Binding({ deviceId, operator }) {
+  const navigate = useNavigate();
+  const { search } = useLocation();
   const [language, setLanguage] = useState(navigator.language.startsWith('de') ? 'de' : 'en');
   const text = bindingText[language];
   const [publicState, setPublicState] = useState('loading');
@@ -29,6 +32,23 @@ function Binding({ deviceId }) {
       .catch(e => { if (e.name !== 'AbortError') setPublicState('unavailable'); });
     return () => controller.abort();
   }, [deviceId]);
+  useEffect(() => {
+    if (operator || publicState !== 'ready') return;
+    const controller = new AbortController();
+    merchantRequest('/api/merchant-auth/me', null, 'GET', null, controller.signal)
+      .then(async session => {
+        const auth = { csrfToken: session.csrfToken };
+        const c = await bindingRequest(deviceId, '', auth, null, controller.signal);
+        setAuthorization(auth); setContext(c);
+        const selected = new URLSearchParams(search).get('product');
+        if (c.products.some(p => p.productBindingId === selected)) setValue(selected);
+      }).catch(e => {
+        if (e.name === 'AbortError') return;
+        if (e.status === 401) navigate('/merchant/login?returnTo='+encodeURIComponent('/binding/'+deviceId), { replace: true });
+        else setPublicState('unavailable');
+      });
+    return () => controller.abort();
+  }, [deviceId, operator, publicState, navigate, search]);
   useEffect(() => { const timer = setInterval(() => setTick(Date.now()), 1000); return () => clearInterval(timer); }, []);
   useEffect(() => () => { scanner.current?.getTracks().forEach(t => t.stop()); }, []);
   const expired = previewExpired(preview, tick);
@@ -65,7 +85,7 @@ function Binding({ deviceId }) {
   return <main className="device-binding" lang={language}>
     <header><a href="/" aria-label="qr2buy"><BrandLogo/></a><button className="secondary" onClick={() => setLanguage(language === 'de' ? 'en' : 'de')}>{language === 'de' ? 'English' : 'Deutsch'}</button></header>
     <p className="eyebrow">{text.intro}</p><h1>{text.title}</h1>
-    {publicState !== 'ready' ? <p role="status">{text[publicState]}</p> : !context ? <form onSubmit={login}>
+    {publicState !== 'ready' ? <p role="status">{text[publicState]}</p> : !context && !operator ? <p role="status">{text.loading}</p> : !context ? <form onSubmit={login}>
       <p className="device-id">{deviceId}</p>
       <label>{text.user}<input name="username" autoComplete="username" required maxLength={128}/></label>
       <label>{text.password}<input name="password" type="password" autoComplete="current-password" required maxLength={256}/></label>
@@ -90,9 +110,9 @@ function Binding({ deviceId }) {
         {scanning && <button className="secondary" onClick={() => { scanner.current?.getTracks().forEach(t => t.stop()); scanner.current = null; setScanning(false); }}>{text.cancel}</button>}
         <button disabled={busy || !codeFromScan(value, method)} onClick={() => perform(async () => { const p = await bindingRequest(deviceId, 'preview', authorization, { method, value }); setPreview(p); setCode(''); setStatus(''); setTick(Date.now()); })}>{text.preview}</button>
       </section>}
-      <button className="secondary" disabled={busy} onClick={() => { setAuthorization(''); setContext(null); setPreview(null); setCode(''); setStatus(''); }}>{text.logout}</button>
+      {operator ? <button className="secondary" disabled={busy} onClick={() => { setAuthorization(''); setContext(null); setPreview(null); setCode(''); setStatus(''); }}>{text.logout}</button> : <Link to="/merchant/devices">{language === 'de' ? 'Meine Verkaufsschilder' : 'My displays'}</Link>}
     </>}
     {message && <p role="alert">{message}</p>}
   </main>;
 }
-export default function DeviceBindingPage() { const { deviceId } = useParams(); return <Binding key={deviceId} deviceId={deviceId}/>; }
+export default function DeviceBindingPage() { const { deviceId } = useParams(); const { pathname } = useLocation(); const operator = pathname.startsWith('/operator/'); return <Binding key={deviceId+operator} deviceId={deviceId} operator={operator}/>; }

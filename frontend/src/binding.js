@@ -17,6 +17,10 @@ export function codeFromScan(raw, method) {
   return (method === 'EAN' ? /^(?:\d{8}|\d{12,14})$/ : /^[a-f0-9]{32}$/).test(value) ? value : null;
 }
 export async function bindingRequest(deviceId, action, authorization, body, signal) {
+  if (authorization && typeof authorization === 'object') {
+    const { merchantRequest } = await import('./merchantApi.js');
+    return merchantRequest(`/api/merchant/binding/devices/${encodeURIComponent(deviceId)}${action ? '/' + action : ''}`, body, body ? 'POST' : 'GET', authorization.csrfToken, signal);
+  }
   const path = `/api/binding/operator/devices/${encodeURIComponent(deviceId)}${action ? '/' + action : ''}`;
   const response = await fetch(path, { method: body ? 'POST' : 'GET', cache: 'no-store', signal,
     headers: { Authorization: authorization, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });

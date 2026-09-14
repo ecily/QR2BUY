@@ -79,7 +79,7 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
         assert.equal(data.deviceId, ids[i]); assert.equal(data.assigned, true);
         assert.equal(data.merchantId, 'TEST-M0'); assert.equal(data.locationId, 'TEST-L0');
         assert.deepEqual(data.product, { productId: `TEST-P${i}`, name: `Test product ${i}`, image: null });
-        assert.deepEqual(data.offer, { offerId: `TEST-O${i}`, priceMinor: 12900 + i, currency: 'EUR', stockQuantity: 2, purchasable: true, reservable: false });
+        assert.deepEqual(data.offer, { offerId: `TEST-O${i}`, priceMinor: 12900 + i, currency: 'EUR', stockQuantity: 2, purchasable: true, reservable: false, reservationDuration: null, conditions: null });
         assert.equal(data.display.qr, `https://qr2buy.com/o/${offers[i].publicOfferId}`);
         assert.equal((await DeviceMerchantAssignment.findOne({ deviceId: ids[i], status: 'ACTIVE' })).merchantId, 'TEST-M0');
         assert.equal((await DisplayAssignment.findOne({ deviceId: ids[i], status: 'ACTIVE' })).offerId, `TEST-O${i}`);

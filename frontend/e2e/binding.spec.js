@@ -17,7 +17,7 @@ for(const width of [320,375,390,430])for(const language of ['de','en']) {
       }
       await route.fulfill({json:body});
     });
-    await page.goto('/binding/QR2B-000001');
+    await page.goto('/operator/binding/QR2B-000001');
     const desired=language==='de'?'Schild verbinden':'Connect a display';
     if(!await page.getByRole('heading',{name:desired,exact:true}).isVisible())await page.getByRole('button',{name:language==='de'?'Deutsch':'English',exact:true}).click();
     await page.getByLabel(language==='de'?'Benutzername':'Username',{exact:true}).fill('test-operator');
@@ -40,10 +40,10 @@ for(const width of [320,375,390,430])for(const language of ['de','en']) {
 }
 test('public unknown and inactive device states do not offer login or binding',async({page})=>{
   await page.route('**/api/binding/devices/**',r=>r.fulfill({status:404,json:{ok:false,error:'device_not_found'}}));
-  await page.goto('/binding/QR2B-999999');await expect(page.getByRole('status')).toContainText(/not found|nicht gefunden/);
+  await page.goto('/operator/binding/QR2B-999999');await expect(page.getByRole('status')).toContainText(/not found|nicht gefunden/);
   await expect(page.locator('form')).toHaveCount(0);
   await page.unroute('**/api/binding/devices/**');await page.route('**/api/binding/devices/**',r=>r.fulfill({json:{ok:true,available:false}}));
-  await page.goto('/binding/QR2B-000001');await expect(page.getByRole('status')).toContainText(/unavailable|nicht verfügbar/);
+  await page.goto('/operator/binding/QR2B-000001');await expect(page.getByRole('status')).toContainText(/unavailable|nicht verfügbar/);
 });
 test('print SVGs render from the exported files for independent QR decoding',async({page})=>{
   for(const n of [1,2]) {
@@ -65,7 +65,7 @@ test('EAN input and expired preview never offer activation',async({page})=>{
     }
     await r.fulfill({json:body});
   });
-  await page.goto('/binding/QR2B-000001');
+  await page.goto('/operator/binding/QR2B-000001');
   if(!await page.getByRole('heading',{name:'Connect a display',exact:true}).isVisible())await page.getByRole('button',{name:'English',exact:true}).click();
   await page.getByLabel('Username',{exact:true}).fill('test-operator');await page.getByLabel('Password',{exact:true}).fill('test-only-password');
   await page.getByRole('button',{name:'Operator sign in'}).click();

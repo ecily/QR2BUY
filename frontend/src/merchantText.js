@@ -1,0 +1,40 @@
+export const merchantText = {
+  de: {
+    title:'Mein Händlerbereich', overview:'Übersicht', devices:'Verkaufsschilder', products:'Produkte', locations:'Standorte', settings:'Mein Geschäft', logout:'Abmelden',
+    login:'Anmelden', register:'Geschäft eröffnen', email:'E-Mail', password:'Passwort', passwordHint:'Mindestens 12 Zeichen. Verwende ein eigenes, langes Passwort.', business:'Geschäftsname', locationName:'Standortname', phone:'Telefon (optional)',
+    welcome:'Dein Geschäft. Deine Verkaufsschilder.', intro:'Produkte vorbereiten, Angebote pflegen und Verkaufsschilder vor Ort verbinden.', registerIntro:'Starte mit deinem Geschäft und einem ersten Standort.', loginIntro:'Melde dich mit deinem Händlerkonto an.',
+    newAccount:'Noch kein Konto? Geschäft registrieren', existingAccount:'Bereits registriert? Anmelden', loading:'Wird geladen …', save:'Speichern', saved:'Gespeichert.', cancel:'Abbrechen', edit:'Bearbeiten', create:'Anlegen',
+    name:'Name', description:'Beschreibung', sku:'SKU', ean:'EAN (optional)', category:'Kategorie', image:'Bild-URL (HTTPS, optional)', imageHelp:'Ein Bild ist optional. Datei-Uploads folgen in einem eigenen Schritt.',
+    newProduct:'Neues Produkt', emptyProducts:'Noch keine Produkte. Lege dein erstes Produkt an.', emptyDevices:'Noch keine Verkaufsschilder. Zugeordnete Schilder erscheinen hier nach der Bereitstellung durch qr2buy.',
+    newLocation:'Neuer Standort', emptyLocations:'Noch keine Standorte.', offers:'Preis & Verkauf', newOffer:'Verkaufsangebot anlegen', emptyOffers:'Noch kein Verkaufsangebot für dieses Produkt.',
+    price:'Preis', currency:'Währung', stock:'Bestand', purchasable:'Kaufen erlauben', reservable:'Reservieren erlauben', active:'Angebot aktiv', duration:'Reservierungsdauer (Minuten, optional)', conditions:'Bedingungen', location:'Standort',
+    offerLocationHelp:'Produkt und Standort eines bestehenden Angebots bleiben fest. Lege für einen anderen Standort ein weiteres Angebot an.', checkout:'Online-Kauf ist noch nicht freigeschaltet.',
+    online:'Online', offline:'Offline', lastSeen:'Letzter Kontakt', firmware:'Firmware', unassigned:'Kein Produkt zugewiesen', rename:'Schild umbenennen', technical:'Technische Details', status:'Status',
+    ACTIVE:'Aktiv', PENDING:'Vor Ort noch nicht bestätigt', NONE:'Noch nicht verbunden', INACTIVE:'Inaktiv', SUSPENDED:'Gesperrt', ARCHIVED:'Archiviert',
+    connect:'Vor Ort verbinden', showOnDisplay:'Auf Verkaufsschild anzeigen', selectDisplay:'Verkaufsschild auswählen', bindHelp:'Stelle dich mit dem Produkt vor das Schild. Öffne dessen Geräte-QR und bestätige anschließend den Code auf dem echten Display.',
+    onlineCount:'Schilder online', unassignedCount:'Ohne Produkt', activeOffers:'Aktive Angebote', displayCount:'Auf Schildern', address:'Adresse (optional)', line1:'Straße und Hausnummer', line2:'Adresszusatz', postalCode:'Postleitzahl', city:'Ort', region:'Region', country:'Ländercode (z. B. DE)',
+    error:'Das hat nicht geklappt. Bitte versuche es erneut.', invalid_input:'Bitte prüfe die Eingaben.', login_failed:'Anmeldung nicht möglich. Bitte prüfe E-Mail und Passwort.', registration_failed:'Registrierung nicht möglich. Prüfe die Eingaben oder melde dich mit deinem bestehenden Konto an.',
+    value_conflict:'Dieser Wert wird bereits verwendet. Bitte prüfe EAN oder SKU.', login_required:'Bitte melde dich erneut an.', request_rejected:'Die Anfrage ist abgelaufen. Bitte lade die Seite neu.', merchant_unavailable:'Der Händlerbereich ist gerade nicht verfügbar.', not_found:'Dieser Eintrag ist nicht verfügbar.',
+    offer_location_immutable:'Für einen anderen Standort bitte ein neues Verkaufsangebot anlegen.', external_inventory_read_only:'Dieser Bestand wird extern verwaltet.', rate:'Zu viele Versuche. Bitte warte etwas.',
+    none:'—', back:'Zurück', product:'Produkt', contactEmail:'Kontakt-E-Mail', boundOffers:'Aktive Angebote'
+  },
+  en: {
+    title:'My merchant space', overview:'Overview', devices:'Displays', products:'Products', locations:'Locations', settings:'My business', logout:'Sign out',
+    login:'Sign in', register:'Create your business', email:'Email', password:'Password', passwordHint:'At least 12 characters. Use a unique, long password.', business:'Business name', locationName:'Location name', phone:'Phone (optional)',
+    welcome:'Your business. Your displays.', intro:'Prepare products, manage offers and connect displays on site.', registerIntro:'Start with your business and its first location.', loginIntro:'Sign in with your merchant account.',
+    newAccount:'New here? Register your business', existingAccount:'Already registered? Sign in', loading:'Loading …', save:'Save', saved:'Saved.', cancel:'Cancel', edit:'Edit', create:'Create',
+    name:'Name', description:'Description', sku:'SKU', ean:'EAN (optional)', category:'Category', image:'Image URL (HTTPS, optional)', imageHelp:'An image is optional. File uploads will follow separately.',
+    newProduct:'New product', emptyProducts:'No products yet. Add your first product.', emptyDevices:'No displays yet. Displays appear here after qr2buy has assigned them to your business.',
+    newLocation:'New location', emptyLocations:'No locations yet.', offers:'Price & selling', newOffer:'Create selling offer', emptyOffers:'No selling offer for this product yet.',
+    price:'Price', currency:'Currency', stock:'Stock', purchasable:'Allow buying', reservable:'Allow reservations', active:'Offer active', duration:'Reservation duration (minutes, optional)', conditions:'Conditions', location:'Location',
+    offerLocationHelp:'A saved offer keeps its product and location. Create another offer for a different location.', checkout:'Online checkout is not yet available.',
+    online:'Online', offline:'Offline', lastSeen:'Last contact', firmware:'Firmware', unassigned:'No product assigned', rename:'Rename display', technical:'Technical details', status:'Status',
+    ACTIVE:'Active', PENDING:'On-site confirmation pending', NONE:'Not connected yet', INACTIVE:'Inactive', SUSPENDED:'Suspended', ARCHIVED:'Archived',
+    connect:'Connect on site', showOnDisplay:'Show on a display', selectDisplay:'Choose a display', bindHelp:'Stand beside the display with the product. Open its device QR and then confirm the code shown on the physical display.',
+    onlineCount:'Displays online', unassignedCount:'Without product', activeOffers:'Active offers', displayCount:'On displays', address:'Address (optional)', line1:'Street and number', line2:'Address line 2', postalCode:'Postal code', city:'City', region:'Region', country:'Country code (e.g. GB)',
+    error:'That did not work. Please try again.', invalid_input:'Please check your entries.', login_failed:'Unable to sign in. Please check your email and password.', registration_failed:'Unable to register. Check your entries or sign in with your existing account.',
+    value_conflict:'This value is already used. Please check the EAN or SKU.', login_required:'Please sign in again.', request_rejected:'The request expired. Please reload the page.', merchant_unavailable:'The merchant area is currently unavailable.', not_found:'This entry is unavailable.',
+    offer_location_immutable:'Please create a new selling offer for another location.', external_inventory_read_only:'This stock is managed externally.', rate:'Too many attempts. Please wait a little.',
+    none:'—', back:'Back', product:'Product', contactEmail:'Contact email', boundOffers:'Active offers'
+  }
+};

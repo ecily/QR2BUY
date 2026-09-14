@@ -24,6 +24,7 @@ import demoRouter from './routes/demo.js';
 import merchantRouter from './routes/merchant.js';
 import deviceRouter, { createPublicOfferRouter } from './routes/device.js';
 import bindingRouter, { createDeviceEntryRouter } from './routes/binding.js';
+import { createMerchantPortal } from './routes/merchantPortal.js';
 
 dotenv.config();
 
@@ -46,6 +47,8 @@ const logger = pino({
     paths: [
       'req.rawHeaders',
       'req.headers.authorization',
+      'req.headers.cookie',
+      'res.headers["set-cookie"]',
       'req.headers["x-device-secret"]',
       'req.headers["x-demo-pairing-secret"]',
       'res.req.rawHeaders',
@@ -98,6 +101,13 @@ app.use('/api/demo/stripe/webhook', express.raw({ type: 'application/json' }));
 
 /* JSON body (alle anderen Routen) */
 app.use(express.json({ limit: '1mb' }));
+// Parser errors may contain fragments of submitted passwords. Never forward these
+// details to the generic logger for merchant account/session requests.
+app.use((err, req, res, next) => {
+  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path))
+    return res.status(err.status === 413 ? 413 : 400).json({ ok: false, error: 'invalid_input' });
+  next(err);
+});
 
 /* ───────────────── MongoDB ───────────────── */
 mongoose
@@ -154,6 +164,7 @@ app.use('/api', legacyDisplayRouter);
 app.use('/api/public', publicRouter);
 app.use('/api/demo', demoRouter);
 app.use('/api/merchant-domain', merchantRouter);
+app.use('/api', createMerchantPortal({ mongoUrl: MONGO_URL }));
 app.use('/api/device', deviceRouter);
 app.use('/api/binding', bindingRouter);
 app.use('/device', createDeviceEntryRouter());
