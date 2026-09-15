@@ -37,6 +37,32 @@ function fixture() {
 }
 const unauthorized = error => error.status===401 && error.code==='device_unauthorized';
 
+test('0.3.9 follows assigned offer stock 5 -> 0 -> 5, ignoring another offer for the same product', async () => {
+  const f = fixture();
+  f.offers[0].stockQuantity = 5;
+  // Reproduce the live ambiguity: same product/location, distinct unbound offer.
+  const otherOffer = { ...f.offers[0], offerId: 'OTHER', publicOfferId: randomBytes(16).toString('hex'), stockQuantity: 0 };
+  f.offers.unshift(otherOffer);
+  const bound = f.offers.find(o => o.offerId === f.displays[0].offerId);
+  const before = structuredClone({ assignments: f.assignments, displays: f.displays });
+  const second = await f.service.config(f.auth(1), '0.3.9');
+  let previous;
+  for (const stock of [5, 0, 5]) {
+    bound.stockQuantity = stock;
+    const c = await f.service.config(f.auth(0), '0.3.9');
+    assert.equal(c.assigned, true);
+    assert.equal(c.offer.offerId, bound.offerId);
+    assert.equal(c.offer.stockQuantity, stock);
+    assert.equal(c.display.status, stock === 0 ? 'SOLD' : 'READY');
+    assert.equal(c.display.qr, stock === 0 ? '' : 'https://qr2buy.com/o/' + bound.publicOfferId);
+    if (previous) assert.notEqual(c.display.eventVersion, previous.display.eventVersion);
+    previous = c;
+    assert.deepEqual(await f.service.config(f.auth(1), '0.3.9'), second);
+  }
+  assert.equal(otherOffer.stockQuantity, 0);
+  assert.deepEqual({ assignments: f.assignments, displays: f.displays }, before);
+});
+
 test('buyer projection exposes only approved fields and never writes; images and paused offers are supported', async () => {
   const f = fixture();
   Object.assign(f.products[0], { description: 'Short intro.\n\nLong description.', image: 'https://example.test/book.jpg',
