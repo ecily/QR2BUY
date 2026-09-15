@@ -7,6 +7,7 @@
 #include <time.h>
 
 #include "qr2buy_root_ca.h"
+#include "status_screen_layout.h"
 
 #if defined(QR2BUY_MERCHANT_DEVICE)
 #include "merchant_config.h"
@@ -106,6 +107,7 @@ static const uint16_t COLOR_LIVE_BRIGHT = 0x7D6D; // #78ac68
 
 struct ConfigPayload {
   bool bound = false;
+  bool notifyAvailable = false;
   bool bindingPreview = false;
   String previewCode;
   int64_t previewExpiresAt = 0;
@@ -408,16 +410,20 @@ static bool splitTitleForFont(const String& text, uint8_t font, int16_t maxWidth
   return !firstLine.isEmpty();
 }
 
-static void drawProminentProductName(const String& text, int16_t x, int16_t maxWidth, int16_t yOffset = 0) {
+static void drawProminentProductName(const String& text, int16_t x, int16_t maxWidth, int16_t yOffset = 0, bool centered = false) {
   String firstLine;
   String secondLine;
   tft.setTextDatum(TL_DATUM);
+  auto lineX = [&](const String& line, uint8_t font) -> int16_t {
+    // Each wrapped line is centered independently; include the bold fallback pixel.
+    return centered ? x + (maxWidth - tft.textWidth(line, font) - (font == 2 ? 1 : 0)) / 2 : x;
+  };
 
   if (splitTitleForFont(text, 4, maxWidth, firstLine, secondLine)) {
     const int16_t y = (secondLine.isEmpty() ? 47 : 34) + yOffset;
     tft.setTextColor(COLOR_INK, COLOR_PAPER);
-    tft.drawString(firstLine, x, y, 4);
-    if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 27, 4);
+    tft.drawString(firstLine, lineX(firstLine, 4), y, 4);
+    if (!secondLine.isEmpty()) tft.drawString(secondLine, lineX(secondLine, 4), y + 27, 4);
     return;
   }
 
@@ -426,11 +432,11 @@ static void drawProminentProductName(const String& text, int16_t x, int16_t maxW
   splitTitleForFont(text, 2, maxWidth - 1, firstLine, secondLine);
   const int16_t y = (secondLine.isEmpty() ? 52 : 42) + yOffset;
   tft.setTextColor(COLOR_INK, COLOR_PAPER);
-  tft.drawString(firstLine, x, y, 2);
-  if (!secondLine.isEmpty()) tft.drawString(secondLine, x, y + 22, 2);
+  tft.drawString(firstLine, lineX(firstLine, 2), y, 2);
+  if (!secondLine.isEmpty()) tft.drawString(secondLine, lineX(secondLine, 2), y + 22, 2);
   tft.setTextColor(COLOR_INK);
-  tft.drawString(firstLine, x + 1, y, 2);
-  if (!secondLine.isEmpty()) tft.drawString(secondLine, x + 1, y + 22, 2);
+  tft.drawString(firstLine, lineX(firstLine, 2) + 1, y, 2);
+  if (!secondLine.isEmpty()) tft.drawString(secondLine, lineX(secondLine, 2) + 1, y + 22, 2);
 }
 
 static bool statusShowsQr(const String& status) {
@@ -450,6 +456,8 @@ static const char* diagnosticDisplayMode(const ConfigPayload& config) {
   if (config.status == "RESERVED") return "RESERVED";
   if (config.status == "PAID") return "PAID";
   if (config.status == "SOLD") return "SOLD";
+  if (config.status == "OUT_OF_STOCK") return "OUT_OF_STOCK";
+  if (config.status == "PAUSED") return "PAUSED";
   return "READY";
 }
 
@@ -457,6 +465,7 @@ static const char* diagnosticRenderTarget(const ConfigPayload& config) {
   if (config.bindingPreview) return "bindingPreview";
   if (!config.bound) return "drawMessageScreen";
   if (scanInteractionVisible(config)) return "drawScanStatus";
+  if (config.notifyAvailable) return "drawNotifyScreen";
   if (config.status == "PAID") return "drawPaidScreen";
   return statusShowsQr(config.status) ? "drawProductScreen" : "drawTerminalScreen";
 }
@@ -597,75 +606,92 @@ static void drawPaidScreen(const ConfigPayload& config) {
   tft.drawString("Bitte auf dem Smartphone fortfahren.", 24, 210, 1);
 }
 
-static void drawTerminalScreen(const ConfigPayload& config) {
-  footerIndicatorVisible = false;
-  uint16_t accent;
-  uint16_t statusBackground;
-  statusColors(config.status, accent, statusBackground);
-  tft.fillScreen(COLOR_WARM);
-  tft.fillRoundRect(14, 14, tft.width() - 28, tft.height() - 28, 10, COLOR_PAPER);
+static void drawStatusText(const char* text, int top, int height, uint8_t largest, uint16_t color, int left = 16, int width = 288) {
+  auto measure = [](char c, uint8_t font) { char value[] = {c, 0}; return int(tft.textWidth(value, font)); };
+  const auto block = status_screen::fit(text, top, height, width, largest, measure);
+  int y = status_screen::firstY(block);
   tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(COLOR_PINE_DARK, COLOR_PAPER);
-  tft.drawString(APP_TITLE, 30, 27, 4);
-  tft.setTextColor(COLOR_COPPER, COLOR_PAPER);
-  tft.drawString("STATUS LIVE AKTUALISIERT", 30, 62, 1);
-
-  tft.drawCircle(56, 114, 23, accent);
-  tft.drawCircle(56, 114, 22, accent);
-  if (config.status == "SOLD") {
-    tft.drawLine(46, 104, 66, 124, accent);
-    tft.drawLine(66, 104, 46, 124, accent);
-  } else {
-    tft.drawLine(45, 114, 53, 122, accent);
-    tft.drawLine(53, 122, 69, 103, accent);
+  tft.setTextColor(color, COLOR_PAPER);
+  for (const auto& line : block.lines) {
+    int x = left + (width - line.width) / 2;
+    for (const auto& glyph : line.glyphs) {
+      char value[] = {glyph.base, 0};
+      const int width = measure(glyph.base, block.font);
+      tft.drawString(value, x, y, block.font);
+      if (glyph.umlaut) {
+        const int dot = block.font == 4 ? 2 : 1;
+        // Use the ascender margin, keeping all marks inside the line box.
+        const int dotY = y;
+        tft.fillRect(x + width / 3, dotY, dot, dot, color);
+        tft.fillRect(x + 2 * width / 3, dotY, dot, dot, color);
+      }
+      x += width;
+    }
+    y += status_screen::lineHeight(block.font);
   }
+}
 
-  tft.fillRoundRect(84, 84, 220, 39, 8, statusBackground);
-  tft.setTextDatum(TL_DATUM);
-  tft.setTextColor(accent, statusBackground);
-  tft.drawString(displayStatus(config.status), 96, 91, 4);
-  drawWrappedProductName(config.text, 91, 128, 190, COLOR_PAPER);
-  tft.setTextColor(COLOR_MUTED, COLOR_PAPER);
-  tft.drawString(displayPrice(config.priceText), 91, 174, 2);
-  tft.drawString("Der QR-Code ist jetzt deaktiviert.", 30, 205, 1);
+static void drawStatusScreen(const ConfigPayload& config, status_screen::Kind kind) {
+#ifdef QR2BUY_DISPLAY_LANGUAGE_EN
+  const auto copy = status_screen::copy(kind, true);
+#else
+  const auto copy = status_screen::copy(kind, false);
+#endif
+  footerIndicatorVisible = false;
+  tft.fillScreen(COLOR_PAPER);
+  drawStatusText("qr2buy", 4, 18, 2, COLOR_MUTED);
+  drawStatusText(copy.title, 28, 52, 4, COLOR_PINE_DARK);
+  drawStatusText(config.text.c_str(), 84, 56, 4, COLOR_INK);
+  if (copy.price) drawStatusText(displayPrice(config.priceText).c_str(), 146, 28, 4, COLOR_PINE_DARK);
+  drawStatusText(copy.body, 180, 32, 2, COLOR_INK);
+  drawStatusText(copy.footer, 218, 18, 2, COLOR_MUTED);
+}
+
+#if defined(QR2BUY_MERCHANT_DEVICE)
+static void drawNotifyScreen(const ConfigPayload& config) {
+  footerIndicatorVisible = false;
+  tft.fillScreen(COLOR_PAPER);
+  const auto kind = config.status == "PAUSED" ? status_screen::Kind::Paused
+    : config.status == "RESERVED" ? status_screen::Kind::Reserved : status_screen::Kind::OutOfStock;
+#ifdef QR2BUY_DISPLAY_LANGUAGE_EN
+  const auto copy = status_screen::copy(kind, true);
+  const char* cta = "Scan anyway.";
+  const char* body = kind == status_screen::Kind::Reserved
+    ? "We will let you know when it is free again." : "We will email you when it is available again.";
+#else
+  const auto copy = status_screen::copy(kind, false);
+  const char* cta = "Scanne trotzdem.";
+  const char* body = kind == status_screen::Kind::Reserved
+    ? "Wir informieren dich, wenn es wieder frei wird."
+    : "Wir informieren dich, sobald es wieder verf\xC3\xBCgbar ist.";
+#endif
+  drawStatusText("qr2buy", 0, 10, 1, COLOR_MUTED);
+  drawStatusText(copy.title, 12, 28, 4, COLOR_PINE_DARK);
+  drawStatusText(config.text.c_str(), 42, 48, 2, COLOR_INK);
+  drawStatusText(displayPrice(config.priceText).c_str(), 92, 16, 2, COLOR_PINE_DARK);
+  // Same buyer URL and quiet zone as READY. No notification URL on the TFT.
+  drawQrCode(config.qr, 8, 110, 140, 128);
+  drawStatusText(cta, 108, 34, 2, COLOR_PINE_DARK, 158, 150);
+  drawStatusText(body, 150, 80, 2, COLOR_INK, 158, 150);
+}
+#endif
+
+static void drawTerminalScreen(const ConfigPayload& config) {
+  drawStatusScreen(config, config.status == "SOLD" ? status_screen::Kind::Sold : status_screen::Kind::Reserved);
 }
 
 #if defined(QR2BUY_MERCHANT_DEVICE)
 static void drawSoldOutOffer(const ConfigPayload& config) {
-  footerIndicatorVisible = false;
-  tft.fillScreen(COLOR_PAPER);
-  drawCentered("qr2buy", 16, 4, COLOR_PINE_DARK, COLOR_PAPER);
-  drawCentered(merchantUnavailableTitle(false), 53, 2, COLOR_PINE_DARK, COLOR_PAPER);
-  drawProminentProductName(config.text, 18, 284, 51);
-  drawCentered(merchantSoldOutLine1(), 157, 2, COLOR_INK, COLOR_PAPER);
-#ifdef QR2BUY_DISPLAY_LANGUAGE_EN
-  drawCentered("unavailable.", 177, 2, COLOR_INK, COLOR_PAPER);
-#else
-  // Font 2 has only ASCII glyphs. Add the two dots to render an actual ü.
-  const char* line = "nicht verfugbar.";
-  drawCentered(line, 177, 2, COLOR_INK, COLOR_PAPER);
-  const int16_t umlautX = (tft.width() - tft.textWidth(line, 2)) / 2
-    + tft.textWidth("nicht verf", 2);
-  tft.fillRect(umlautX + 1, 170, 2, 2, COLOR_INK);
-  tft.fillRect(umlautX + 5, 170, 2, 2, COLOR_INK);
-#endif
-  tft.drawFastHLine(38, 200, 244, COLOR_MUTED);
-  drawCentered(merchantSoldOutFooter(), 220, 1, COLOR_PINE_DARK, COLOR_PAPER);
+  // Merchant wire SOLD means physical stock zero, not an individual purchase.
+  drawStatusScreen(config, status_screen::Kind::OutOfStock);
 }
 
 static void drawUnavailableOffer(const ConfigPayload& config) {
-  if (config.status == "SOLD") {
+  if (config.status == "OUT_OF_STOCK" || config.status == "SOLD") {
     drawSoldOutOffer(config);
     return;
   }
-  // No buyer QR for sold-out or paused offers. Product binding remains intact.
-  footerIndicatorVisible = false;
-  tft.fillScreen(COLOR_PAPER);
-  drawCentered("qr2buy", 16, 4, COLOR_PINE_DARK, COLOR_PAPER);
-  drawCentered(merchantUnavailableTitle(config.status == "PAUSED"), 63, 2, COLOR_INK, COLOR_PAPER);
-  drawProminentProductName(config.text, 18, 284, 68);
-  drawCentered(merchantUnavailableLine1(), 171, 2, COLOR_MUTED, COLOR_PAPER);
-  drawCentered(merchantUnavailableLine2(), 192, 2, COLOR_MUTED, COLOR_PAPER);
+  drawStatusScreen(config, status_screen::Kind::Paused);
 }
 #endif
 
@@ -682,7 +708,9 @@ static void renderConfig(const ConfigPayload& config) {
     drawCentered(config.previewCode.c_str(), 191, 4, COLOR_PINE_DARK, COLOR_PAPER);
     drawCentered("Ist das das Produkt vor dir?", 225, 2, COLOR_MUTED, COLOR_PAPER);
 #if defined(QR2BUY_MERCHANT_DEVICE)
-  } else if (config.bound && (config.status == "SOLD" || config.status == "PAUSED")) {
+  } else if (config.bound && config.notifyAvailable) {
+    drawNotifyScreen(config);
+  } else if (config.bound && (config.status == "OUT_OF_STOCK" || config.status == "PAUSED")) {
     drawUnavailableOffer(config);
 #endif
   } else if (!config.bound) {
@@ -701,7 +729,8 @@ static void renderConfig(const ConfigPayload& config) {
 }
 
 static bool sameVisibleConfig(const ConfigPayload& left, const ConfigPayload& right) {
-  return left.bindingPreview == right.bindingPreview
+  return left.notifyAvailable == right.notifyAvailable
+    && left.bindingPreview == right.bindingPreview
     && left.previewCode == right.previewCode
     && left.previewExpiresAt == right.previewExpiresAt
     && left.bound == right.bound
@@ -891,6 +920,7 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
   MerchantConfig merchant;
   if (!parseMerchantConfig(body.c_str(), QR2BUY_DEVICE_ID, QR2BUY_API_ORIGIN, merchant)) return false;
   config.bound = merchant.assigned;
+  config.notifyAvailable = merchant.notifyAvailable;
   config.bindingPreview = merchant.preview;
   config.previewCode = merchant.previewCode.c_str();
   config.previewExpiresAt = merchant.previewExpiresAt;
@@ -961,7 +991,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.7");
+  http.addHeader("x-firmware-version", "0.3.10");
 #endif
 
   const int statusCode = http.GET();

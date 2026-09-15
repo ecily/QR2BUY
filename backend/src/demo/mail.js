@@ -68,10 +68,10 @@ function encodeBody(value) {
   return Buffer.from(value).toString('base64').match(/.{1,76}/g).join('\r\n');
 }
 
-function smtpMessage({ from, to, subject, text, html }) {
+function smtpMessage({ from, to, subject, text, html, senderName = 'qr2buy Live-Demo' }) {
   const boundary = `qr2buy-${crypto.randomBytes(12).toString('hex')}`;
   const headers = [
-    `From: qr2buy Live-Demo <${safeHeader(from)}>`, `To: ${safeHeader(to)}`,
+    `From: ${safeHeader(senderName)} <${safeHeader(from)}>`, `To: ${safeHeader(to)}`,
     `Subject: ${encodeHeader(subject)}`, 'MIME-Version: 1.0',
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
     'Auto-Submitted: auto-generated', 'X-Auto-Response-Suppress: All'
@@ -91,11 +91,13 @@ function smtpTlsSend(config, message) {
     let buffer = '';
     const pending = [];
     let settled = false;
+    let dataSent = false;
 
     const finish = (error) => {
       if (settled) return;
       settled = true;
       socket.destroy();
+      if (error) error.retrySafe = !dataSent;
       error ? reject(error) : resolve();
     };
 
@@ -127,6 +129,7 @@ function smtpTlsSend(config, message) {
         await command(`MAIL FROM:<${config.from}>`);
         await command(`RCPT TO:<${config.to}>`);
         await command('DATA');
+        dataSent = true;
         socket.write(`${message}\r\n.\r\n`);
         await readResponse();
         socket.write('QUIT\r\n');
@@ -138,7 +141,7 @@ function smtpTlsSend(config, message) {
   });
 }
 
-export function createDemoMailTransport(env = process.env) {
+export function createDemoMailTransport(env = process.env, senderName = 'qr2buy Live-Demo') {
   const mode = String(env.DEMO_MAIL_TRANSPORT || 'disabled').toLowerCase();
   const from = validDemoEmail(env.DEMO_SMTP_FROM);
   const host = String(env.DEMO_SMTP_HOST || '').trim();
@@ -147,15 +150,16 @@ export function createDemoMailTransport(env = process.env) {
   const pass = String(env.DEMO_SMTP_PASS || '');
   const helloName = safeHeader(env.DEMO_SMTP_HELO_NAME || '');
   const configured = mode === 'smtp' && from && host && user && pass && helloName && Number.isInteger(port) && port > 0 && port <= 65535;
-  if (!configured) return { async send() { return { accepted: false, status: 'UNAVAILABLE' }; } };
+  if (!configured) return { configured: false, async send() { return { accepted: false, status: 'UNAVAILABLE' }; } };
   return {
+    configured: true,
     async send({ to, subject, text, html }) {
       const safeTo = validDemoEmail(to);
       if (!safeTo) return { accepted: false, status: 'UNAVAILABLE' };
       await smtpTlsSend({
         host, port, from, to: safeTo,
         user, pass, helloName, timeoutMs: 10_000
-      }, smtpMessage({ from, to: safeTo, subject, text, html }));
+      }, smtpMessage({ from, to: safeTo, subject, text, html, senderName }));
       return { accepted: true, status: 'ACCEPTED' };
     }
   };

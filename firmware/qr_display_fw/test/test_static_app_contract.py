@@ -226,7 +226,8 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("splitTitleForFont(text, 4, maxWidth", renderer)
         self.assertIn("splitTitleForFont(text, 2, maxWidth - 1", renderer)
         self.assertIn("y + 27, 4", renderer)
-        self.assertIn("x + 1, y, 2", renderer)
+        self.assertIn("lineX(firstLine, 2) + 1, y, 2", renderer)
+        self.assertIn("lineX(secondLine, 2) + 1, y + 22, 2", renderer)
         self.assertIn("y + 22, 2", renderer)
         self.assertNotIn("thirdLine", renderer)
         self.assertIn("tft.fillRoundRect(CONTENT_X - 5, 31, 156, 58, 6, COLOR_PAPER)", SOURCE)
@@ -234,7 +235,7 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4)", SOURCE)
 
     def test_paid_has_a_dedicated_positive_success_screen(self):
-        paid = SOURCE[SOURCE.index("static void drawPaidScreen"):SOURCE.index("static void drawTerminalScreen")]
+        paid = SOURCE[SOURCE.index("static void drawPaidScreen"):SOURCE.index("static void drawStatusText")]
         self.assertIn('tft.drawString("KAUF ERFOLGREICH"', paid)
         self.assertIn('tft.drawString("BEZAHLT"', paid)
         self.assertIn("tft.fillCircle(54, 99, 29, COLOR_PAID_FG)", paid)

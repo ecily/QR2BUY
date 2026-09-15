@@ -13,10 +13,11 @@ struct MerchantConfig {
   std::string productId, name, priceText, status, qr, eventVersion;
   int64_t stockQuantity = 0;
   bool purchasable = false, reservable = false;
+  bool notifyAvailable = false;
 };
 inline bool merchantStatus(const std::string& s) {
   return s == "READY" || s == "SCANNED" || s == "CHECKOUT_STARTED" || s == "RESERVED"
-    || s == "CANCELLED" || s == "PAID" || s == "SOLD" || s == "PAUSED";
+    || s == "OUT_OF_STOCK" || s == "CANCELLED" || s == "PAID" || s == "SOLD" || s == "PAUSED";
 }
 inline bool lowerHex(const std::string& s, size_t length) {
   return s.size() == length && s.find_first_not_of("0123456789abcdef") == std::string::npos;
@@ -81,10 +82,16 @@ inline bool parseMerchantConfig(const std::string& body, const std::string& devi
   if (result.productId.empty() || result.productId.size() > 128 || result.name.empty() || result.name.size() > 256
       || result.stockQuantity < 0 || !merchantStatus(result.status) || !lowerHex(result.eventVersion, 16)
       || !merchantPrice(offer["priceMinor"].as<int64_t>(), offer["currency"].as<std::string>(), result.priceText)) return false;
-  const bool terminal = result.status == "PAID" || result.status == "SOLD" || result.status == "RESERVED" || result.status == "PAUSED";
+  const bool terminal = result.status == "OUT_OF_STOCK" || result.status == "PAID" || result.status == "SOLD" || result.status == "RESERVED" || result.status == "PAUSED";
   const std::string prefix = apiOrigin + "/o/";
   if (!terminal && (result.qr.compare(0, prefix.size(), prefix) != 0 || !lowerHex(result.qr.substr(prefix.size()), 32))) return false;
-  if (terminal) result.qr.clear();
+  const bool notifyState = result.status == "OUT_OF_STOCK" || result.status == "PAUSED" || result.status == "RESERVED";
+  if (!display["notifyAvailable"].isNull() && !display["notifyAvailable"].is<bool>()) return false;
+  result.notifyAvailable = notifyState && display["notifyAvailable"].is<bool>() && display["notifyAvailable"].as<bool>();
+  if (result.status == "READY" && display["notifyAvailable"].as<bool>()) return false;
+  if (result.notifyAvailable) {
+    if (result.qr.compare(0, prefix.size(), prefix) != 0 || !lowerHex(result.qr.substr(prefix.size()), 32)) return false;
+  } else if (terminal || result.status == "OUT_OF_STOCK") result.qr.clear();
   output = result;
   return true;
 }

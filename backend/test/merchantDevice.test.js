@@ -10,7 +10,7 @@ import { createDeviceRouter, createPublicOfferRouter } from '../src/routes/devic
 
 const pepper = randomBytes(32).toString('hex');
 const ids = ['QR2B-000001', 'QR2B-000002'];
-function fixture() {
+function fixture(notifyEnabled = () => false) {
   let clock = new Date('2026-09-07T12:00:00Z');
   const secrets = ids.map(() => randomBytes(32).toString('hex'));
   const devices = ids.map((deviceId, i) => ({ deviceId, status: 'ACTIVE', displayName: `Schild ${i+1}`,
@@ -30,12 +30,30 @@ function fixture() {
   const repository = { snapshot:work=>work(read), async heartbeat(id, at, firmwareVersion) {
     writes++; Object.assign(await read.device(id), {lastSeenAt:at,...(firmwareVersion?{firmwareVersion}:{})});
   } };
-  const service = createDeviceService({ repository,pepper:()=>pepper,publicOrigin:()=> 'https://qr2buy.com',now:()=>clock });
+  const service = createDeviceService({ notifyEnabled, repository,pepper:()=>pepper,publicOrigin:()=> 'https://qr2buy.com',now:()=>clock });
   const auth = i=>({deviceId:ids[i],secret:secrets[i],version:1});
   return { service,read,devices,credentials,merchants,locations,products,offers,assignments,displays,secrets,auth,
     writes:()=>writes, tick:ms=>{clock=new Date(+clock+ms);} };
 }
 const unauthorized = error => error.status===401 && error.code==='device_unauthorized';
+
+test('0.3.10 notify QR contract and public eligibility preserve older firmware and SOLD',async()=>{
+  const f=fixture(()=>true);
+  for(const [active,stock,held,state] of [[true,0,0,'OUT_OF_STOCK'],[false,2,0,'PAUSED'],[true,2,2,'RESERVED'],[true,2,0,'READY']]) {
+    Object.assign(f.offers[0],{active,stockQuantity:stock}); f.read.reserved=async()=>held;
+    const current=await f.service.config(f.auth(0),'0.3.10');
+    assert.equal(current.assigned,true);assert.equal(current.display.status,state);
+    assert.equal(current.display.notifyAvailable,state!=='READY');assert(current.display.qr.includes('/o/'));
+    const old=await f.service.config(f.auth(0),'0.3.9');
+    assert.equal(old.display.status,state==='OUT_OF_STOCK'?'SOLD':state);
+    assert.equal(old.display.qr.length>0,state==='READY');assert.equal(old.display.notifyAvailable,undefined);
+    const buyer=await f.service.publicOffer(f.offers[0].publicOfferId);
+    assert.equal(buyer.availabilityState,state);assert.equal(buyer.notifyAvailable,state!=='READY');
+  }
+  const off=fixture();off.offers[0].stockQuantity=0;
+  assert.equal((await off.service.config(off.auth(0),'0.3.10')).display.qr,'');
+  assert.equal((await off.service.publicOffer(off.offers[0].publicOfferId)).notifyAvailable,false);
+});
 
 test('0.3.9 follows assigned offer stock 5 -> 0 -> 5, ignoring another offer for the same product', async () => {
   const f = fixture();

@@ -1,0 +1,10 @@
+.notify-form { margin-block: 1.25rem; padding: 1rem; border: 1px solid #cad7cf; border-radius: 12px; overflow-wrap: anywhere; }
+.notify-form h2 { font-size: 1.15rem; line-height: 1.4; margin-top: 0; }
+.notify-form form, .notify-form label { display: grid; gap: .5rem; }
+.notify-form form { gap: 1rem; }
+.notify-form input:not([type=checkbox]) { width: 100%; min-width: 0; box-sizing: border-box; padding: .7rem; font: inherit; border: 1px solid #66796e; border-radius: 6px; }
+.notify-form .notify-consent { display: flex; align-items: flex-start; line-height: 1.5; font-size: .9rem; }
+.notify-consent input { flex-shrink: 0; margin-top: .35rem; }
+.notify-form button { min-height: 44px; padding: .7rem 1rem; font: inherit; border: 0; border-radius: 8px; color: white; background: #1d4939; cursor: pointer; }
+.notify-form button:disabled { opacity: .6; cursor: wait; }
+.notify-form :focus-visible { outline: 3px solid #a9502d; outline-offset: 3px; }

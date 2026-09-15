@@ -41,7 +41,7 @@ test('actual production logger omits credential headers and device query strings
     method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify({ code: secret, previewId: secret })
   });
   assert.equal(binding.status,400);await binding.text();
-  for (const path of ['/api/reservations/'+secret, '/api/merchant/reservations/'+secret+'/cancel']) {
+  for (const path of ['/api/notify/offers/'+secret, '/notify/unsubscribe/'+secret, '/api/reservations/'+secret, '/api/merchant/reservations/'+secret+'/cancel']) {
     const r = await fetch(origin+path+'?buyerEmail='+secret, { method:'POST', headers:{'content-type':'application/json'},
       body:JSON.stringify({buyerName:secret,buyerEmail:secret,buyerPhone:secret,buyerNote:secret}) });
     await r.text();

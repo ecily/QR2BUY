@@ -1,3 +1,4 @@
+import NotifyUnsubscribe from './pages/NotifyForm.jsx';
 // C:\QR\frontend\src\App.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -720,7 +721,8 @@ export default function App() {
       <Route path="/admin" element={<Admin />} />
       <Route path="/p/:shortId" element={<ProductRoute />} />
       <Route path="/o/:publicOfferId" element={<MerchantOfferPage />} />
-      <Route path="/r/:publicReservationId" element={<ReservationPage />} />
+      <Route path="/notify/unsubscribe/:token" element={<NotifyUnsubscribe />} />
+        <Route path="/r/:publicReservationId" element={<ReservationPage />} />
       <Route path="/device/:deviceId" element={<DeviceBindingPage />} />
       <Route path="/binding/:deviceId" element={<DeviceBindingPage />} />
       <Route path="/operator/binding/:deviceId" element={<DeviceBindingPage />} />

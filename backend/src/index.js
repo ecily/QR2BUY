@@ -1,3 +1,5 @@
+import { createAvailabilityRouter } from './routes/availability.js';
+import { startAvailabilityNotifications } from './merchant/availabilitySubscriptions.js';
 // C:\ecily\ecily_landing\backend\src\index.js
 // Vollständige Ersetzung – Mount von legacyDisplay **vor** der Firmware-/config-Route
 import http from 'http';
@@ -61,6 +63,7 @@ const logger = pino({
 });
 
 function sanitizeRequestUrl(url = '') {
+  if (String(url).startsWith('/api/notify') || String(url).startsWith('/notify/')) return '/notify/[REDACTED]';
   if (String(url).startsWith('/api/reservations')) return '/api/reservations/[REDACTED]';
   if (String(url).startsWith('/api/merchant/reservations')) return '/api/merchant/reservations/[REDACTED]';
   if (String(url).startsWith('/api/device/') || String(url).startsWith('/api/binding/')) return String(url).split('?')[0];
@@ -108,7 +111,7 @@ app.use(express.json({ limit: '1mb' }));
 // Parser errors may contain fragments of submitted passwords. Never forward these
 // details to the generic logger for merchant account/session requests.
 app.use((err, req, res, next) => {
-  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path) || req.path.startsWith('/api/reservations'))
+  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path) || req.path.startsWith('/api/reservations') || req.path.startsWith('/api/notify'))
     return res.status(err.status === 413 ? 413 : 400).json({ ok: false, error: 'invalid_input' });
   next(err);
 });
@@ -116,7 +119,7 @@ app.use((err, req, res, next) => {
 /* ───────────────── MongoDB ───────────────── */
 mongoose
   .connect(MONGO_URL)
-  .then(() => { logger.info({ msg: '[db] connected' }); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); })
+  .then(() => { logger.info({ msg: '[db] connected' }); startAvailabilityNotifications(() => logger.error({msg:'availability worker unavailable'})); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); })
   .catch((err) => {
     logger.error({ msg: '[db] connection error', err: err.message });
     process.exit(1);
@@ -174,6 +177,7 @@ app.use('/api/binding', bindingRouter);
 app.use('/device', createDeviceEntryRouter());
 app.use('/api/public/merchant-offers', createPublicOfferRouter());
 app.use('/api/reservations', createReservationRouter());
+app.use('/api/notify', createAvailabilityRouter());
 app.use('/api/admin', adminRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/stripe', stripeWebhookRouter);

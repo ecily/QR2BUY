@@ -8,29 +8,35 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MerchantAppContractTest(unittest.TestCase):
-    def test_pilot_unavailable_screen_is_merchant_only_without_qr(self):
-        source = (ROOT / 'src/static_app.cpp').read_text()
-        screen = source.split('static void drawUnavailableOffer', 1)[1].split('static void renderConfig', 1)[0]
-        self.assertNotIn('drawQrCode', screen)
-        self.assertIn('merchantUnavailableTitle', screen)
-        self.assertIn('drawProminentProductName(config.text, 18, 284, 68)', screen)
-        self.assertIn('config.bound && (config.status == "SOLD" || config.status == "PAUSED")', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.7")', source)
+    def test_shared_status_screen_has_no_qr_or_system_copy(self):
+        source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
+        screen = source.split('static void drawStatusText', 1)[1].split('static void renderConfig', 1)[0]
+        no_notify = screen.split('static void drawNotifyScreen', 1)[0]
+        self.assertNotIn('drawQrCode', no_notify)
+        self.assertNotIn('STATUS LIVE AKTUALISIERT', screen)
+        self.assertNotIn('Der QR-Code ist jetzt deaktiviert.', screen)
+        for kind in ['Reserved', 'Sold', 'Paused', 'OutOfStock']:
+            self.assertIn('status_screen::Kind::' + kind, screen)
+        self.assertIn('footerIndicatorVisible = false', screen)
+        self.assertIn('left + (width - line.width) / 2', screen)
+        self.assertIn('tft.textWidth(value, font)', screen)
+        self.assertIn('if (glyph.umlaut)', screen)
 
-    def test_sold_out_layout_and_copy_are_separate_from_paused(self):
-        source = (ROOT / 'src/static_app.cpp').read_text()
+    def test_out_of_stock_wire_status_is_separate_from_sold(self):
+        source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
+        self.assertIn('config.bound && (config.status == "OUT_OF_STOCK" || config.status == "PAUSED")', source)
         screen = source.split('static void drawSoldOutOffer', 1)[1].split('static void drawUnavailableOffer', 1)[0]
-        self.assertNotIn('drawQrCode', screen)
-        self.assertIn('drawProminentProductName(config.text, 18, 284, 51)', screen)
-        self.assertIn('merchantSoldOutFooter(), 220, 1', screen)
-        self.assertIn('merchantSoldOutLine1(), 157, 2', screen)
-        paused = source.split('static void drawUnavailableOffer', 1)[1].split('static void renderConfig', 1)[0]
-        self.assertIn('if (config.status == "SOLD")', paused)
-        self.assertIn('merchantUnavailableLine1(), 171, 2', paused)
-        self.assertIn('merchantUnavailableLine2(), 192, 2', paused)
-        copy = (ROOT / 'include/merchant_display_text.h').read_text()
-        for text in ['Dieses Produkt ist gerade', 'Entdecke unsere anderen Angebote.', 'Currently sold out', 'This product is currently', 'Discover our other offers.']:
-            self.assertIn(text, copy)
+        self.assertIn('status_screen::Kind::OutOfStock', screen)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.10")', source)
+
+    def test_ready_and_binding_renderers_match_pre_p05a(self):
+        source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
+        baseline = subprocess.check_output(['git', 'show', '28dd17d:firmware/qr_display_fw/src/static_app.cpp'], cwd=ROOT, text=True, encoding='utf-8')
+        for start, end in [('static void drawProductScreen', 'static void drawPaidScreen'),
+                           ('if (config.bindingPreview) {', '#if defined(QR2BUY_MERCHANT_DEVICE)')]:
+            current = source.split(start, 1)[1].split(end, 1)[0]
+            previous = baseline.split(start, 1)[1].split(end, 1)[0]
+            self.assertEqual(current, previous)
 
     def test_preview_has_no_buyer_qr_and_expires_without_network(self):
         source = (ROOT / 'src/static_app.cpp').read_text()
@@ -42,7 +48,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertNotIn('drawQrCode', preview)
         self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
         self.assertIn('left.previewCode == right.previewCode', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.7")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.10")', source)
         self.assertNotIn('Serial.println(config.previewCode', source)
 
     def test_shared_app_and_separate_hardware_and_secret_configs(self):

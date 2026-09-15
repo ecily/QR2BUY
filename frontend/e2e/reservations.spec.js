@@ -61,7 +61,8 @@ test('real last-unit race, expiry and disabled reservation states',async({browse
  for(const fields of [{reservable:false},{stockQuantity:0},{active:false}]){
   const disabled=await (await request.post(fixture+'/__test__/offer',{data:fields})).json();
   await loser.goto(origin+'/o/'+disabled.publicOfferId+'?lang=en');await expect(loser.locator('.buyer-product')).toBeVisible();
-  await expect(loser.getByRole('button')).toHaveCount(0);
+  await expect(loser.getByRole('button',{name:'Reserve',exact:true})).toHaveCount(0);
+  await expect(loser.getByRole('button',{name:'Notify me',exact:true})).toHaveCount(fields.reservable===false?0:1);
  }
  }finally{await context.close();}
 });

@@ -2,6 +2,7 @@
 #include "merchant_display_text.h"
 #include <cassert>
 #include <iostream>
+#include "status_screen_host.h"
 
 std::string fixture(const char* state = "READY") {
   JsonDocument doc;
@@ -17,6 +18,22 @@ bool parse(const std::string& body, MerchantConfig& c) {
   return parseMerchantConfig(body, "QR2B-000001", "https://qr2buy.com", c);
 }
 int main() {
+  testStatusLayout();
+  for (const auto state : {"OUT_OF_STOCK", "RESERVED", "PAUSED", "SOLD", "READY"}) {
+    JsonDocument d; deserializeJson(d,fixture(state));
+    d["display"]["notifyAvailable"] = true;
+    std::string body; serializeJson(d,body); MerchantConfig notify;
+    if (std::string(state) == "READY") { assert(!parse(body,notify)); continue; }
+    assert(parse(body,notify));
+    assert(notify.notifyAvailable == (std::string(state) != "SOLD"));
+    assert(notify.qr.empty() == (std::string(state) == "SOLD"));
+    if (std::string(state) != "SOLD") {
+      d["display"]["qr"] = "https://foreign.invalid/o/0123456789abcdef0123456789abcdef";
+      body.clear();serializeJson(d,body);assert(!parse(body,notify));
+    }
+    d["display"]["notifyAvailable"] = false; d["display"]["qr"] = "";
+    body.clear();serializeJson(d,body);assert(parse(body,notify));assert(notify.qr.empty());
+  }
   assert(std::string(merchantUnavailableTitle(false, false)) == "Momentan ausverkauft");
   assert(std::string(merchantUnavailableTitle(true, false)) == "Angebot pausiert");
   assert(std::string(merchantUnavailableTitle(false, true)) == "Currently sold out");

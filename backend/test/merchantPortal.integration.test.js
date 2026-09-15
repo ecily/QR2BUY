@@ -314,7 +314,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       const pending = await m.DisplayAssignment.find({ deviceId: 'QR2B-000001' }).lean();
       assert.equal(pending.length, 1); assert.equal(pending[0].status, 'PENDING'); assert.equal(pending[0].verifiedAt, null);
     });
-    for (const fw of ['0.3.6', '0.3.7', '0.3.8', '0.3.9']) await t.test('pause and resume preserve binding, portal and country with '+fw, async () => {
+    for (const fw of ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10']) await t.test('pause and resume preserve binding, portal and country with '+fw, async () => {
       await fixture('active');
       const before = await m.DisplayAssignment.find({deviceId:deviceAuth.deviceId}).lean();
       assert.equal((await a.call('merchant/me','PATCH',{address:{country:'AT'}})).status,200);
