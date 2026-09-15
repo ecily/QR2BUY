@@ -4,7 +4,7 @@ Stand: 15. September 2026. Dieses Dokument ist die operative Source of Truth fü
 
 ### P0.3.6 – Pilot-UX und öffentlicher Händlerzugang (15. September 2026)
 
-Dieser Abschnitt hat Vorrang vor den historischen UX-offen-Angaben weiter unten. Web-Änderungen sind getestet und für den ausdrücklich autorisierten Commit/Push/Backend-/Frontend-Rollout vorbereitet; der verifizierte Rollout wird hier nachgetragen. **Kein Flash, keine produktiven Preview-/Binding-/Assignment-Änderungen.**
+Dieser Abschnitt hat Vorrang vor den historischen UX-offen-Angaben weiter unten. Web-Änderungen sind getestet, committed, gepusht und produktiv ausgerollt. **Kein Flash, keine produktiven Preview-/Binding-/Assignment-Änderungen.**
 
 - **Interne ID aus normaler UX entfernt:** Ursache war die ungefilterte Ausgabe aller Address-Werte einschließlich Mongo-Subdokument-ID. Geschäfts- und Standortadressen zeigen nur fachliche Adressfelder; Datenmodelle bleiben unverändert.
 - **Länderauswahl:** Dropdown mit 249 ISO-alpha-2-Werten und lokalisierten DE-/EN-Ländernamen; bekannte bestehende Codes werden normalisiert, unbekannte Altwerte als Option erhalten. Speicherung weiterhin ISO-Code, keine Maps-/Geocoding-Abhängigkeit.
@@ -15,6 +15,15 @@ Dieser Abschnitt hat Vorrang vor den historischen UX-offen-Angaben weiter unten.
 - **Firmware-Flash offen:** Beide Geräte benötigen für die neuen physischen Texte später Firmware **0.3.6**: Schild 1 / QR2B-000001, CS5, COM3; Schild 2 / QR2B-000002, NOCS / CS=-1, zuletzt eindeutig COM5. Vor jedem separat freigegebenen Flash Ports erneut prüfen und explizit setzen; ein älterer NOCS-Konfigurationsport ist kein Uploadziel. Keine Credentials-/Identitätsänderungen. Standardbuild DE; EN-Texte über `QR2BUY_DISPLAY_LANGUAGE_EN`, keine dynamische Portal-Sprachumschaltung am Schild. Physische Darstellung von 0.3.6 noch nicht abgenommen.
 - **Vor Rollout nur lesend geprüft:** Beide Geräte weiterhin ACTIVE und Firmware 0.3.4; beide DisplayAssignments ACTIVE/verifiziert/unbeendet; Offer unverändert **31,90 EUR / Bestand 5 / active=true**. Letzte gelesene Heartbeats 10:12:38Z bzw. 10:12:10Z; Onlinezustand zum späteren Prüfzeitpunkt separat bewerten. Keine Device-Config-GETs mit Heartbeat-Schreibwirkung.
 - **Nächster Meilenstein:** Pilot-Review der Web-UX; danach separat autorisierter gezielter Firmware-Flash und physische Abnahme der beiden Verfügbarkeitszustände. Noch kein Commerce-Ausbau.
+
+#### Verifizierter Rollout und Live-Smoke, ca. 12:16 MESZ
+
+- Funktionscommit **`97ac18a9ac970889d3ee19c10495da979005a1e7`** auf main gepusht. DigitalOcean-App `98a0580a-65ee-4e45-b929-3617463966d2`, Deployment **`0bc9048c-54b7-4d41-9ab1-468b2529797e` ACTIVE**, Backend/Frontend beide auf diesem Commit, alle 7 Schritte erfolgreich. Dieser nachfolgende Dokumentationscommit enthält keinen Funktionscode; sein gegebenenfalls automatisch ausgelöster Rollout wird bis zum Abschluss überwacht.
+- Health, DE-/EN-Frontpage, Login, Registrierung und öffentliche Offer-API HTTP 200. Produktiv ausgeliefertes Frontendbundle `index-DxJOde9I.js` entspricht dem lokal geprüften Build. Chrome zeigt die neuen Händler-CTAs und die Abgrenzung zur Sandbox in beiden Sprachen.
+- Angemeldetes echtes Portal zeigt „Mein Geschäft“ ohne interne ID. Länder-Dropdown produktiv lesend geöffnet: 249 Länder plus Leerauswahl, AT = Österreich; bestehender leerer Geschäftswert unverändert. Formular ohne Speichern abgebrochen. Kein produktives PATCH/Offer-Update oder neuer Account.
+- Beide Schilder im neu geladenen Portal **Online / Aktiv / Firmware 0.3.4**, gleiches Produkt, **31,90 EUR / Bestand 5**. Letzte sichtbare Kontakte 12:15:44 bzw. 12:15:16 MESZ. Vorher-/Nachher-Vergleich: MerchantAssignments, DisplayAssignments und Offer vollständig identisch; bei Device-Dokumenten ausschließlich reguläre lastSeenAt-/updatedAt-Heartbeat-Fortschreibung. Kein direkter Config-GET durch den Agenten.
+- Öffentliche Buyer-Seite im Chrome: **Testprodukt qr2buy / 31,90 EUR / Verfügbar**, Kauf und Reservierung ausdrücklich nicht freigeschaltet. Keine Live-Bestands-/Pausierungswechsel zu Testzwecken durchgeführt.
+- **Bereit für Pilot-Review: ja, Web-UX.** Vollständige physische Abnahme der neuen Texte erfordert den später separat freigegebenen Flash beider Geräte auf 0.3.6. Bekannter moderater Frontend-Dev-Abhängigkeitsbefund aus dem vorherigen Stand bleibt separat offen; keine Dependency- oder Security-Einstellungen in diesem Schritt verändert.
 
 ### Manuelle Live-Abnahme abgeschlossen – produktiver Endzustand (15. September 2026)
 
