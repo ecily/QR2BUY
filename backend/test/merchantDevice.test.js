@@ -37,7 +37,7 @@ function fixture() {
 }
 const unauthorized = error => error.status===401 && error.code==='device_unauthorized';
 
-for (const fw of ['0.3.6', '0.3.7']) test('pilot firmware '+fw+' distinguishes pause and sold out, preserves binding and safely supports old firmware', async () => {
+for (const fw of ['0.3.6', '0.3.7', '0.3.8']) test('pilot firmware '+fw+' distinguishes pause and sold out, preserves binding and safely supports old firmware', async () => {
   const f = fixture(), before = structuredClone(f.displays);
   for (let i = 0; i < 2; i++) {
     const ready = await f.service.config(f.auth(i), fw);

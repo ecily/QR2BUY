@@ -4,7 +4,13 @@ import { DeviceApiError, validDeviceId } from './deviceCredentials.js';
 import { ManagedDevice, Merchant, Location, DeviceMerchantAssignment, MerchantProduct, Offer, DisplayAssignment, BindingPreview } from './models.js';
 
 export const PREVIEW_TTL_MS = 120_000;
+// Explicitly tested wire versions, shared by preview start and confirmation.
+const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8'];
 const fail = (status, code) => { throw new DeviceApiError(status, code); };
+function requireBindingReady(device, at) {
+  if (!device.lastSeenAt || at - device.lastSeenAt > 120_000
+      || !PREVIEW_FIRMWARE_VERSIONS.includes(device.firmwareVersion)) fail(409, 'device_update_required');
+}
 export function bindingCode(preview, pepper = process.env.DEVICE_CREDENTIAL_PEPPER) {
   if (!/^[a-f0-9]{64}$/i.test(pepper || '')) fail(503, 'binding_unavailable');
   const h = createHmac('sha256', Buffer.from(pepper, 'hex')).update(`qr2buy-binding-v1\0${preview.deviceId}\0${preview.previewId}\0${preview.nonce}`).digest();
@@ -52,7 +58,7 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
       return bindingTransaction(async session => {
         const at = now();
         const { device, assignment } = await bindingScope(merchantId, deviceId, at, session);
-        if (!device.lastSeenAt || at - device.lastSeenAt > 120_000 || !['0.3.4', '0.3.6', '0.3.7'].includes(device.firmwareVersion)) fail(409, 'device_update_required');
+        requireBindingReady(device, at);
         await lock(deviceId, session);
         const matches = await MerchantProduct.find({ merchantId, status: 'ACTIVE', [method === 'EAN' ? 'ean' : 'productBindingId']: value }).session(session).lean();
         if (matches.length !== 1) fail(404, 'product_not_found');
@@ -95,7 +101,7 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
           await BindingPreview.updateOne({ deviceId, previewId }, { $inc: { attempts: 1 } }, { session });
           return { error: 'incorrect_display_code' }; // Commit attempt counter before returning 400.
         }
-        if (!device.lastSeenAt || at - device.lastSeenAt > 120_000 || !['0.3.4', '0.3.6', '0.3.7'].includes(device.firmwareVersion)) fail(409, 'device_update_required');
+        requireBindingReady(device, at);
         const product = await MerchantProduct.findOne({ productId: p.productId, merchantId, status: 'ACTIVE' }).session(session).lean();
         const offer = await Offer.findOne({ offerId: p.offerId, productId: p.productId, merchantId, locationId: p.locationId, active: true }).session(session).lean();
         if (!product || !offer || product.name !== p.productName || offer.priceMinor !== p.priceMinor || offer.currency !== p.currency || offer.stockQuantity <= 0) fail(409, 'preview_changed');

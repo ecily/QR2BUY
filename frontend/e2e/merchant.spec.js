@@ -1,6 +1,52 @@
 import { test, expect } from '@playwright/test';
 import { merchantText } from '../src/merchantText.js';
 
+for (const language of ['de','en']) test(`ACTIVE 0.3.8 device: select another product and confirm only Schild 2 (${language})`, async ({ page }) => {
+  const productCode = 'd'.repeat(32), previewId = 'e'.repeat(32);
+  const devices = [{deviceId:'QR2B-000001',product:'Testprodukt qr2buy'}, {deviceId:'QR2B-000002',product:'Testprodukt qr2buy'}];
+  const writes = [];
+  await page.route('**/api/**', async route => {
+    const request = route.request(), path = new URL(request.url()).pathname;
+    let response;
+    if (path === '/api/binding/devices/QR2B-000002') response = {ok:true,available:true};
+    else if (path === '/api/merchant-auth/me') response = {ok:true,csrfToken:'test-only-csrf'};
+    else if (path === '/api/merchant/binding/devices/QR2B-000002') response = {
+      ok:true,device:{deviceId:devices[1].deviceId,displayName:'Schild 2',online:true,firmwareVersion:'0.3.8',assignmentStatus:'ACTIVE',assigned:true,hardwareVariant:'ESP32_ILI9341_NOCS'},
+      products:[{name:'Der Herr der Ringe',productBindingId:productCode}]
+    };
+    else if (path === '/api/merchant/binding/devices/QR2B-000002/preview') {
+      writes.push(path); expect(request.method()).toBe('POST');
+      expect(request.postDataJSON()).toEqual({method:'PRODUCT_CODE',value:productCode});
+      expect(request.headers()['x-csrf-token']).toBe('test-only-csrf');
+      response = {ok:true,previewId,expiresAt:new Date(Date.now()+120000).toISOString(),product:{name:'Der Herr der Ringe'},offer:{priceMinor:1990,currency:'EUR'}};
+    } else if (path === '/api/merchant/binding/devices/QR2B-000002/confirm') {
+      writes.push(path); expect(request.method()).toBe('POST');
+      expect(request.postDataJSON()).toEqual({previewId,code:'123456'});
+      devices[1].product = 'Der Herr der Ringe'; response = {ok:true,status:'ACTIVE'};
+    } else throw Error('Unexpected request: '+path);
+    await route.fulfill({json:response});
+  });
+  await page.goto('/binding/QR2B-000002');
+  await expect(page.getByRole('heading',{name:'Schild 2',exact:true})).toBeVisible();
+  const title = language==='de'?'Schild verbinden':'Connect a display';
+  if (!await page.getByRole('heading',{name:title,exact:true}).isVisible()) await page.getByRole('button',{name:language==='de'?'Deutsch':'English',exact:true}).click();
+  const start = page.getByRole('button',{name:language==='de'?'Vorschau auf Schild zeigen':'Show preview on display'});
+  await expect(start).toBeDisabled();
+  await page.getByRole('combobox',{name:language==='de'?'Produkt':'Product',exact:true}).selectOption(productCode);
+  await expect(start).toBeEnabled(); expect(writes).toEqual([]);
+  await start.click();
+  await expect(page.getByRole('heading',{name:'Der Herr der Ringe',exact:true})).toBeVisible();
+  expect(devices[1].product).toBe('Testprodukt qr2buy');
+  const confirm = page.getByRole('button',{name:language==='de'?'Ja, Schild aktivieren':'Yes, activate display'});
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel(language==='de'?'Code auf dem Schild':'Code on the display',{exact:true}).fill('123456');
+  await confirm.click();
+  await expect(page.getByRole('heading',{name:language==='de'?'Schild aktiviert':'Display activated'})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(devices[0].product).toBe('Testprodukt qr2buy'); expect(devices[1].product).toBe('Der Herr der Ringe');
+  expect(writes).toHaveLength(2);
+});
+
 test('merchant binding can restart after expiry and page reopen without activation', async ({ page }) => {
   await page.clock.install();
   const productCode = 'a'.repeat(32);
