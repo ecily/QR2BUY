@@ -117,6 +117,7 @@ const OfferSchema = new mongoose.Schema({
   conditions: { type: String, trim: true, default: null },
   inventorySource: { type: String, enum: Object.values(INVENTORY_SOURCE), default: INVENTORY_SOURCE.QR2BUY },
   externalInventoryRef: { type: String, trim: true, default: null },
+  reservationRevision: { type: Number, default: 0 },
   active: { type: Boolean, required: true, default: true, index: true }
 }, { timestamps: true, collection: 'merchant_offers' });
 OfferSchema.index({ merchantId: 1, productId: 1, locationId: 1, active: 1 });
@@ -183,3 +184,36 @@ const BindingPreviewSchema = new mongoose.Schema({
   boundBy: { type: String, required: true }
 }, { timestamps: true, collection: 'binding_previews' });
 export const BindingPreview = mongoose.models.BindingPreview || mongoose.model('BindingPreview', BindingPreviewSchema);
+
+const ReservationSchema = new mongoose.Schema({
+  reservationId: { type: String, required: true, unique: true },
+  publicReservationId: { type: String, required: true, unique: true },
+  merchantId: { type: String, required: true, index: true },
+  locationId: { type: String, required: true },
+  productId: { type: String, required: true },
+  offerId: { type: String, required: true },
+  productName: { type: String, required: true },
+  merchantName: { type: String, required: true },
+  locationName: { type: String, required: true },
+  buyerName: { type: String, required: true },
+  buyerEmail: { type: String, default: null },
+  buyerPhone: { type: String, default: null },
+  buyerNote: { type: String, default: null },
+  quantity: { type: Number, required: true, enum: [1] },
+  unitPriceMinor: { type: Number, required: true },
+  totalPriceMinor: { type: Number, required: true },
+  currency: { type: String, required: true },
+  status: { type: String, enum: ['RESERVED','EXPIRED','CANCELLED','COLLECTED'], required: true },
+  expiresAt: { type: Date, required: true },
+  confirmedAt: { type: Date, required: true },
+  cancelledAt: { type: Date, default: null },
+  collectedAt: { type: Date, default: null },
+  source: { type: String, enum: ['BUYER_OFFER'], required: true },
+  requestKey: { type: String, required: true, select: false },
+  requestHash: { type: String, required: true, select: false }
+}, { timestamps: true, collection: 'merchant_reservations' });
+ReservationSchema.index({ offerId: 1, status: 1, expiresAt: 1 });
+ReservationSchema.index({ status: 1, expiresAt: 1 });
+ReservationSchema.index({ merchantId: 1, createdAt: -1 });
+ReservationSchema.index({ offerId: 1, requestKey: 1 }, { unique: true });
+export const MerchantReservation = mongoose.models.MerchantReservation || mongoose.model('MerchantReservation', ReservationSchema);

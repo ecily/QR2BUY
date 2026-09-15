@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { reservedQuantity } from './inventory.js';
 import { DeviceCredential, ManagedDevice, DeviceMerchantAssignment, DisplayAssignment, Merchant, Location, Offer, MerchantProduct, BindingPreview } from './models.js';
 
 export function createDeviceRepository() {
@@ -17,6 +18,7 @@ export function createDeviceRepository() {
           location: id => Location.findOne({ locationId: id }).session(session).lean(),
           offer: id => Offer.findOne({ offerId: id }).session(session).lean(),
           publicOffer: id => Offer.findOne({ publicOfferId: id }).session(session).lean(),
+          reserved: (id, at) => reservedQuantity(id, at, session),
           product: id => MerchantProduct.findOne({ productId: id }).session(session).lean()
         }), { readConcern: { level: 'snapshot' }, readPreference: 'primary' });
       } finally { await session.endSession(); }

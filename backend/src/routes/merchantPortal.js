@@ -6,6 +6,8 @@ import { MerchantAccount, registerMerchant, publicAccount, loginSchema, verifyPa
 import { createMerchantSession, authenticateMerchant, csrf, csrfToken, saveSession, SESSION_MS } from '../merchant/session.js';
 import { createBindingService } from '../merchant/binding.js';
 import { DeviceApiError } from '../merchant/deviceCredentials.js';
+import { createReservationService } from '../merchant/reservations.js';
+import { listOffers } from '../merchant/portal.js';
 import { Merchant, Location, MerchantProduct, Offer, DisplayAssignment, clean, profileSchema, locationSchema, productSchema, saveScoped, saveOffer, listDevices, renameDevice } from '../merchant/portal.js';
 
 let dummyHash;
@@ -22,6 +24,7 @@ export function createMerchantPortal(options = {}) {
   const router = Router(), auth = Router(), portal = Router();
   const config = createMerchantSession(options);
   const binding = options.binding || createBindingService();
+  const reservations = options.reservations || createReservationService();
   router.use(['/merchant-auth','/merchant'], (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
     req.merchantOrigin = config.origin;
@@ -58,6 +61,12 @@ export function createMerchantPortal(options = {}) {
     return ['GET','HEAD'].includes(req.method) ? next() : csrf(req, res, next);
   });
   portal.get('/me', (req, res) => res.json({ ok: true, merchant: clean(req.merchantAuth.merchant) }));
+  portal.get('/reservations', handle(async (req, res) => res.json(await reservations.list(req.merchantAuth.merchantId))));
+  portal.get('/reservations/:id', handle(async (req, res) => res.json(await reservations.detail(req.merchantAuth.merchantId, req.params.id))));
+  for (const action of ['cancel','collect']) portal.post('/reservations/:id/'+action, handle(async (req, res) => {
+    if (Object.keys(req.body || {}).length) throw new DeviceApiError(400, 'invalid_input');
+    res.json(await reservations.action(req.merchantAuth.merchantId, req.params.id, action));
+  }));
   portal.patch('/me', handle(async (req, res) => {
     const data = profileSchema.partial().parse(req.body);
     const merchant = await Merchant.findOneAndUpdate({ merchantId: req.merchantAuth.merchantId }, { $set: data }, { new: true, runValidators: true });
@@ -72,7 +81,7 @@ export function createMerchantPortal(options = {}) {
     portal.post('/'+path, handle(async (req, res) => res.status(201).json({ ok: true, item: await saveScoped(Model, req.merchantAuth.merchantId, id, null, schema, req.body) })));
     portal.patch('/'+path+'/:id', handle(async (req, res) => res.json({ ok: true, item: await saveScoped(Model, req.merchantAuth.merchantId, id, req.params.id, schema, req.body) })));
   }
-  portal.get('/offers', handle(async (req, res) => res.json({ ok: true, items: (await Offer.find({ merchantId: req.merchantAuth.merchantId }).lean()).map(clean) })));
+  portal.get('/offers', handle(async (req, res) => res.json({ ok: true, items: await listOffers(req.merchantAuth.merchantId) })));
   portal.post('/offers', handle(async (req, res) => res.status(201).json({ ok: true, item: await saveOffer(req.merchantAuth.merchantId, null, req.body) })));
   portal.patch('/offers/:id', handle(async (req, res) => res.json({ ok: true, item: await saveOffer(req.merchantAuth.merchantId, req.params.id, req.body) })));
   portal.get('/devices', handle(async (req, res) => res.json({ ok: true, items: await listDevices(req.merchantAuth.merchantId) })));

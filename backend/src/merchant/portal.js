@@ -5,6 +5,7 @@ import { bindingTransaction, bindingScope } from './binding.js';
 import { deviceOnline } from './deviceService.js';
 import { DeviceApiError } from './deviceCredentials.js';
 import { emailSchema } from './accounts.js';
+import { reservedQuantity } from './inventory.js';
 
 const text = max => z.string().trim().max(max);
 const optionalText = max => text(max).transform(v => v || null).nullable().optional();
@@ -35,6 +36,7 @@ export async function listDevices(merchantId) {
     const displays = await DisplayAssignment.find({ merchantId, deviceId: { $in: devices.map(d => d.deviceId) }, status: { $in: ['PENDING','ACTIVE'] } }).sort({ assignedAt: -1 }).session(session).lean();
     const products = await MerchantProduct.find({ merchantId }).session(session).lean();
     const offers = await Offer.find({ merchantId }).session(session).lean();
+    for (const o of offers) { o.reservedQuantity = await reservedQuantity(o.offerId, at, session); o.availableStock = Math.max(0, o.stockQuantity-o.reservedQuantity); }
     return devices.map(d => {
       const owner = current.find(a => a.deviceId === d.deviceId);
       const candidates = displays.filter(a => a.deviceId === d.deviceId && a.locationId === owner.locationId);
@@ -45,7 +47,8 @@ export async function listDevices(merchantId) {
         firmwareVersion: d.firmwareVersion, location: { locationId: owner.locationId, name: locations.find(l => l.locationId === owner.locationId).name },
         assignmentStatus: active ? 'ACTIVE' : candidates.length ? 'PENDING' : 'NONE',
         product: product && offer ? { productId: product.productId, name: product.name } : null,
-        offer: product && offer ? { priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity, active: offer.active } : null };
+        offer: product && offer ? { priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
+          availableStock: offer.availableStock, reservedQuantity: offer.reservedQuantity, active: offer.active } : null };
     });
   });
 }
@@ -55,6 +58,18 @@ export async function renameDevice(merchantId, deviceId, input) {
     await bindingScope(merchantId, deviceId, new Date(), session);
     await ManagedDevice.updateOne({ deviceId }, { $set: data }, { session, runValidators: true });
     return { deviceId, ...data };
+  });
+}
+export async function listOffers(merchantId) {
+  return bindingTransaction(async session => {
+    const offers = await Offer.find({ merchantId }).session(session).lean(), at = new Date();
+    const items = [];
+    for (const o of offers) {
+      const held = await reservedQuantity(o.offerId, at, session);
+      const { reservationRevision, ...item } = clean(o);
+      items.push({ ...item, reservedQuantity: held, availableStock: Math.max(0,o.stockQuantity-held) });
+    }
+    return items;
   });
 }
 export async function saveOffer(merchantId, offerId, input) {
@@ -67,6 +82,8 @@ export async function saveOffer(merchantId, offerId, input) {
     if (!await MerchantProduct.exists({ merchantId, productId: final.productId, status: 'ACTIVE' }).session(session)
       || !await Location.exists({ merchantId, locationId: final.locationId, status: 'ACTIVE' }).session(session)) notFound();
     if (existing?.inventorySource === 'EXTERNAL') throw new DeviceApiError(409, 'external_inventory_read_only');
+    if (existing && final.stockQuantity < await reservedQuantity(existing.offerId, new Date(), session))
+      throw new DeviceApiError(409, 'stock_below_reservations');
     if (existing && final.locationId !== existing.locationId) {
       // Offer location is an immutable domain identity; create a separate offer at another location.
       throw new DeviceApiError(409, 'offer_location_immutable');

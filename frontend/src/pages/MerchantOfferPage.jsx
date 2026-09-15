@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { offerCopy, shortDescription, offerAvailability, productImage } from './merchantOffer.js';
 import './MerchantOfferPage.css';
+import { canReserve, reservationText } from '../reservation.js';
+import { ReservationForm } from './ReservationPage.jsx';
 
 function ProductImage({ src, name, expanded = false }) {
   const [failed, setFailed] = useState(false);
@@ -11,6 +13,8 @@ function ProductImage({ src, name, expanded = false }) {
 
 function ProductExperience({ data, language, t }) {
   const [expanded, setExpanded] = useState(false);
+  const [reserving, setReserving] = useState(false);
+  const rt = reservationText[language];
   const image = productImage(data.product.image);
   const description = data.product.description?.trim();
   const availability = offerAvailability(data.offer);
@@ -21,11 +25,13 @@ function ProductExperience({ data, language, t }) {
       <p className="buyer-location">{data.location.name}</p>
       <h1>{data.product.name}</h1>
       <p className="buyer-price"><strong>{price.format(data.offer.priceMinor / 10 ** price.resolvedOptions().maximumFractionDigits)}</strong></p>
-      <p className={`buyer-availability buyer-availability-${availability}`}>{t[availability]}</p>
+      <p className={`buyer-availability buyer-availability-${availability}`}>{data.offer.active && data.offer.temporarilyReserved ? rt.held : t[availability]}</p>
     </header>
     <ProductImage key={image} src={image} name={data.product.name} />
     {description && <p className="buyer-description">{shortDescription(description)}</p>}
-    {availability === 'soldOut' && <p className="buyer-muted">{t.soldOutDetail}</p>}
+    {availability === 'soldOut' && !data.offer.temporarilyReserved && <p className="buyer-muted">{t.soldOutDetail}</p>}
+    {canReserve(data) && !reserving && <button className="reserve-button" onClick={()=>setReserving(true)}>{rt.reserve}</button>}
+    {reserving && canReserve(data) && <ReservationForm offerId={data.publicOfferId} language={language} duration={data.offer.reservationDuration} onClose={()=>setReserving(false)}/>}
     <details className="buyer-details" onToggle={event => setExpanded(event.currentTarget.open)}>
       <summary>{expanded ? t.less : t.more}</summary>
       {expanded && <div className="buyer-detail-content">
@@ -39,7 +45,7 @@ function ProductExperience({ data, language, t }) {
       </div>}
     </details>
     {/* Offer flags alone never authorize commerce. Add actions here only with real backend flows. */}
-    <aside className="buyer-commerce">{t.checkout}</aside>
+    <aside className="buyer-commerce">{data.reservationAvailable ? rt.purchase : t.checkout}</aside>
   </article>;
 }
 
@@ -52,10 +58,13 @@ export default function MerchantOfferPage() {
   const [result, setResult] = useState(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/public/merchant-offers/${encodeURIComponent(publicOfferId)}`, { signal: controller.signal, cache: 'no-store' })
+    let timer;
+    const load = () => fetch(`/api/public/merchant-offers/${encodeURIComponent(publicOfferId)}`, { signal: controller.signal, cache: 'no-store' })
       .then(async response => ({ id: publicOfferId, data: response.ok ? await response.json() : null }))
-      .then(setResult).catch(error => { if (error.name !== 'AbortError') setResult({ id: publicOfferId, data: null }); });
-    return () => controller.abort();
+      .then(setResult).catch(error => { if (error.name !== 'AbortError') setResult({ id: publicOfferId, data: null }); })
+      .finally(()=>{if(!controller.signal.aborted)timer=setTimeout(load,15000);});
+    load();
+    return () => {controller.abort();clearTimeout(timer);};
   }, [publicOfferId]);
   const ready = result?.id === publicOfferId;
   const data = ready ? result.data : null;

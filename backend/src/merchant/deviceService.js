@@ -68,16 +68,18 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         const resolved = await resolveOffer(read, await read.offer(display.offerId), pausedCapable);
         if (!resolved || resolved.offer.merchantId !== assignment.merchantId || resolved.offer.locationId !== assignment.locationId || resolved.product.productId !== display.productId) return { config: unassigned, device };
         const { product, offer } = resolved;
+        const held = await read.reserved?.(offer.offerId, at) || 0;
+        const available = Math.max(0, offer.stockQuantity - held);
         const projection = {
           ok: true, deviceId: device.deviceId, displayName: device.displayName,
           merchantId: assignment.merchantId, locationId: assignment.locationId,
           hardwareVariant: device.hardwareVariant, firmwareVersionExpected: device.firmwareVersionExpected || null, assigned: true,
           product: { productId: product.productId, name: product.name, image: product.image || null },
-          offer: { offerId: offer.offerId, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
+          offer: { offerId: offer.offerId, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: available,
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
-          display: { status: !offer.active ? 'PAUSED' : offer.stockQuantity === 0 ? 'SOLD' : 'READY',
-            qr: !offer.active || offer.stockQuantity === 0 ? '' : `${origin(publicOrigin())}/o/${offer.publicOfferId}` }
+          display: { status: !offer.active ? 'PAUSED' : offer.stockQuantity === 0 ? 'SOLD' : available === 0 ? 'RESERVED' : 'READY',
+            qr: !offer.active || available === 0 ? '' : `${origin(publicOrigin())}/o/${offer.publicOfferId}` }
         };
         // Opaque change fingerprint, not a chronological commerce event counter.
         projection.display.eventVersion = createHash('sha256').update(JSON.stringify(projection)).digest('hex').slice(0, 16);
@@ -94,13 +96,16 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         const resolved = await resolveOffer(read, await read.publicOffer(publicOfferId), true);
         if (!resolved) throw new DeviceApiError(404, 'offer_not_found');
         const { merchant, location, product, offer } = resolved;
+        const held = await read.reserved?.(offer.offerId, now()) || 0;
+        const available = Math.max(0, offer.stockQuantity - held);
         return { ok: true, publicOfferId, merchant: { displayName: merchant.displayName }, location: { name: location.name },
           product: { name: product.name, description: product.description || null,
             image: publicImage(product.image), category: product.category || null },
-          offer: { active: offer.active, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
+          offer: { active: offer.active, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: available,
+            temporarilyReserved: offer.stockQuantity > 0 && available === 0,
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
-          checkoutAvailable: false, reservationAvailable: false };
+          checkoutAvailable: false, reservationAvailable: offer.inventorySource === 'QR2BUY' };
       });
     }
   };

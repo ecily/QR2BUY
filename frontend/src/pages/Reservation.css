@@ -1,0 +1,12 @@
+.reservation-ui { overflow-wrap: anywhere; }
+.reservation-ui fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.reservation-ui label { display: grid; gap: 6px; margin: 16px 0; }
+.reservation-ui input, .reservation-ui textarea { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #9aaea5; border-radius: 6px; padding: 12px; font: inherit; background: white; color: #172c29; }
+.reservation-ui button, .buyer-page .reserve-button { min-height: 48px; margin: 8px 8px 8px 0; background: #215844; color: white; white-space: normal; }
+.reservation-ui button:disabled { opacity: .6; }
+.reservation-ui dl { margin: 16px 0; }
+.reservation-ui dt { margin-top: 12px; color: #566663; font-size: 14px; }
+.reservation-ui dd { margin: 4px 0; }
+.reservation-ui .reservation-number { font-family: monospace; }
+.reservation-ui [role=alert] { color: #9b2525; }
+.reservation-ui article { margin: 16px 0; padding: 16px; border: 1px solid #dce4df; border-radius: 8px; }

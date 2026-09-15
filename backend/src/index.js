@@ -25,6 +25,8 @@ import merchantRouter from './routes/merchant.js';
 import deviceRouter, { createPublicOfferRouter } from './routes/device.js';
 import bindingRouter, { createDeviceEntryRouter } from './routes/binding.js';
 import { createMerchantPortal } from './routes/merchantPortal.js';
+import { createReservationRouter } from './routes/reservations.js';
+import { startReservationExpiry } from './merchant/inventory.js';
 
 dotenv.config();
 
@@ -59,6 +61,8 @@ const logger = pino({
 });
 
 function sanitizeRequestUrl(url = '') {
+  if (String(url).startsWith('/api/reservations')) return '/api/reservations/[REDACTED]';
+  if (String(url).startsWith('/api/merchant/reservations')) return '/api/merchant/reservations/[REDACTED]';
   if (String(url).startsWith('/api/device/') || String(url).startsWith('/api/binding/')) return String(url).split('?')[0];
   return String(url)
     .replace(/(\/api\/demo\/sessions\/)[^/?#]+/g, '$1[SESSION]')
@@ -104,7 +108,7 @@ app.use(express.json({ limit: '1mb' }));
 // Parser errors may contain fragments of submitted passwords. Never forward these
 // details to the generic logger for merchant account/session requests.
 app.use((err, req, res, next) => {
-  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path))
+  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path) || req.path.startsWith('/api/reservations'))
     return res.status(err.status === 413 ? 413 : 400).json({ ok: false, error: 'invalid_input' });
   next(err);
 });
@@ -112,7 +116,7 @@ app.use((err, req, res, next) => {
 /* ───────────────── MongoDB ───────────────── */
 mongoose
   .connect(MONGO_URL)
-  .then(() => logger.info({ msg: '[db] connected' }))
+  .then(() => { logger.info({ msg: '[db] connected' }); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); })
   .catch((err) => {
     logger.error({ msg: '[db] connection error', err: err.message });
     process.exit(1);
@@ -169,6 +173,7 @@ app.use('/api/device', deviceRouter);
 app.use('/api/binding', bindingRouter);
 app.use('/device', createDeviceEntryRouter());
 app.use('/api/public/merchant-offers', createPublicOfferRouter());
+app.use('/api/reservations', createReservationRouter());
 app.use('/api/admin', adminRouter);
 app.use('/api/checkout', checkoutRouter);
 app.use('/api/stripe', stripeWebhookRouter);
