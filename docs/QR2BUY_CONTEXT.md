@@ -2,11 +2,21 @@
 
 Stand: 15. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
-### P0.4 – Veröffentlichung freigegeben, finale Prüfung (15. September 2026)
+### P0.4 – Buyer Product Experience produktiv (15. September 2026)
+
+**P0.4 ist live.** Dieser Abschnitt ersetzt die nachfolgenden historischen Angaben „lokal“, „Rollout folgt“ und „nicht veröffentlicht“.
+
+- **Feature-Commit:** `0f24d4eec499414afe89dfc441311a73bada117a` – `feat(buyer): improve merchant offer product experience`, auf origin/main gepusht. DigitalOcean-Deployment **`c3abf8c5-9ad2-4102-ae21-4e0bc5554ce9` ACTIVE**, Backend und Frontend auf diesem Commit, **7/7 Schritte erfolgreich**, Abschluss **2026-09-15T13:28:22Z**. Der anschließende reine Kontextcommit wird ebenfalls bis zum erfolgreichen Rollout überwacht.
+- **Produktiver Smoke:** Health, Frontpage DE/EN, Merchant-Login/-Devices-Einstieg und beide Buyer-URLs HTTP 200. Ausgeliefertes Frontendbundle `index-DBRuLt8B.js` bytegleich zum final getesteten Build. Echter Browser gegen Produktion ohne API-Mocks: beide Produkte in DE/EN, korrekter Preis/Verfügbarkeit, „Mehr erfahren“ öffnen/schließen, Händler/Standort, ruhiger Commerce-Hinweis, keine Kauf-/Reservierungsbuttons, kein horizontaler Overflow und keine JavaScriptfehler. Frontpages gerendert; geschütztes Merchant-Portal führt ohne Session korrekt zum funktionierenden Login. Keine angemeldete produktive CRUD-Abnahme behauptet.
+- **Schild 1 Buyer:** `/o/1b4f57d6dec9f6b5705de678fe75b847` → **Testprodukt qr2buy / 31,90 EUR / Bestand 5 / active=true**. **Schild 2 Buyer:** `/o/aaf1582034a031684a9f19ad4c8bee0d` → **Der Herr der Ringe / 19,90 EUR / Bestand 2 / active=true**. Beide Verfügbar. Produktbilder weiterhin nicht gepflegt; beim Buch knappe Beschreibung und fehlende Kategorie, ausdrücklich keine Deploy-Blocker.
+- **Produktionsschutz:** rein lesender Vorher-/Nachhervergleich aller Merchant-/Location-/Product-/Offer-/DeviceMerchantAssignment-/DisplayAssignment-/BindingPreview-/Credential-Dokumente hashgleich. Browser-Smoke ohne zustandsändernde Requests. Kein Flash, Binding, Assignment- oder Produktdatenupdate. Keine Cache-, Screenshot- oder Testlaufartefakte im Commit; `frontend/node_modules/.cache` ignoriert. Frühere lokale Firmwareänderungen bleiben uncommitted und unangetastet.
+- **Bereit für manuelle Smartphone-Abnahme: ja.** Nächster Block weiterhin **Merchant Checkout/Reservierung**; beide Backendfähigkeiten bleiben false und es existieren keine Fake-Aktionen. Späterer Screen-/Layout-Editor bleibt dokumentiert.
+
+#### Finale Freigabeprüfung
 
 - Erneuter vollständiger Freigabelauf: Frontend **57/57**, Backend **138/138**, Browser **42/42** einschließlich aller acht Pilotfälle, Firmwarevertrag **27/27** samt ausgeführtem Host-Parser. ESLint, Build, Backend-Syntax (40 Dateien), `git diff --check`, Secret-Check gegen lokale Credentialwerte und beide npm-Audits (**0 Befunde**) grün.
 - Visuelle Abnahme mit echten Offer-Inhalten bei 320/375/390/430 px, DE/EN: keine blockierenden UX-Mängel. Beide Produkte haben noch kein Bild; beim Buch sind Beschreibung knapp und Kategorie leer. Diese Content-Lücken sind laut Nutzer keine Deploy-Blocker. „Mehr erfahren“ wiederholt bei kurzen Inhalten teilweise bereits Sichtbares.
-- Veröffentlichung von P0.4 ausdrücklich autorisiert; Feature-Commit auf main und DigitalOcean-Rollout beider Komponenten folgen. Produktiver Status und Commit werden nach erfolgreichem Rollout ergänzt. Keine Produkt-/Assignmentänderung, Live-Binding oder Firmwareveröffentlichung. Vorhandene lokale Firmwareänderungen und sämtliche Cache-/Screenshot-/Testartefakte bleiben außerhalb des Commits.
+- Veröffentlichung von P0.4 ausdrücklich autorisiert und oben bestätigt. Keine Produkt-/Assignmentänderung, Live-Binding oder Firmwareveröffentlichung. Vorhandene lokale Firmwareänderungen und sämtliche Cache-/Screenshot-/Testartefakte bleiben außerhalb des Commits.
 - Nächster Produktblock bleibt **Merchant Checkout/Reservierung**; noch keine Kauf-/Reservierungsfunktion. Screen-/Layout-Editor weiterhin spätere Produktidee.
 
 ### P0.4 – Buyer Product Experience, lokal zum Review (15. September 2026)
