@@ -15,7 +15,22 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertIn('merchantUnavailableTitle', screen)
         self.assertIn('drawProminentProductName(config.text, 18, 284, 68)', screen)
         self.assertIn('config.bound && (config.status == "SOLD" || config.status == "PAUSED")', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.6")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.7")', source)
+
+    def test_sold_out_layout_and_copy_are_separate_from_paused(self):
+        source = (ROOT / 'src/static_app.cpp').read_text()
+        screen = source.split('static void drawSoldOutOffer', 1)[1].split('static void drawUnavailableOffer', 1)[0]
+        self.assertNotIn('drawQrCode', screen)
+        self.assertIn('drawProminentProductName(config.text, 18, 284, 51)', screen)
+        self.assertIn('merchantSoldOutFooter(), 220, 1', screen)
+        self.assertIn('merchantSoldOutLine1(), 157, 2', screen)
+        paused = source.split('static void drawUnavailableOffer', 1)[1].split('static void renderConfig', 1)[0]
+        self.assertIn('if (config.status == "SOLD")', paused)
+        self.assertIn('merchantUnavailableLine1(), 171, 2', paused)
+        self.assertIn('merchantUnavailableLine2(), 192, 2', paused)
+        copy = (ROOT / 'include/merchant_display_text.h').read_text()
+        for text in ['Dieses Produkt ist gerade', 'Entdecke unsere anderen Angebote.', 'Currently sold out', 'This product is currently', 'Discover our other offers.']:
+            self.assertIn(text, copy)
 
     def test_preview_has_no_buyer_qr_and_expires_without_network(self):
         source = (ROOT / 'src/static_app.cpp').read_text()
@@ -27,7 +42,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertNotIn('drawQrCode', preview)
         self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
         self.assertIn('left.previewCode == right.previewCode', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.6")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.7")', source)
         self.assertNotIn('Serial.println(config.previewCode', source)
 
     def test_shared_app_and_separate_hardware_and_secret_configs(self):

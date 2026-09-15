@@ -631,7 +631,33 @@ static void drawTerminalScreen(const ConfigPayload& config) {
 }
 
 #if defined(QR2BUY_MERCHANT_DEVICE)
+static void drawSoldOutOffer(const ConfigPayload& config) {
+  footerIndicatorVisible = false;
+  tft.fillScreen(COLOR_PAPER);
+  drawCentered("qr2buy", 16, 4, COLOR_PINE_DARK, COLOR_PAPER);
+  drawCentered(merchantUnavailableTitle(false), 53, 2, COLOR_PINE_DARK, COLOR_PAPER);
+  drawProminentProductName(config.text, 18, 284, 51);
+  drawCentered(merchantSoldOutLine1(), 157, 2, COLOR_INK, COLOR_PAPER);
+#ifdef QR2BUY_DISPLAY_LANGUAGE_EN
+  drawCentered("unavailable.", 177, 2, COLOR_INK, COLOR_PAPER);
+#else
+  // Font 2 has only ASCII glyphs. Add the two dots to render an actual ü.
+  const char* line = "nicht verfugbar.";
+  drawCentered(line, 177, 2, COLOR_INK, COLOR_PAPER);
+  const int16_t umlautX = (tft.width() - tft.textWidth(line, 2)) / 2
+    + tft.textWidth("nicht verf", 2);
+  tft.fillRect(umlautX + 1, 170, 2, 2, COLOR_INK);
+  tft.fillRect(umlautX + 5, 170, 2, 2, COLOR_INK);
+#endif
+  tft.drawFastHLine(38, 200, 244, COLOR_MUTED);
+  drawCentered(merchantSoldOutFooter(), 220, 1, COLOR_PINE_DARK, COLOR_PAPER);
+}
+
 static void drawUnavailableOffer(const ConfigPayload& config) {
+  if (config.status == "SOLD") {
+    drawSoldOutOffer(config);
+    return;
+  }
   // No buyer QR for sold-out or paused offers. Product binding remains intact.
   footerIndicatorVisible = false;
   tft.fillScreen(COLOR_PAPER);
@@ -935,7 +961,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.6");
+  http.addHeader("x-firmware-version", "0.3.7");
 #endif
 
   const int statusCode = http.GET();

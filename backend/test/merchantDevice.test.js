@@ -37,12 +37,12 @@ function fixture() {
 }
 const unauthorized = error => error.status===401 && error.code==='device_unauthorized';
 
-test('pilot firmware distinguishes pause and sold out, preserves binding and safely supports old firmware', async () => {
+for (const fw of ['0.3.6', '0.3.7']) test('pilot firmware '+fw+' distinguishes pause and sold out, preserves binding and safely supports old firmware', async () => {
   const f = fixture(), before = structuredClone(f.displays);
   for (let i = 0; i < 2; i++) {
-    const ready = await f.service.config(f.auth(i), '0.3.6');
+    const ready = await f.service.config(f.auth(i), fw);
     f.offers[i].active = false;
-    const paused = await f.service.config(f.auth(i), '0.3.6');
+    const paused = await f.service.config(f.auth(i), fw);
     assert.equal(paused.assigned, true); assert.equal(paused.display.status, 'PAUSED');
     assert.equal(paused.display.qr, ''); assert.equal(paused.product.productId, ready.product.productId);
     assert.notEqual(paused.display.eventVersion, ready.display.eventVersion);
@@ -51,18 +51,18 @@ test('pilot firmware distinguishes pause and sold out, preserves binding and saf
     }
     await assert.rejects(f.service.publicOffer(f.offers[i].publicOfferId), e => e.status === 404);
     f.offers[i].stockQuantity = 0;
-    assert.equal((await f.service.config(f.auth(i), '0.3.6')).display.status, 'PAUSED');
+    assert.equal((await f.service.config(f.auth(i), fw)).display.status, 'PAUSED');
     f.offers[i].active = true;
-    const soldOut = await f.service.config(f.auth(i), '0.3.6');
+    const soldOut = await f.service.config(f.auth(i), fw);
     assert.equal(soldOut.assigned, true); assert.equal(soldOut.display.status, 'SOLD'); assert.equal(soldOut.display.qr, '');
     f.offers[i].stockQuantity = 5;
-    const restored = await f.service.config(f.auth(i), '0.3.6');
+    const restored = await f.service.config(f.auth(i), fw);
     assert.equal(restored.display.status, 'READY'); assert.equal(restored.display.qr, ready.display.qr);
     assert.equal((await f.service.publicOffer(f.offers[i].publicOfferId)).offer.stockQuantity, 5);
   }
   assert.deepEqual(f.displays, before);
   f.offers[0].active = false; f.products[0].merchantId = 'M1';
-  assert.equal((await f.service.config(f.auth(0), '0.3.6')).assigned, false);
+  assert.equal((await f.service.config(f.auth(0), fw)).assigned, false);
 });
 test('both identities authenticate independently and resolve scoped config and stable buyer QR',async()=>{
   const f=fixture(); assert.notEqual(f.secrets[0],f.secrets[1]);

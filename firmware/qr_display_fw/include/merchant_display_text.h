@@ -7,8 +7,22 @@ true
 false
 #endif
 ) {
-  return english ? (paused ? "Offer paused" : "Temporarily sold out")
+  return english ? (paused ? "Offer paused" : "Currently sold out")
                  : (paused ? "Angebot pausiert" : "Momentan ausverkauft");
+}
+inline const char* merchantSoldOutLine1() {
+#ifdef QR2BUY_DISPLAY_LANGUAGE_EN
+  return "This product is currently";
+#else
+  return "Dieses Produkt ist gerade";
+#endif
+}
+inline const char* merchantSoldOutFooter() {
+#ifdef QR2BUY_DISPLAY_LANGUAGE_EN
+  return "Discover our other offers.";
+#else
+  return "Entdecke unsere anderen Angebote.";
+#endif
 }
 inline const char* merchantUnavailableLine1() {
 #ifdef QR2BUY_DISPLAY_LANGUAGE_EN

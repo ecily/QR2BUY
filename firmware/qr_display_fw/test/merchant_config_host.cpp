@@ -19,7 +19,7 @@ bool parse(const std::string& body, MerchantConfig& c) {
 int main() {
   assert(std::string(merchantUnavailableTitle(false, false)) == "Momentan ausverkauft");
   assert(std::string(merchantUnavailableTitle(true, false)) == "Angebot pausiert");
-  assert(std::string(merchantUnavailableTitle(false, true)) == "Temporarily sold out");
+  assert(std::string(merchantUnavailableTitle(false, true)) == "Currently sold out");
   assert(std::string(merchantUnavailableTitle(true, true)) == "Offer paused");
   MerchantConfig c;
   assert(parse(fixture(), c)); assert(c.assigned); assert(c.productId == "P1");

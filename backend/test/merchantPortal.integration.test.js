@@ -228,7 +228,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       const pending = await m.DisplayAssignment.find({ deviceId: 'QR2B-000001' }).lean();
       assert.equal(pending.length, 1); assert.equal(pending[0].status, 'PENDING'); assert.equal(pending[0].verifiedAt, null);
     });
-    await t.test('pause and resume preserve the real binding, portal product and ISO country values', async () => {
+    for (const fw of ['0.3.6', '0.3.7']) await t.test('pause and resume preserve binding, portal and country with '+fw, async () => {
       await fixture('active');
       const before = await m.DisplayAssignment.find({deviceId:deviceAuth.deviceId}).lean();
       assert.equal((await a.call('merchant/me','PATCH',{address:{country:'AT'}})).status,200);
@@ -237,14 +237,17 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       const card=(await a.call('merchant/devices')).data.items[0];
       assert.equal(card.assignmentStatus,'ACTIVE'); assert.equal(card.product.productId,productA.productId);
       assert.equal(card.offer.active,false);
-      const paused=await devices.config(deviceAuth,'0.3.6');
+      const paused=await devices.config(deviceAuth,fw);
       assert.equal(paused.assigned,true); assert.equal(paused.display.status,'PAUSED'); assert.equal(paused.display.qr,'');
       assert.equal((await a.call('merchant/offers/'+offerA.offerId,'PATCH',{active:true})).status,200);
-      assert.equal((await devices.config(deviceAuth,'0.3.6')).display.status,'READY');
+      assert.equal((await devices.config(deviceAuth,fw)).display.status,'READY');
       assert.deepEqual(await m.DisplayAssignment.find({deviceId:deviceAuth.deviceId}).lean(),before);
       // New firmware must retain support for the existing preview/confirmation flow.
       const retry=await binding.start(merchantA,deviceAuth.deviceId,{method:'PRODUCT_CODE',value:productA.productBindingId},'test-only');
       assert.equal(retry.status,'PREVIEW');
+      const previewConfig = await devices.config(deviceAuth, fw);
+      await binding.finish(merchantA, deviceAuth.deviceId, {previewId:retry.previewId,code:previewConfig.bindingPreview.code});
+      assert.equal((await devices.config(deviceAuth, fw)).assigned, true);
     });
     await t.test('remote price/stock/terms project immediately to device and public offer, no checkout', async () => {
       await fixture('active');
