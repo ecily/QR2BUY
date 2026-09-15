@@ -64,7 +64,7 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         }
         if (!display || !display.verifiedAt || display.endedAt || display.merchantId !== assignment.merchantId || display.locationId !== assignment.locationId) return { config: unassigned, device };
         // PAUSED is a new wire status. Older firmware retains its safe unassigned fallback.
-        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8'].includes(firmwareVersion);
+        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9'].includes(firmwareVersion);
         const resolved = await resolveOffer(read, await read.offer(display.offerId), pausedCapable);
         if (!resolved || resolved.offer.merchantId !== assignment.merchantId || resolved.offer.locationId !== assignment.locationId || resolved.product.productId !== display.productId) return { config: unassigned, device };
         const { product, offer } = resolved;

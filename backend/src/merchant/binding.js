@@ -5,7 +5,7 @@ import { ManagedDevice, Merchant, Location, DeviceMerchantAssignment, MerchantPr
 
 export const PREVIEW_TTL_MS = 120_000;
 // Explicitly tested wire versions, shared by preview start and confirmation.
-const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8'];
+const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8', '0.3.9'];
 const fail = (status, code) => { throw new DeviceApiError(status, code); };
 function requireBindingReady(device, at) {
   if (!device.lastSeenAt || at - device.lastSeenAt > 120_000
