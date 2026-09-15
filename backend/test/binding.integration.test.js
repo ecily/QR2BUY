@@ -141,11 +141,12 @@ test('binding: real isolated Mongo, HTTP, physical-code proof and transitions', 
       assert.equal(await shown(1),undefined);await rejects(binding.finish('M0',ids[1],{previewId:p.previewId,code}),409);
       await m.Offer.updateOne({offerId:'O0'},{$set:{priceMinor:12900}});
     });
-    await t.test('sold active offer takes priority and blocks activation',async()=>{
+    await t.test('old offer becoming sold does not hide the physical challenge or block rebinding',async()=>{
       const p=await start(0,0),code=(await shown()).code;
       await m.Offer.updateOne({offerId:'O1'},{$set:{stockQuantity:0}});
-      const c=await device.config(auth[0]);assert.equal(c.bindingPreview,undefined);assert.equal(c.display.status,'SOLD');assert.equal(c.display.qr,'');
-      await rejects(binding.finish('M0',ids[0],{previewId:p.previewId,code}),409);
+      const c=await device.config(auth[0]);assert.equal(c.bindingPreview.code,code);assert.equal(c.display,undefined);
+      assert.equal((await binding.finish('M0',ids[0],{previewId:p.previewId,code})).status,'ACTIVE');
+      assert.equal((await device.config(auth[0])).product.productId,'P0');
       await m.Offer.updateOne({offerId:'O1'},{$set:{stockQuantity:3}});
     });
     await t.test('old firmware and offline devices cannot start previews',async()=>{

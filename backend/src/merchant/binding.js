@@ -47,7 +47,7 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
     async context(merchantId, deviceId) {
       return bindingTransaction(async session => {
         const { device, assignment } = await bindingScope(merchantId, deviceId, now(), session);
-        const offers = await Offer.find({ merchantId, locationId: assignment.locationId, active: true }).session(session).lean();
+        const offers = await Offer.find({ merchantId, locationId: assignment.locationId }).session(session).lean();
         const products = await MerchantProduct.find({ merchantId, productId: { $in: offers.map(o => o.productId) }, status: 'ACTIVE' }).session(session).lean();
         return { ok: true, device: { deviceId, displayName: device.displayName }, products: products.filter(p => p.productBindingId).map(p => ({ name: p.name, productBindingId: p.productBindingId })) };
       });
@@ -63,10 +63,11 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
         const matches = await MerchantProduct.find({ merchantId, status: 'ACTIVE', [method === 'EAN' ? 'ean' : 'productBindingId']: value }).session(session).lean();
         if (matches.length !== 1) fail(404, 'product_not_found');
         const product = matches[0];
-        const offers = await Offer.find({ merchantId, locationId: assignment.locationId, productId: product.productId, active: true }).session(session).lean();
+        // Binding identifies the physical product, independently of sale availability.
+        const offers = await Offer.find({ merchantId, locationId: assignment.locationId, productId: product.productId }).session(session).lean();
         if (offers.length !== 1) fail(409, 'offer_ambiguous');
         const offer = offers[0];
-        if (Buffer.byteLength(product.name) > 256 || !Number.isSafeInteger(offer.priceMinor) || offer.priceMinor > 999999999 || offer.stockQuantity <= 0
+        if (Buffer.byteLength(product.name) > 256 || !Number.isSafeInteger(offer.priceMinor) || offer.priceMinor > 999999999
             || !['EUR','USD','GBP','CHF','JPY','KWD','BHD'].includes(offer.currency)) fail(409, 'offer_unavailable');
         let pending = await DisplayAssignment.findOne({ deviceId, merchantId, locationId: assignment.locationId, productId: product.productId, offerId: offer.offerId, status: 'PENDING' }).session(session);
         if (!pending) [pending] = await DisplayAssignment.create([{ deviceId, merchantId, locationId: assignment.locationId, productId: product.productId, offerId: offer.offerId, status: 'PENDING', assignedAt: at, boundBy: operator }], { session });
@@ -103,15 +104,10 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
         }
         requireBindingReady(device, at);
         const product = await MerchantProduct.findOne({ productId: p.productId, merchantId, status: 'ACTIVE' }).session(session).lean();
-        const offer = await Offer.findOne({ offerId: p.offerId, productId: p.productId, merchantId, locationId: p.locationId, active: true }).session(session).lean();
-        if (!product || !offer || product.name !== p.productName || offer.priceMinor !== p.priceMinor || offer.currency !== p.currency || offer.stockQuantity <= 0) fail(409, 'preview_changed');
+        const offer = await Offer.findOne({ offerId: p.offerId, productId: p.productId, merchantId, locationId: p.locationId }).session(session).lean();
+        if (!product || !offer || product.name !== p.productName || offer.priceMinor !== p.priceMinor || offer.currency !== p.currency) fail(409, 'preview_changed');
         const pending = await DisplayAssignment.findOne({ _id: p.assignmentId, deviceId, merchantId, locationId: p.locationId, productId: p.productId, offerId: p.offerId, status: 'PENDING' }).session(session);
         if (!pending) fail(409, 'preview_changed');
-        const previous = await DisplayAssignment.findOne({ deviceId, status: 'ACTIVE' }).session(session).lean();
-        if (previous) {
-          const previousOffer = await Offer.findOne({ offerId: previous.offerId }).session(session).lean();
-          if (previousOffer && previousOffer.stockQuantity === 0) fail(409, 'commerce_in_progress');
-        }
         await DisplayAssignment.updateMany({ deviceId, status: 'ACTIVE' }, { $set: { status: 'REPLACED', endedAt: at } }, { session });
         await DisplayAssignment.updateOne({ _id: pending._id, status: 'PENDING' }, { $set: { status: 'ACTIVE', verifiedAt: at, verificationMethod: p.verificationMethod, boundBy: p.boundBy } }, { session });
         await BindingPreview.updateOne({ deviceId, previewId }, { $set: { status: 'CONFIRMED', confirmedAt: at } }, { session });

@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { merchantText } from '../src/merchantText.js';
 
-for (const language of ['de','en']) test(`ACTIVE 0.3.8 device: select another product and confirm only Schild 2 (${language})`, async ({ page }) => {
+for (const language of ['de','en']) for (const targetState of ['READY','SOLD','PAUSED'])
+test(`ACTIVE 0.3.8 device: bind ${targetState} target only to Schild 2 (${language})`, async ({ page }) => {
   const productCode = 'd'.repeat(32), previewId = 'e'.repeat(32);
   const devices = [{deviceId:'QR2B-000001',product:'Testprodukt qr2buy'}, {deviceId:'QR2B-000002',product:'Testprodukt qr2buy'}];
   const writes = [];
@@ -18,7 +19,7 @@ for (const language of ['de','en']) test(`ACTIVE 0.3.8 device: select another pr
       writes.push(path); expect(request.method()).toBe('POST');
       expect(request.postDataJSON()).toEqual({method:'PRODUCT_CODE',value:productCode});
       expect(request.headers()['x-csrf-token']).toBe('test-only-csrf');
-      response = {ok:true,previewId,expiresAt:new Date(Date.now()+120000).toISOString(),product:{name:'Der Herr der Ringe'},offer:{priceMinor:1990,currency:'EUR'}};
+      response = {ok:true,previewId,expiresAt:new Date(Date.now()+120000).toISOString(),product:{name:'Der Herr der Ringe'},offer:{priceMinor:1990,currency:'EUR',stockQuantity:targetState==='READY'?2:0,active:targetState!=='PAUSED',purchasable:false,reservable:false}};
     } else if (path === '/api/merchant/binding/devices/QR2B-000002/confirm') {
       writes.push(path); expect(request.method()).toBe('POST');
       expect(request.postDataJSON()).toEqual({previewId,code:'123456'});
@@ -42,6 +43,7 @@ for (const language of ['de','en']) test(`ACTIVE 0.3.8 device: select another pr
   await page.getByLabel(language==='de'?'Code auf dem Schild':'Code on the display',{exact:true}).fill('123456');
   await confirm.click();
   await expect(page.getByRole('heading',{name:language==='de'?'Schild aktiviert':'Display activated'})).toBeVisible();
+  await expect(page.getByRole('status')).toContainText(language==='de'?'Die Anzeige folgt dem aktuellen Angebotsstatus.':'Its screen reflects the current offer status.');
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(devices[0].product).toBe('Testprodukt qr2buy'); expect(devices[1].product).toBe('Der Herr der Ringe');
   expect(writes).toHaveLength(2);
