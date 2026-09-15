@@ -21,8 +21,7 @@ for (const width of [320,375,390,430]) for (const lang of ['de','en']) {
       } else if(path==='/api/merchant/locations') json={ok:true,items:[location]};
       else if(['/api/merchant/products','/api/merchant/offers','/api/merchant/devices'].includes(path)) json={ok:true,items:[]};
       else if(path.startsWith('/api/public/merchant-offers/')) {
-        status=active?200:404;
-        json=active?{ok:true,merchant:{displayName:'Pilot shop'},location:{name:'Window'},product:{name:'Pilot product'},offer:{priceMinor:2290,currency:'EUR',stockQuantity:stock}}:{ok:false};
+        json={ok:true,merchant:{displayName:'Pilot shop'},location:{name:'Window'},product:{name:'Pilot product'},offer:{active,priceMinor:2290,currency:'EUR',stockQuantity:stock}};
       } else throw new Error('Unexpected request: '+req.method()+' '+path);
       await route.fulfill({status,json});
     });
@@ -63,7 +62,8 @@ for (const width of [320,375,390,430]) for (const lang of ['de','en']) {
     await expect(page.locator('main')).toContainText(lang==='de'?'Verfügbar':'Available');
     stock=0; await page.reload(); await expect(page.locator('main')).toContainText(lang==='de'?'Momentan ausverkauft':'Temporarily sold out');
     stock=5; await page.reload(); await expect(page.locator('main')).toContainText(lang==='de'?'Verfügbar':'Available');
-    active=false; await page.reload(); await expect(page.getByRole('heading')).toHaveText(lang==='de'?'Angebot derzeit nicht verfügbar':'Offer currently unavailable');
+    active=false; await page.reload(); await expect(page.locator('.buyer-availability')).toHaveText(lang==='de'?'Derzeit nicht verfügbar':'Currently unavailable');
+    await expect(page.getByRole('heading')).toHaveText('Pilot product');
     active=true; await page.reload(); await expect(page.getByRole('heading')).toHaveText('Pilot product');
     await expect(page.locator('main')).toContainText(lang==='de'?'noch nicht freigeschaltet':'not yet available');
     await expect(page.getByRole('button')).toHaveCount(0); await noOverflow(); expect(errors).toEqual([]);

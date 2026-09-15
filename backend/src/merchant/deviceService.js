@@ -91,15 +91,26 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
     async publicOffer(publicOfferId) {
       if (!publicIdValid(publicOfferId)) throw new DeviceApiError(404, 'offer_not_found');
       return repository.snapshot(async read => {
-        const resolved = await resolveOffer(read, await read.publicOffer(publicOfferId));
+        const resolved = await resolveOffer(read, await read.publicOffer(publicOfferId), true);
         if (!resolved) throw new DeviceApiError(404, 'offer_not_found');
         const { merchant, location, product, offer } = resolved;
         return { ok: true, publicOfferId, merchant: { displayName: merchant.displayName }, location: { name: location.name },
-          product: { name: product.name, description: product.description || null },
-          offer: { priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
+          product: { name: product.name, description: product.description || null,
+            image: publicImage(product.image), category: product.category || null },
+          offer: { active: offer.active, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
             purchasable: offer.purchasable, reservable: offer.reservable,
-            reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null }, checkoutAvailable: false };
+            reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
+          checkoutAvailable: false, reservationAvailable: false };
       });
     }
   };
+}
+
+// Legacy/imported image values must meet the same URL policy as portal input.
+function publicImage(value) {
+  if (typeof value !== 'string' || value.length > 2000) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
+  } catch { return null; }
 }

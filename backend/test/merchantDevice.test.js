@@ -37,6 +37,38 @@ function fixture() {
 }
 const unauthorized = error => error.status===401 && error.code==='device_unauthorized';
 
+test('buyer projection exposes only approved fields and never writes; images and paused offers are supported', async () => {
+  const f = fixture();
+  Object.assign(f.products[0], { description: 'Short intro.\n\nLong description.', image: 'https://example.test/book.jpg',
+    category: 'Books', sku: 'PRIVATE', ean: 'PRIVATE', productBindingId: 'PRIVATE', secret: 'PRIVATE' });
+  Object.assign(f.locations[0], { address: { _id: 'PRIVATE' }, secret: 'PRIVATE' });
+  Object.assign(f.merchants[0], { contactEmail: 'PRIVATE', secret: 'PRIVATE' });
+  for (const active of [true, false]) for (const stockQuantity of [0, 2]) {
+    Object.assign(f.offers[0], { active, stockQuantity });
+    const data = await f.service.publicOffer(f.offers[0].publicOfferId);
+    assert.deepEqual(data.product, { name: 'Product 0', description: 'Short intro.\n\nLong description.', image: 'https://example.test/book.jpg', category: 'Books' });
+    assert.deepEqual(data.merchant, { displayName: 'Merchant 0' });
+    assert.deepEqual(data.location, { name: 'Location 0' });
+    assert.equal(data.offer.active, active); assert.equal(data.offer.stockQuantity, stockQuantity);
+    assert.equal(data.checkoutAvailable, false); assert.equal(data.reservationAvailable, false);
+    assert.ok(!JSON.stringify(data).includes('PRIVATE'));
+  }
+  for (const image of [null, '', 'bad', 'data:image/png;base64,AA', 'javascript:alert(1)', 'http://example.test/a', 'https://user:pass@example.test/a']) {
+    f.products[0].image = image;
+    assert.equal((await f.service.publicOffer(f.offers[0].publicOfferId)).product.image, null);
+  }
+  assert.equal(f.writes(), 0);
+});
+
+test('paused public offers still reject archived products, inactive locations and foreign scopes', async () => {
+  for (const mutate of [f => { f.merchants[0].status = 'SUSPENDED'; }, f => { f.locations[0].status = 'INACTIVE'; },
+    f => { f.products[0].status = 'ARCHIVED'; }, f => { f.products[0].merchantId = 'M1'; }, f => { f.locations[0].merchantId = 'M1'; }]) {
+    const f = fixture(); f.offers[0].active = false; mutate(f);
+    await assert.rejects(f.service.publicOffer(f.offers[0].publicOfferId), e => e.status === 404);
+    assert.equal(f.writes(), 0);
+  }
+});
+
 for (const fw of ['0.3.6', '0.3.7', '0.3.8']) test('pilot firmware '+fw+' distinguishes pause and sold out, preserves binding and safely supports old firmware', async () => {
   const f = fixture(), before = structuredClone(f.displays);
   for (let i = 0; i < 2; i++) {
@@ -49,7 +81,7 @@ for (const fw of ['0.3.6', '0.3.7', '0.3.8']) test('pilot firmware '+fw+' distin
     for (const version of [undefined, '0.3.2', '0.3.4', '99.0.0']) {
       assert.equal((await f.service.config(f.auth(i), version)).assigned, false);
     }
-    await assert.rejects(f.service.publicOffer(f.offers[i].publicOfferId), e => e.status === 404);
+    assert.equal((await f.service.publicOffer(f.offers[i].publicOfferId)).offer.active, false);
     f.offers[i].stockQuantity = 0;
     assert.equal((await f.service.config(f.auth(i), fw)).display.status, 'PAUSED');
     f.offers[i].active = true;
@@ -153,7 +185,7 @@ test('buyer offer is read-only, hides internal identifiers, excludes inactive sc
   assert.equal(result.checkoutAvailable,false);assert.equal(result.product.name,'Product 0');assert.equal(result.merchant.displayName,'Merchant 0');
   for(const key of ['merchantId','deviceId','offerId','productId','verifier','secret','_id'])assert.ok(!JSON.stringify(result).includes(`"${key}"`));
   f.offers[0].stockQuantity=0;const c=await f.service.config(f.auth(0));assert.equal(c.display.status,'SOLD');assert.equal(c.display.qr,'');
-  f.offers[0].active=false;await assert.rejects(f.service.publicOffer(f.offers[0].publicOfferId),e=>e.status===404);
+  f.offers[0].active=false;assert.equal((await f.service.publicOffer(f.offers[0].publicOfferId)).offer.active,false);
   await assert.rejects(f.service.publicOffer('bad'),e=>e.status===404);
 });
 test('HTTP headers, no-store, errors, query rejection, auth isolation and per-device polling limit',async t=>{

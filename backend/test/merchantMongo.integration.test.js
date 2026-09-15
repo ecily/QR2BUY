@@ -145,7 +145,9 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
       assert.equal((await buyer(randomBytes(16).toString('hex'))).status, 404);
       assert.equal((await buyer(String(offers[0]._id))).status, 404);
       await Offer.updateOne({ offerId: offers[0].offerId }, { $set: { active: false } });
-      assert.equal((await buyer(offers[0].publicOfferId)).status, 404);
+      const paused = await buyer(offers[0].publicOfferId);
+      assert.equal(paused.status, 200);
+      assert.equal((await paused.json()).offer.active, false);
       assert.equal((await service.config(auth[0])).assigned, false);
       await Offer.updateOne({ offerId: offers[0].offerId }, { $set: { active: true } });
       await Merchant.updateOne({ merchantId: 'TEST-M0' }, { $set: { status: 'SUSPENDED' } });

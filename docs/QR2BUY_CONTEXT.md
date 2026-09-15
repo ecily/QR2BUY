@@ -2,9 +2,54 @@
 
 Stand: 15. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
+### P0.4 – Veröffentlichung freigegeben, finale Prüfung (15. September 2026)
+
+- Erneuter vollständiger Freigabelauf: Frontend **57/57**, Backend **138/138**, Browser **42/42** einschließlich aller acht Pilotfälle, Firmwarevertrag **27/27** samt ausgeführtem Host-Parser. ESLint, Build, Backend-Syntax (40 Dateien), `git diff --check`, Secret-Check gegen lokale Credentialwerte und beide npm-Audits (**0 Befunde**) grün.
+- Visuelle Abnahme mit echten Offer-Inhalten bei 320/375/390/430 px, DE/EN: keine blockierenden UX-Mängel. Beide Produkte haben noch kein Bild; beim Buch sind Beschreibung knapp und Kategorie leer. Diese Content-Lücken sind laut Nutzer keine Deploy-Blocker. „Mehr erfahren“ wiederholt bei kurzen Inhalten teilweise bereits Sichtbares.
+- Veröffentlichung von P0.4 ausdrücklich autorisiert; Feature-Commit auf main und DigitalOcean-Rollout beider Komponenten folgen. Produktiver Status und Commit werden nach erfolgreichem Rollout ergänzt. Keine Produkt-/Assignmentänderung, Live-Binding oder Firmwareveröffentlichung. Vorhandene lokale Firmwareänderungen und sämtliche Cache-/Screenshot-/Testartefakte bleiben außerhalb des Commits.
+- Nächster Produktblock bleibt **Merchant Checkout/Reservierung**; noch keine Kauf-/Reservierungsfunktion. Screen-/Layout-Editor weiterhin spätere Produktidee.
+
+### P0.4 – Buyer Product Experience, lokal zum Review (15. September 2026)
+
+**Lokal implementiert, nicht veröffentlicht.** Der nachfolgende Multi-Device-/Multi-Product-Stand bleibt die vom Nutzer bestätigte Produktionsabnahme. P0.4 setzt den Käuferdarstellungsanteil des dortigen Zielbilds um; Merchant-Checkout und Reservierung bleiben offen.
+
+- **Audit/Architektur:** bestehende Route `/o/:publicOfferId`, `MerchantOfferPage` und öffentliche API `/api/public/merchant-offers/:publicOfferId` erweitert. `MerchantProduct` besitzt bereits `description`, `image` und `category`; Portal akzeptiert HTTPS-Bild-URLs. Kein neues Modell, Uploadspeicher, Base64, paralleler Buyer-Flow oder zusätzliche Detailroute.
+- **Käuferansicht DE/EN:** dezentes Branding, Händler-/Standortname, Produktname, prominenter Preis, Verfügbarkeit, optionales responsives Bild und Kurzbeschreibung. Lange Beschreibung wird nur für die Hauptansicht auf maximal 180 Unicode-Zeichen plus Ellipse gekürzt, im bestehenden Feld vollständig erhalten. „Mehr erfahren“ / „Weniger anzeigen“ als per Tastatur bedienbares Disclosure mit vollständiger Beschreibung, größerem Bild, Händler, Standort und optionaler Kategorie. Fehlende/defekte Bilder hinterlassen keinen leeren Bildblock. Produkttexte werden nicht automatisch übersetzt.
+- **Öffentliche Projektion:** explizite Feldfreigabe ergänzt um validierte HTTPS-Referenz `product.image`, `product.category`, `offer.active` und `reservationAvailable=false`; `checkoutAvailable=false` bleibt. Keine internen IDs, EAN/SKU, Bindings, Geräte- oder Credentialdaten. Händler und Standort nur mit ihren öffentlichen Anzeigenamen; keine Kontaktdaten oder internen Adressobjekte.
+- **Verfügbarkeit:** active=true/Bestand >0 → „Verfügbar“; active=true/Bestand 0 → „Momentan ausverkauft“; active=false → „Derzeit nicht verfügbar“. Bewusste Änderung ausschließlich an der öffentlichen Offer-Projektion: pausierte Offers bleiben unter ihrer vorhandenen öffentlichen URL als nicht verfügbar lesbar (HTTP 200 statt zuvor 404). Unbekannte Offers, gesperrte Händler/Standorte, inaktive/archivierte Produkte und fremde Scopes bleiben 404. Device-API-/QR-/Binding-Vertrag unverändert.
+- **Keine Fake-CTAs:** gemeinsamer ruhiger Hinweis auf noch nicht freigeschalteten Online-Kauf/Reservierung; keine Kauf-/Reservierungsbuttons, auch bei gesetzten Offer-Flags. Künftige echte Aktionen benötigen sowohl das passende Offer-Flag als auch einen implementierten Backendflow. Kein Checkout, Stripe Connect, Payment Intent, Bestell-/Reservierungsworkflow, Buyer-Account oder E-Mailversand ergänzt.
+- **Prüfungen:** Backend **138/138**, Frontend **57/57**, Browser **42/42**, Firmwarevertrag **27/27** einschließlich tatsächlich kompiliertem/ausgeführtem Host-Parser. Neue Browserfälle DE/EN jeweils bei **320/375/390/430 px**: Rendern, Bild/kein Bild/defektes Bild, kurze/lange/fehlende Beschreibung, Disclosure per Tastatur und Klick, Bestand/pausiert, lange Namen, Fehlerseiten, keine Fake-Buttons/Schreibrequests und kein horizontaler Overflow. 320-px-Ansicht mit lokalem Testbild visuell geprüft. Bestehende Merchant-/Frontpage-/Binding-/Device-/Demo-Regressionen grün. Backend-Syntax (40 Dateien), ESLint, Frontendbuild und Secret-Musterprüfung grün. Beide npm-Audits **0 Befunde**; nach initialem Zertifikatsfehler erfolgreich mit Windows-System-CA, ohne TLS-Abschwächung. `git diff --check` grün. Pilot-Browserfixtures auf die neue pausierte HTTP-200-Projektion angepasst; acht zugehörige Fälle abschließend erneut grün.
+- **Arbeitsgrenzen:** ausschließlich lokale Anwendung, isolierte Testdaten und Browser-API-Mocks. Keine produktiven Lese-/Schreibaufrufe, Live-Preview, Assignment-/Credentialänderung, Commit, Push, Deployment oder Flash. Bereits vorhandene lokale Firmware-0.3.8-Änderungen unangetastet. **STOP vor Veröffentlichung; Review der lokalen Buyer Experience.** Späterer Screen-/Layout-Editor für Händler bleibt als separate Produktidee offen.
+
+### Multi-Device-/Multi-Product-Meilenstein – live abgenommen (15. September 2026)
+
+**Vom Nutzer live bestätigt.** Dieser Endstand hat Vorrang vor allen nachfolgenden historischen Angaben „beide auf Testprodukt“, „Rebinding-Test offen“ und „physische 0.3.8-Abnahme offen“. In diesem Dokumentationsauftrag keine erneute Live-Prüfung oder Zustandsänderung.
+
+- **Merchant ecily.com:** realer Händleraccount und Standort funktionieren.
+
+| Verkaufsschild | Online | Status | assigned | Firmware | Produkt | Preis | Bestand |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| QR2B-000001 / Schild 1 | ja | ACTIVE | true | 0.3.8 | Testprodukt qr2buy | 31,90 EUR | 5 |
+| QR2B-000002 / Schild 2 | ja | ACTIVE | true | 0.3.8 | Der Herr der Ringe | 19,90 EUR | 2 |
+
+- **Abgenommen:** ein Händler betreibt mehrere Verkaufsschilder parallel mit unterschiedlichen Produkten. Rebinding eines einzelnen Schilds funktioniert; das andere Schild bleibt unverändert. Preis-/Bestands-Synchronisierung, Buyer-QR und Buyer-Seite mit passendem Produkt/Preis funktionieren. Zustandswechsel Bestand 0 / >0 und Offer active=false / true funktionieren. Out-of-stock-UX auf Firmware 0.3.8 einschließlich horizontal zentriertem Produktnamen physisch abgenommen.
+
+#### Nächste Produktentscheidung: BUYER JOURNEY + MERCHANT CHECKOUT/RESERVIERUNG
+
+**Zielbild, noch nicht implementiert:** Nach QR-Scan in dieser Reihenfolge Produktname, Preis, Verfügbarkeit, Produktbild (falls vorhanden), kurze Beschreibung und CTA „Mehr erfahren“. „Mehr erfahren“ kann zusätzliche Produktinformationen anzeigen, insbesondere Bild, längere Beschreibung, Händler und Standort.
+
+- CTA **„Reservieren“** nur bei `reservable=true` **und verfügbarer Backend-Reservierungsfunktion**.
+- CTA **„Kaufen“** nur bei `purchasable=true` **und verfügbarer Backend-Kauffunktion**.
+- **Keine Fake-Buttons:** Kauf-/Reservierungsfunktionen nicht anzeigen, solange die zugehörige Backend-Funktionalität fehlt. Die vorhandene Merchant-Buyer-Seite ist bislang eine lesende Angebotsseite; die separate Stripe-Sandbox-Demo ist kein Merchant-Checkout.
+- **Spätere Produktidee bleibt offen:** einfacher Screen-/Layout-Editor für Händler; gesondert prüfen, nicht implementiert.
+
+Ausschließlich Kontextdokumentation aktualisiert; keine Implementierung, produktive Daten-/Assignment-Änderung, Preview, Commit/Push, Deployment oder Flash in diesem Schritt. Vorhandene lokale Firmwareänderungen bleiben unangetastet.
+
 ### Binding unabhängig vom Offer-Verkaufszustand (15. September 2026)
 
 Dieser Abschnitt ersetzt die nachfolgende historische Bestand-0-Sperre und deren Freigabe-offen-Angaben. Nutzerentscheidung: Binding identifiziert das physische Produkt; Verkaufbarkeit wird anschließend unabhängig davon projiziert.
+
+- **Letzter Live-Nachtrag, ca. 15:05 MESZ:** Auch Kontextcommit `a14993cc25617aed1e8b31ae7e1f296d5fb4c26d` ist produktiv, Deployment `4eb268cc-75e5-41e4-a8e4-d6a5da34f98f` ACTIVE, 7/7 Schritte erfolgreich (13:04:06Z). Beim abschließenden lesenden Vergleich hat sich ausschließlich die Collection `merchant_offers` geändert: das gemeinsame „Testprodukt qr2buy“-Offer steht inzwischen auf **31,90 EUR / Bestand 5 / active=true** statt Bestand 0. Kein Offer-Schreibaufruf durch diesen Auftrag; Urheber der zwischenzeitlichen Änderung nicht bestimmt. Alle Assignment-, Preview-, Credential-, Merchant-, Location- und Product-Dokumente weiterhin hashgleich zum Ausgangsstand; Gerätekonfiguration ebenfalls unverändert außer regulären Heartbeats. Beide Schilder online/ACTIVE/0.3.8 und weiterhin auf Testprodukt qr2buy; „Der Herr der Ringe“ unverändert 19,90 EUR / Bestand 2. Dieser Nachtrag hat Vorrang vor den vorherigen Bestand-0-Snapshots. Rebinding-Test weiter bereit, noch keine Live-Preview/Bestätigung ausgeführt.
 
 - **Entfernt:** `active=true`-Filter in Binding-Kontext, Zieloffer-Auflösung und Bestätigung; Zielbestand >0 bei Start, Preview-Projektion und Bestätigung; bisheriger Bestand-0-Vorrang vor Preview und `commerce_in_progress` beim Ersetzen. Die Preview-Auflösung akzeptiert auch pausierte Offers. Stock/active/purchasable/reservable-Werte entscheiden nicht über Binding-Eligibility; Schema-/Protokollvalidierung bleibt erhalten.
 - **Weiter erforderlich:** angemeldeter Händler und dessen gültige DeviceMerchantAssignment, ACTIVE-Gerät/-Händler/-Standort, höchstens 120 Sekunden alter Heartbeat, explizit unterstützte Preview-Firmware, aktives Zielprodukt und eindeutig zuordenbares Offer im selben Händler-/Standortscope. Mehrdeutige Offers werden weiterhin abgewiesen. Produktname/Preis/Währung der physischen Preview müssen bei Bestätigung unverändert sein. Challenge gerätegebunden, 120 Sekunden TTL, maximal fünf Fehlversuche; CSRF/Origin, Fremdhändler-/Replay-/Ablaufsperren und transaktionale/idempotente Aktivierung unverändert.
