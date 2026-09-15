@@ -52,7 +52,7 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
       return bindingTransaction(async session => {
         const at = now();
         const { device, assignment } = await bindingScope(merchantId, deviceId, at, session);
-        if (!device.lastSeenAt || at - device.lastSeenAt > 120_000 || device.firmwareVersion !== '0.3.4') fail(409, 'device_update_required');
+        if (!device.lastSeenAt || at - device.lastSeenAt > 120_000 || !['0.3.4', '0.3.6'].includes(device.firmwareVersion)) fail(409, 'device_update_required');
         await lock(deviceId, session);
         const matches = await MerchantProduct.find({ merchantId, status: 'ACTIVE', [method === 'EAN' ? 'ean' : 'productBindingId']: value }).session(session).lean();
         if (matches.length !== 1) fail(404, 'product_not_found');
@@ -95,7 +95,7 @@ export function createBindingService({ now = () => new Date(), pepper = () => pr
           await BindingPreview.updateOne({ deviceId, previewId }, { $inc: { attempts: 1 } }, { session });
           return { error: 'incorrect_display_code' }; // Commit attempt counter before returning 400.
         }
-        if (!device.lastSeenAt || at - device.lastSeenAt > 120_000 || device.firmwareVersion !== '0.3.4') fail(409, 'device_update_required');
+        if (!device.lastSeenAt || at - device.lastSeenAt > 120_000 || !['0.3.4', '0.3.6'].includes(device.firmwareVersion)) fail(409, 'device_update_required');
         const product = await MerchantProduct.findOne({ productId: p.productId, merchantId, status: 'ACTIVE' }).session(session).lean();
         const offer = await Offer.findOne({ offerId: p.offerId, productId: p.productId, merchantId, locationId: p.locationId, active: true }).session(session).lean();
         if (!product || !offer || product.name !== p.productName || offer.priceMinor !== p.priceMinor || offer.currency !== p.currency || offer.stockQuantity <= 0) fail(409, 'preview_changed');

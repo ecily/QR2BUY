@@ -97,8 +97,8 @@ test("positions the public landing page for merchants in German and English", as
   assert.match(html, /property="og:title"/);
   assert.match(html, /name="twitter:title"/);
   assert.match(html, /name="description"/);
-  assert.ok(html.includes("qr2buy – Scannen. Kaufen. Verkauft."));
-  assert.ok(landing.includes("qr2buy – Scan. Buy. Sold."));
+  assert.ok(html.includes("qr2buy – Produkte und Preise live am Schild."));
+  assert.ok(landing.includes("qr2buy – Products and prices live on display."));
 });
 
 test("balances the seven merchant use-case cards across responsive grids", async () => {

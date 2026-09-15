@@ -79,10 +79,31 @@ test('binding: real isolated Mongo, HTTP, physical-code proof and transitions', 
       assert.equal((await binding.finish('M0',ids[0],data)).status,'CANCELLED');
       assert.equal(await shown(),undefined);assert.equal((await m.DisplayAssignment.findById(prepared._id)).status,'PENDING');
     });
-    await t.test('TTL expires preview and rejects replay before any transition',async()=>{
+    await t.test('expired preview restarts for the same device/product without cleanup or activation',async()=>{
       const p=await start(),code=(await shown()).code;at=new Date(+at+PREVIEW_TTL_MS);
       assert.equal(await shown(),undefined);await rejects(binding.finish('M0',ids[0],{previewId:p.previewId,code}),409);
       await m.ManagedDevice.updateMany({},{$set:{lastSeenAt:at}});
+      // Keep the expired PREVIEW row and PENDING assignment, exactly as production does.
+      const previous=await m.BindingPreview.findOne({deviceId:ids[0]}).select('+nonce');
+      assert.equal(previous.status,'PREVIEW');
+      const restarted=await start();
+      const current=await m.BindingPreview.findOne({deviceId:ids[0]}).select('+nonce');
+      assert.equal(String(current._id),String(previous._id));
+      assert.notEqual(current.nonce,previous.nonce);
+      assert.notEqual(restarted.previewId,p.previewId);
+      assert.equal(+new Date(restarted.expiresAt)-at,PREVIEW_TTL_MS);
+      assert.equal(restarted.product.name,p.product.name);
+      const config=await device.config(auth[0]);
+      assert.equal(config.assigned,false);
+      assert.equal(config.bindingPreview.previewId,restarted.previewId);
+      assert.match(config.bindingPreview.code,/^\d{6}$/);
+      await rejects(binding.finish('M0',ids[0],{previewId:p.previewId,code}),404);
+      await rejects(binding.start('M1',ids[0],{method:'PRODUCT_CODE',value:products[0].productBindingId},'foreign-operator'),404);
+      assert.equal((await shown()).previewId,restarted.previewId);
+      assert.equal(await m.DisplayAssignment.countDocuments({status:'ACTIVE'}),0);
+      assert.equal(await m.DisplayAssignment.countDocuments({deviceId:ids[0]}),1);
+      const pending=await m.DisplayAssignment.findById(prepared._id);
+      assert.equal(pending.status,'PENDING');assert.equal(pending.verifiedAt,null);
     });
     await t.test('incorrect physical code bounded to five attempts, no active assignment',async()=>{
       const p=await start();const correct=(await shown()).code;const wrong=correct==='000000'?'111111':'000000';

@@ -10,6 +10,7 @@
 
 #if defined(QR2BUY_MERCHANT_DEVICE)
 #include "merchant_config.h"
+#include "merchant_display_text.h"
 #if defined(QR2BUY_ENV_SPI_CS5_RST4)
 #include "secrets.device1.h"
 #else
@@ -629,6 +630,19 @@ static void drawTerminalScreen(const ConfigPayload& config) {
   tft.drawString("Der QR-Code ist jetzt deaktiviert.", 30, 205, 1);
 }
 
+#if defined(QR2BUY_MERCHANT_DEVICE)
+static void drawUnavailableOffer(const ConfigPayload& config) {
+  // No buyer QR for sold-out or paused offers. Product binding remains intact.
+  footerIndicatorVisible = false;
+  tft.fillScreen(COLOR_PAPER);
+  drawCentered("qr2buy", 16, 4, COLOR_PINE_DARK, COLOR_PAPER);
+  drawCentered(merchantUnavailableTitle(config.status == "PAUSED"), 63, 2, COLOR_INK, COLOR_PAPER);
+  drawProminentProductName(config.text, 18, 284, 68);
+  drawCentered(merchantUnavailableLine1(), 171, 2, COLOR_MUTED, COLOR_PAPER);
+  drawCentered(merchantUnavailableLine2(), 192, 2, COLOR_MUTED, COLOR_PAPER);
+}
+#endif
+
 static void renderConfig(const ConfigPayload& config) {
   bootstrapScreenKey = "";
   if (config.bindingPreview) {
@@ -641,6 +655,10 @@ static void renderConfig(const ConfigPayload& config) {
     drawCentered("Code am Smartphone eingeben", 164, 2, COLOR_MUTED, COLOR_PAPER);
     drawCentered(config.previewCode.c_str(), 191, 4, COLOR_PINE_DARK, COLOR_PAPER);
     drawCentered("Ist das das Produkt vor dir?", 225, 2, COLOR_MUTED, COLOR_PAPER);
+#if defined(QR2BUY_MERCHANT_DEVICE)
+  } else if (config.bound && (config.status == "SOLD" || config.status == "PAUSED")) {
+    drawUnavailableOffer(config);
+#endif
   } else if (!config.bound) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
     drawMessageScreen("Kein Produkt", "zugewiesen");
@@ -917,7 +935,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.4");
+  http.addHeader("x-firmware-version", "0.3.6");
 #endif
 
   const int statusCode = http.GET();

@@ -40,12 +40,12 @@ export async function listDevices(merchantId) {
       const candidates = displays.filter(a => a.deviceId === d.deviceId && a.locationId === owner.locationId);
       const active = candidates.find(a => a.status === 'ACTIVE' && a.verifiedAt && !a.endedAt);
       const product = active && products.find(p => p.productId === active.productId && p.status === 'ACTIVE');
-      const offer = active && offers.find(o => o.offerId === active.offerId && o.productId === active.productId && o.locationId === owner.locationId && o.active);
+      const offer = active && offers.find(o => o.offerId === active.offerId && o.productId === active.productId && o.locationId === owner.locationId);
       return { deviceId: d.deviceId, displayName: d.displayName, online: deviceOnline(d, at), lastSeenAt: d.lastSeenAt,
         firmwareVersion: d.firmwareVersion, location: { locationId: owner.locationId, name: locations.find(l => l.locationId === owner.locationId).name },
         assignmentStatus: active ? 'ACTIVE' : candidates.length ? 'PENDING' : 'NONE',
         product: product && offer ? { productId: product.productId, name: product.name } : null,
-        offer: product && offer ? { priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity } : null };
+        offer: product && offer ? { priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity, active: offer.active } : null };
     });
   });
 }

@@ -13,6 +13,7 @@ import {
 } from "../demoHardwareBinding.js";
 import { getHardwareDisplayMode } from "../demoDisplayState.js";
 import { confirmDemoSafety, hasDemoSafetyConfirmation } from "../demoSafetyGate.js";
+import { pilotCopy } from "../pilotCopy.js";
 import BrandLogo from "../components/BrandLogo.jsx";
 
 const ECILY_STARTUP_URLS = {
@@ -654,13 +655,13 @@ export default function LandingPage({ initialLanguage }) {
   const initialLang = useMemo(() => initialLanguage || (typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("en") ? "en" : "de"), [initialLanguage]);
   const [lang, setLang] = useState(initialLang);
   const navigate = useNavigate();
-  const t = { ...copy[lang], ...merchantCopy[lang], ...HARDWARE_OPERATOR_COPY[lang] };
+  const t = { ...copy[lang], ...merchantCopy[lang], ...pilotCopy[lang], ...HARDWARE_OPERATOR_COPY[lang] };
 
   useEffect(() => {
-    const title = lang === "de" ? "qr2buy – Scannen. Kaufen. Verkauft." : "qr2buy – Scan. Buy. Sold.";
+    const title = lang === "de" ? "qr2buy – Produkte und Preise live am Schild." : "qr2buy – Products and prices live on display.";
     const description = lang === "de"
-      ? "qr2buy macht sichtbare Produkte im Schaufenster auch außerhalb der Öffnungszeiten direkt kauf- oder reservierbar – ohne App und ohne Mitarbeiter vor Ort."
-      : "qr2buy lets customers buy or reserve visible shop-window products even outside opening hours – no app and no staff member required.";
+      ? "qr2buy verbindet Händlerportal, echte Verkaufsschilder und öffentliche Produktseiten. Produkte, Preise und Bestand live synchronisieren."
+      : "qr2buy connects the merchant portal, real displays and public product pages. Synchronize products, prices and stock live.";
     const canonicalUrl = `https://qr2buy.com/${lang}`;
     document.title = title;
     document.documentElement.lang = lang;
@@ -680,10 +681,12 @@ export default function LandingPage({ initialLanguage }) {
   };
 
   return <div className="landing-page">
-    <header className="landing-header"><div className="landing-shell landing-header__inner"><a href={`/${lang}`} aria-label="qr2buy home"><BrandLogo /></a><nav className="landing-nav" aria-label="Main navigation"><a href="#demo">{t.nav.demo}</a><a href="#benefits">{t.nav.benefits}</a><a href="#use-cases">{t.nav.useCases}</a><a href="#pilot">{t.nav.pilot}</a></nav><div className="landing-header__actions"><div className="language-switch" aria-label={t.language}><button className={lang === "de" ? "is-active" : ""} onClick={() => changeLanguage("de")} aria-pressed={lang === "de"}>DE</button><button className={lang === "en" ? "is-active" : ""} onClick={() => changeLanguage("en")} aria-pressed={lang === "en"}>EN</button></div><a className="landing-button landing-button--small" href="#demo">{t.demoCta}</a></div></div></header>
+    <header className="landing-header"><div className="landing-shell landing-header__inner"><a href={`/${lang}`} aria-label="qr2buy home"><BrandLogo /></a><nav className="landing-nav" aria-label="Main navigation"><a href="#demo">{t.nav.demo}</a><a href="#benefits">{t.nav.benefits}</a><a href="#use-cases">{t.nav.useCases}</a><a href="#pilot">{t.nav.pilot}</a></nav><div className="landing-header__actions"><div className="language-switch" aria-label={t.language}><button className={lang === "de" ? "is-active" : ""} onClick={() => changeLanguage("de")} aria-pressed={lang === "de"}>DE</button><button className={lang === "en" ? "is-active" : ""} onClick={() => changeLanguage("en")} aria-pressed={lang === "en"}>EN</button></div><a className="merchant-header-login" href={`/merchant/login?lang=${lang}`}>{t.merchantLogin}</a></div></div></header>
 
     <main>
-      <section className="landing-hero"><div className="landing-shell landing-hero__grid"><div className="landing-hero__copy"><span className="landing-eyebrow">{t.eyebrow}</span><h1>{t.hero}</h1><p className="landing-hero__lead">{t.heroText}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href="#demo">{t.demoCta}<span aria-hidden="true">↓</span></a><a className="landing-button landing-button--outline" href="#how">{t.howCta}<span aria-hidden="true">↓</span></a></div><p className="landing-hero__trust">{t.heroTrust}</p></div><div className="hero-visual" aria-label={lang === "de" ? "Illustration eines physischen qr2buy-Verkaufsschilds direkt bei Produkten" : "Illustration of a physical qr2buy sales display beside products"}><div className="hero-visual__glow" /><div className="hero-window"><div className="hero-window__bar"><span /><span /><span /><em>physical point of sale</em></div><div className="hero-window__scene"><div className="hero-window__shelf"><div className="hero-object hero-object--bag" /><div className="hero-object hero-object--book" /><div className="hero-object hero-object--print" /></div><div className="hero-tag"><span>qr2buy</span><strong>STADTLICHTER</strong><b>24,90 €</b><small>{lang === "de" ? "Scannen & kaufen" : "Scan & buy"}</small></div><div className="hero-window__caption">{t.heroVisualCaption}</div></div></div></div></div></section>
+      <section className="landing-hero"><div className="landing-shell landing-hero__grid"><div className="landing-hero__copy"><span className="landing-eyebrow">{t.eyebrow}</span><h1>{t.hero}</h1><p className="landing-hero__lead">{t.heroText}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href={`/merchant/register?lang=${lang}`}>{t.merchantStart}</a><a className="landing-button landing-button--outline" href={`/merchant/login?lang=${lang}`}>{t.merchantLogin}</a><a className="landing-button landing-button--outline" href="#demo">{t.demoCta}<span aria-hidden="true">↓</span></a></div><p className="landing-hero__trust">{t.heroTrust}</p></div><div className="hero-visual" aria-label={lang === "de" ? "Illustration eines physischen qr2buy-Verkaufsschilds direkt bei Produkten" : "Illustration of a physical qr2buy sales display beside products"}><div className="hero-visual__glow" /><div className="hero-window"><div className="hero-window__bar"><span /><span /><span /><em>physical point of sale</em></div><div className="hero-window__scene"><div className="hero-window__shelf"><div className="hero-object hero-object--bag" /><div className="hero-object hero-object--book" /><div className="hero-object hero-object--print" /></div><div className="hero-tag"><span>qr2buy</span><strong>STADTLICHTER</strong><b>24,90 €</b><small>{lang === "de" ? "Produkt ansehen" : "View product"}</small></div><div className="hero-window__caption">{t.heroVisualCaption}</div></div></div></div></div></section>
+
+      <section className="landing-section landing-merchant" id="merchants"><div className="landing-shell"><span className="landing-eyebrow">{t.sellerLabel}</span><h2>{t.merchantTitle}</h2><p className="landing-copy landing-copy--large">{t.merchantIntro}</p><p>{t.merchantScope}</p><div className="landing-hero__actions"><a className="landing-button landing-button--primary" href={`/merchant/register?lang=${lang}`}>{t.merchantStart}</a><a className="landing-button landing-button--outline" href={`/merchant/login?lang=${lang}`}>{t.merchantLogin}</a></div><p className="merchant-availability-note">{t.commerceScope}</p></div></section>
 
       <ProductDemo lang={lang} t={t} />
 

@@ -9,24 +9,26 @@ import * as m from '../src/merchant/models.js';
 import { MerchantAccount, linkMerchantOwner, verifyPassword } from '../src/merchant/accounts.js';
 import { createMerchantPortal } from '../src/routes/merchantPortal.js';
 import { createMerchantSession } from '../src/merchant/session.js';
-import { createBindingService } from '../src/merchant/binding.js';
+import { createBindingService, PREVIEW_TTL_MS } from '../src/merchant/binding.js';
 import { createDeviceService } from '../src/merchant/deviceService.js';
 import { createCredentialService } from '../src/merchant/deviceCredentials.js';
 
 test('merchant portal: real Mongo sessions, registration, CRUD, scope and physical binding', { timeout: 180000 }, async t => {
   const repl = await MongoMemoryReplSet.create({ binary: { version: '8.2.6' }, replSet: { count: 1, ip: '127.0.0.1' } });
   let server, store, base, a, b;
+  let bindingTime;
   let merchantA, merchantB, locationA, locationB, productA, productB, offerA, offerB, deviceAuth;
   const origin = 'http://127.0.0.1:5173', password = 'test-only-merchant-password-2026';
   const pepper = 'cd'.repeat(32);
   try {
     t.beforeEach(async () => {
+    bindingTime = null;
     merchantA = merchantB = locationA = locationB = productA = productB = offerA = offerB = deviceAuth = undefined;
     const uri = repl.getUri('qr2buy_portal_test_'+randomBytes(8).toString('hex'));
     await mongoose.connect(uri);
     await Promise.all([...Object.values(m).filter(x => x?.modelName), MerchantAccount].map(async Model => { await Model.createCollection(); await Model.createIndexes(); }));
     store = MongoStore.create({ mongoUrl: uri, collectionName: 'merchant_sessions' });
-    const binding = createBindingService({ pepper: () => pepper });
+    const binding = createBindingService({ now: () => bindingTime || new Date(), pepper: () => pepper });
     const app = express(); app.use(express.json());
     app.use('/api', createMerchantPortal({ secret: 'test-only-session-secret-'+ 'x'.repeat(32), origin, production: false, store, binding }));
     server = app.listen(0, '127.0.0.1'); await new Promise(r => server.once('listening',r));
@@ -187,6 +189,62 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       assert.equal((await devices.config(deviceAuth)).assigned,true);
       assert.equal((await a.call('merchant/devices')).data.items[0].assignmentStatus,'ACTIVE');
       assert.equal((await b.call('merchant/devices')).data.items[0].product,null);
+    });
+    await t.test('merchant session restarts expired preview without cleanup, replay or activation', async () => {
+      await fixture('devices');
+      const path = 'merchant/binding/devices/QR2B-000001';
+      const body = { method: 'PRODUCT_CODE', value: productA.productBindingId };
+      const first = await a.call(path+'/preview', 'POST', body);
+      assert.equal(first.status, 200);
+      const firstConfig = await devices.config(deviceAuth);
+      const oldCode = firstConfig.bindingPreview.code;
+      const previous = await m.BindingPreview.findOne({ deviceId: 'QR2B-000001' }).select('+nonce').lean();
+      bindingTime = new Date(+new Date(first.data.expiresAt));
+      const clockedDevices = createDeviceService({ now: () => bindingTime, pepper: () => pepper, publicOrigin: () => 'https://qr2buy.com' });
+      assert.deepEqual(await clockedDevices.config(deviceAuth), { ok: true, deviceId: 'QR2B-000001', assigned: false });
+      const expired = await a.call(path+'/confirm', 'POST', { previewId: first.data.previewId, code: oldCode });
+      assert.equal(expired.status, 409); assert.equal(expired.data.error, 'preview_expired');
+      // Reopen the binding page with the same real Mongo-backed merchant session.
+      assert.equal((await a.call('merchant/devices')).data.items[0].assignmentStatus, 'PENDING');
+      assert.equal((await a.call('merchant-auth/me')).status, 200);
+      assert.equal((await a.call(path)).status, 200);
+      const second = await a.call(path+'/preview', 'POST', body);
+      assert.equal(second.status, 200);
+      assert.notEqual(second.data.previewId, first.data.previewId);
+      assert.equal(+new Date(second.data.expiresAt) - bindingTime, PREVIEW_TTL_MS);
+      const current = await m.BindingPreview.findOne({ deviceId: 'QR2B-000001' }).select('+nonce').lean();
+      assert.equal(String(current._id), String(previous._id));
+      assert.notEqual(current.nonce, previous.nonce);
+      const config = await clockedDevices.config(deviceAuth);
+      assert.equal(config.assigned, false); assert.equal(config.display, undefined);
+      assert.equal(config.bindingPreview.previewId, second.data.previewId);
+      assert.match(config.bindingPreview.code, /^\d{6}$/);
+      assert.equal((await a.call(path+'/confirm', 'POST', { previewId: first.data.previewId, code: oldCode })).status, 404);
+      assert.equal((await b.call(path+'/preview', 'POST', body)).status, 404);
+      assert.equal((await a.call(path+'/preview', 'POST', body, { 'x-csrf-token': '' })).status, 403);
+      assert.equal((await a.call(path+'/preview', 'POST', body, { Origin: 'https://foreign.invalid' })).status, 403);
+      assert.equal((await clockedDevices.config(deviceAuth)).bindingPreview.previewId, second.data.previewId);
+      assert.equal(await m.DisplayAssignment.countDocuments({ status: 'ACTIVE' }), 0);
+      const pending = await m.DisplayAssignment.find({ deviceId: 'QR2B-000001' }).lean();
+      assert.equal(pending.length, 1); assert.equal(pending[0].status, 'PENDING'); assert.equal(pending[0].verifiedAt, null);
+    });
+    await t.test('pause and resume preserve the real binding, portal product and ISO country values', async () => {
+      await fixture('active');
+      const before = await m.DisplayAssignment.find({deviceId:deviceAuth.deviceId}).lean();
+      assert.equal((await a.call('merchant/me','PATCH',{address:{country:'AT'}})).status,200);
+      assert.equal((await a.call('merchant/me')).data.merchant.address.country,'AT');
+      assert.equal((await a.call('merchant/offers/'+offerA.offerId,'PATCH',{active:false})).status,200);
+      const card=(await a.call('merchant/devices')).data.items[0];
+      assert.equal(card.assignmentStatus,'ACTIVE'); assert.equal(card.product.productId,productA.productId);
+      assert.equal(card.offer.active,false);
+      const paused=await devices.config(deviceAuth,'0.3.6');
+      assert.equal(paused.assigned,true); assert.equal(paused.display.status,'PAUSED'); assert.equal(paused.display.qr,'');
+      assert.equal((await a.call('merchant/offers/'+offerA.offerId,'PATCH',{active:true})).status,200);
+      assert.equal((await devices.config(deviceAuth,'0.3.6')).display.status,'READY');
+      assert.deepEqual(await m.DisplayAssignment.find({deviceId:deviceAuth.deviceId}).lean(),before);
+      // New firmware must retain support for the existing preview/confirmation flow.
+      const retry=await binding.start(merchantA,deviceAuth.deviceId,{method:'PRODUCT_CODE',value:productA.productBindingId},'test-only');
+      assert.equal(retry.status,'PREVIEW');
     });
     await t.test('remote price/stock/terms project immediately to device and public offer, no checkout', async () => {
       await fixture('active');

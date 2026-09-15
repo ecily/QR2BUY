@@ -1,4 +1,5 @@
 #include "merchant_config.h"
+#include "merchant_display_text.h"
 #include <cassert>
 #include <iostream>
 
@@ -16,14 +17,18 @@ bool parse(const std::string& body, MerchantConfig& c) {
   return parseMerchantConfig(body, "QR2B-000001", "https://qr2buy.com", c);
 }
 int main() {
+  assert(std::string(merchantUnavailableTitle(false, false)) == "Momentan ausverkauft");
+  assert(std::string(merchantUnavailableTitle(true, false)) == "Angebot pausiert");
+  assert(std::string(merchantUnavailableTitle(false, true)) == "Temporarily sold out");
+  assert(std::string(merchantUnavailableTitle(true, true)) == "Offer paused");
   MerchantConfig c;
   assert(parse(fixture(), c)); assert(c.assigned); assert(c.productId == "P1");
   assert(c.name == "Handgemachte Ledertasche"); assert(c.priceText == "129,00 EUR");
   assert(c.stockQuantity == 2 && c.purchasable && !c.reservable);
   assert(c.eventVersion == "1234567890abcdef");
-  for (auto state : {"READY", "SCANNED", "CHECKOUT_STARTED", "RESERVED", "CANCELLED", "PAID", "SOLD"}) {
+  for (auto state : {"READY", "SCANNED", "CHECKOUT_STARTED", "RESERVED", "CANCELLED", "PAID", "SOLD", "PAUSED"}) {
     assert(parse(fixture(state), c)); assert(c.status == state);
-    const bool terminal = c.status == "PAID" || c.status == "RESERVED" || c.status == "SOLD";
+    const bool terminal = c.status == "PAID" || c.status == "RESERVED" || c.status == "SOLD" || c.status == "PAUSED";
     assert(c.qr.empty() == terminal);
   }
   assert(!parse(fixture("UNKNOWN"), c));

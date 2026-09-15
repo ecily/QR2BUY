@@ -14,14 +14,14 @@ function origin(value) {
   } catch { /* fail closed */ }
   throw new DeviceApiError(503, 'device_origin_unavailable');
 }
-function usableOffer(offer) {
-  return offer?.active && publicIdValid(offer.publicOfferId) && Number.isSafeInteger(offer.priceMinor)
+function usableOffer(offer, allowPaused = false) {
+  return (offer?.active === true || (allowPaused && offer?.active === false)) && publicIdValid(offer.publicOfferId) && Number.isSafeInteger(offer.priceMinor)
     && offer.priceMinor >= 0 && offer.priceMinor <= 999999999 && Number.isSafeInteger(offer.stockQuantity) && offer.stockQuantity >= 0 && offer.stockQuantity <= 2147483647
     && ['EUR', 'USD', 'GBP', 'CHF', 'JPY', 'KWD', 'BHD'].includes(offer.currency)
     && typeof offer.purchasable === 'boolean' && typeof offer.reservable === 'boolean';
 }
-async function resolveOffer(read, offer) {
-  if (!usableOffer(offer)) return null;
+async function resolveOffer(read, offer, allowPaused = false) {
+  if (!usableOffer(offer, allowPaused)) return null;
   const merchant = await read.merchant(offer.merchantId);
   const location = await read.location(offer.locationId);
   const product = await read.product(offer.productId);
@@ -65,7 +65,9 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
           }
         }
         if (!display || !display.verifiedAt || display.endedAt || display.merchantId !== assignment.merchantId || display.locationId !== assignment.locationId) return { config: unassigned, device };
-        const resolved = await resolveOffer(read, await read.offer(display.offerId));
+        // PAUSED is a new wire status. Older firmware retains its safe unassigned fallback.
+        const pausedCapable = firmwareVersion === '0.3.6';
+        const resolved = await resolveOffer(read, await read.offer(display.offerId), pausedCapable);
         if (!resolved || resolved.offer.merchantId !== assignment.merchantId || resolved.offer.locationId !== assignment.locationId || resolved.product.productId !== display.productId) return { config: unassigned, device };
         const { product, offer } = resolved;
         const projection = {
@@ -76,8 +78,8 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
           offer: { offerId: offer.offerId, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: offer.stockQuantity,
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
-          display: { status: offer.stockQuantity === 0 ? 'SOLD' : 'READY',
-            qr: offer.stockQuantity === 0 ? '' : `${origin(publicOrigin())}/o/${offer.publicOfferId}` }
+          display: { status: !offer.active ? 'PAUSED' : offer.stockQuantity === 0 ? 'SOLD' : 'READY',
+            qr: !offer.active || offer.stockQuantity === 0 ? '' : `${origin(publicOrigin())}/o/${offer.publicOfferId}` }
         };
         // Opaque change fingerprint, not a chronological commerce event counter.
         projection.display.eventVersion = createHash('sha256').update(JSON.stringify(projection)).digest('hex').slice(0, 16);

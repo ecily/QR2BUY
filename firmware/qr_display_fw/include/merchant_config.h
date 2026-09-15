@@ -16,7 +16,7 @@ struct MerchantConfig {
 };
 inline bool merchantStatus(const std::string& s) {
   return s == "READY" || s == "SCANNED" || s == "CHECKOUT_STARTED" || s == "RESERVED"
-    || s == "CANCELLED" || s == "PAID" || s == "SOLD";
+    || s == "CANCELLED" || s == "PAID" || s == "SOLD" || s == "PAUSED";
 }
 inline bool lowerHex(const std::string& s, size_t length) {
   return s.size() == length && s.find_first_not_of("0123456789abcdef") == std::string::npos;
@@ -81,7 +81,7 @@ inline bool parseMerchantConfig(const std::string& body, const std::string& devi
   if (result.productId.empty() || result.productId.size() > 128 || result.name.empty() || result.name.size() > 256
       || result.stockQuantity < 0 || !merchantStatus(result.status) || !lowerHex(result.eventVersion, 16)
       || !merchantPrice(offer["priceMinor"].as<int64_t>(), offer["currency"].as<std::string>(), result.priceText)) return false;
-  const bool terminal = result.status == "PAID" || result.status == "SOLD" || result.status == "RESERVED";
+  const bool terminal = result.status == "PAID" || result.status == "SOLD" || result.status == "RESERVED" || result.status == "PAUSED";
   const std::string prefix = apiOrigin + "/o/";
   if (!terminal && (result.qr.compare(0, prefix.size(), prefix) != 0 || !lowerHex(result.qr.substr(prefix.size()), 32))) return false;
   if (terminal) result.qr.clear();

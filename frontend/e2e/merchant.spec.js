@@ -1,6 +1,50 @@
 import { test, expect } from '@playwright/test';
 import { merchantText } from '../src/merchantText.js';
 
+test('merchant binding can restart after expiry and page reopen without activation', async ({ page }) => {
+  await page.clock.install();
+  const productCode = 'a'.repeat(32);
+  let starts = 0;
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/api/**', async route => {
+    const request = route.request(), path = new URL(request.url()).pathname;
+    let response;
+    if (path === '/api/binding/devices/QR2B-000001') response = { ok: true, available: true };
+    else if (path === '/api/merchant-auth/me') response = { ok: true, csrfToken: 'test-only-csrf' };
+    else if (path === '/api/merchant/binding/devices/QR2B-000001') response = {
+      ok: true, device: { displayName: 'Schild 1' }, products: [{ name: 'Testprodukt qr2buy', productBindingId: productCode }]
+    };
+    else if (path === '/api/merchant/binding/devices/QR2B-000001/preview') {
+      expect(request.method()).toBe('POST');
+      expect(request.headers()['x-csrf-token']).toBe('test-only-csrf');
+      expect(request.headers().authorization).toBeUndefined();
+      expect(request.postDataJSON()).toEqual({ method: 'PRODUCT_CODE', value: productCode });
+      starts++;
+      response = { ok: true, previewId: String(starts).repeat(32), expiresAt: new Date(await page.evaluate(() => Date.now()) + 120000).toISOString(), product: { name: 'Testprodukt qr2buy' }, offer: { priceMinor: 1990, currency: 'EUR' } };
+    } else throw new Error('Unexpected API request: '+path);
+    await route.fulfill({ json: response });
+  });
+  const start = async () => {
+    await page.getByRole('combobox', { name: /^(Product|Produkt)$/ }).selectOption(productCode);
+    await page.getByRole('button', { name: /Show preview on display|Vorschau auf Schild zeigen/ }).click();
+    await expect(page.getByRole('heading', { name: /Is this the product in front of you|Ist das das Produkt vor dir/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Yes, activate display|Ja, Schild aktivieren/ })).toBeDisabled();
+  };
+  await page.goto('/binding/QR2B-000001');
+  await start();
+  await page.clock.fastForward(121000);
+  await expect(page.getByRole('status')).toContainText(/expired|abgelaufen/);
+  await start();
+  await page.clock.fastForward(121000);
+  await expect(page.getByRole('status')).toContainText(/expired|abgelaufen/);
+  await page.reload();
+  await start();
+  expect(starts).toBe(3);
+  expect(errors).toEqual([]);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});
+
 for(const width of [320,375,390,430])for(const language of ['de','en'])test(`merchant ${language} ${width}: register, CRUD, session binding, logout`,async({page})=>{
   const t=merchantText[language];let signedIn=false;let confirmed=false;
   let merchant={displayName:'Test business',contactEmail:'owner@example.invalid',status:'ACTIVE',address:{}};

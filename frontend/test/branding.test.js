@@ -49,10 +49,10 @@ test("keeps localized titles, descriptions and routes consistent", async () => {
     readText("../src/pages/LandingPage.jsx"),
     readText("../src/App.jsx"),
   ]);
-  const deTitle = "qr2buy – Scannen. Kaufen. Verkauft.";
-  const enTitle = "qr2buy – Scan. Buy. Sold.";
-  const deDescription = "qr2buy macht sichtbare Produkte im Schaufenster auch außerhalb der Öffnungszeiten direkt kauf- oder reservierbar – ohne App und ohne Mitarbeiter vor Ort.";
-  const enDescription = "qr2buy lets customers buy or reserve visible shop-window products even outside opening hours – no app and no staff member required.";
+  const deTitle = "qr2buy – Produkte und Preise live am Schild.";
+  const enTitle = "qr2buy – Products and prices live on display.";
+  const deDescription = "qr2buy verbindet Händlerportal, echte Verkaufsschilder und öffentliche Produktseiten. Produkte, Preise und Bestand live synchronisieren.";
+  const enDescription = "qr2buy connects the merchant portal, real displays and public product pages. Synchronize products, prices and stock live.";
 
   assert.ok(html.includes(deTitle));
   assert.ok(landing.includes(deTitle));

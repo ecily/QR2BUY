@@ -8,6 +8,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MerchantAppContractTest(unittest.TestCase):
+    def test_pilot_unavailable_screen_is_merchant_only_without_qr(self):
+        source = (ROOT / 'src/static_app.cpp').read_text()
+        screen = source.split('static void drawUnavailableOffer', 1)[1].split('static void renderConfig', 1)[0]
+        self.assertNotIn('drawQrCode', screen)
+        self.assertIn('merchantUnavailableTitle', screen)
+        self.assertIn('drawProminentProductName(config.text, 18, 284, 68)', screen)
+        self.assertIn('config.bound && (config.status == "SOLD" || config.status == "PAUSED")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.6")', source)
+
     def test_preview_has_no_buyer_qr_and_expires_without_network(self):
         source = (ROOT / 'src/static_app.cpp').read_text()
         preview = source.split('if (config.bindingPreview) {', 1)[1].split('} else if (!config.bound)', 1)[0]
@@ -18,7 +27,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertNotIn('drawQrCode', preview)
         self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
         self.assertIn('left.previewCode == right.previewCode', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.4")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.6")', source)
         self.assertNotIn('Serial.println(config.previewCode', source)
 
     def test_shared_app_and_separate_hardware_and_secret_configs(self):

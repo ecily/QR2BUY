@@ -866,3 +866,17 @@ html { scroll-behavior: smooth; }
   .demo-loader, .demo-confetti i, .hardware-display-confirmation, .hardware-display-scan { animation: none; }
   .demo-confetti { display: none; }
 }
+
+/* Pilot access stays visible at narrow widths without hiding the demo navigation. */
+.landing-merchant { background: #f1f5ef; }
+.landing-merchant .landing-shell { max-width: 960px; }
+.merchant-availability-note { max-width: 76ch; color: #4c5b52; line-height: 1.6; margin-top: 24px; }
+.merchant-header-login { color: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+.landing-header__actions { flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .landing-header__inner { flex-wrap: wrap; }
+  .landing-header__actions { gap: 10px; }
+  .merchant-header-login { font-size: 13px; }
+  .landing-hero__actions { flex-wrap: wrap; }
+  .landing-hero__actions .landing-button { white-space: normal; text-align: center; }
+}
