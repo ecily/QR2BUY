@@ -21,9 +21,10 @@ export function availabilityConfirmationMessage({ offer, product, merchant, loca
   const lines = [subject, product.name, merchant.displayName, location.name,
     en ? 'We will email you once when this product becomes available again.' : 'Wir senden dir einmalig eine E-Mail, sobald dieses Produkt wieder verfügbar ist.',
     en ? 'This is not a reservation or purchase. Your request lasts up to 90 days.' : 'Dies ist keine Reservierung und kein Kauf. Deine Anfrage gilt höchstens 90 Tage.',
+    en ? 'If you did not request this, unsubscribe now using the link below.' : 'Falls du das nicht angefordert hast, melde die Benachrichtigung über den Link unten sofort ab.',
     url, (en ? 'Unsubscribe now: ' : 'Jetzt abmelden: ') + unsubscribe];
   const html = `<p>${escape(subject)}</p><p>${escape(product.name)}</p><p>${escape(merchant.displayName)} · ${escape(location.name)}</p>`
-    + `<p>${escape(lines[4])}</p><p>${escape(lines[5])}</p>`
+    + `<p>${escape(lines[4])}</p><p>${escape(lines[5])}</p><p>${escape(lines[6])}</p>`
     + `<p><a href="${escape(url)}">${en?'View product':'Produkt ansehen'}</a></p>`
     + `<p><a href="${escape(unsubscribe)}">${en?'Unsubscribe now':'Jetzt abmelden'}</a></p>`;
   return {subject, text:lines.join('\n'), html};
