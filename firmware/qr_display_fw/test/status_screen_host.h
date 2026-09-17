@@ -44,7 +44,13 @@ inline void testStatusLayout() {
   // quiet zone, right CTA/body. Verify real font metrics in both languages.
   for (const auto& name : {std::string("Tee"),std::string("Der Herr der Ringe"),std::string(256,'W')}) check(name,42,48,2);
   check("31,90 EUR",92,16,2);
-  for (const auto& text : {"Scanne trotzdem.","Scan anyway.",
+  for (const auto& text : {"F\xC3\xBCr E-Mail-Info scannen","Scan for email alert"}) {
+    const auto b=fit(text,108,34,150,2,measure);
+    assert(b.font==2);assert(firstY(b)>=108);
+    assert(firstY(b)+int(b.lines.size())*lineHeight(b.font)<=142);
+    for(const auto& line:b.lines)assert(line.width<=150);
+  }
+  for (const auto& text : {
       "Wir informieren dich, wenn es wieder frei wird.",
       "Wir informieren dich, sobald es wieder verf\xC3\xBCgbar ist.",
       "We will let you know when it is free again.",

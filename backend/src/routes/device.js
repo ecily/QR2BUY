@@ -23,9 +23,9 @@ export function createDeviceRouter(service = createDeviceService()) {
   });
   return router;
 }
-export function createPublicOfferRouter(service = createDeviceService()) {
+export function createPublicOfferRouter(service = createDeviceService(), { limit = 60 } = {}) {
   const router = Router();
-  router.get('/:publicOfferId', createRateLimiter({ windowMs: 60_000, max: 60 }), async (req, res) => {
+  router.get('/:publicOfferId', createRateLimiter({ windowMs: 60_000, max: limit }), async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try { return res.json(await service.publicOffer(req.params.publicOfferId)); }
     catch (error) { return res.status(error instanceof DeviceApiError ? error.status : 503).json({ ok: false, error: 'offer_unavailable' }); }

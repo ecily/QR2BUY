@@ -38,7 +38,9 @@ export async function reservationFixture(origin = 'http://127.0.0.1:5178') {
   const app=express();app.use(express.json());
   app.use('/api/notify',createAvailabilityRouter({service:notify,origin,limit:100}));
   app.use('/api/reservations',createReservationRouter({service,origin,limit:100}));
-  app.use('/api/public/merchant-offers',createPublicOfferRouter(device));
+  // Parallel browser workers share one loopback IP; keep production's default
+  // rate limit intact while preventing unrelated E2E journeys from sharing it.
+  app.use('/api/public/merchant-offers',createPublicOfferRouter(device,{limit:1000}));
   app.use('/api',createMerchantPortal({secret:randomBytes(32).toString('hex'),origin,store:new session.MemoryStore(),production:false,reservations:service}));
   let seq=0;
   async function offer(fields={}){

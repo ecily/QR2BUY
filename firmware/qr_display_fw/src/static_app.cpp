@@ -655,12 +655,12 @@ static void drawNotifyScreen(const ConfigPayload& config) {
     : config.status == "RESERVED" ? status_screen::Kind::Reserved : status_screen::Kind::OutOfStock;
 #ifdef QR2BUY_DISPLAY_LANGUAGE_EN
   const auto copy = status_screen::copy(kind, true);
-  const char* cta = "Scan anyway.";
+  const char* cta = "Scan for email alert";
   const char* body = kind == status_screen::Kind::Reserved
     ? "We will let you know when it is free again." : "We will email you when it is available again.";
 #else
   const auto copy = status_screen::copy(kind, false);
-  const char* cta = "Scanne trotzdem.";
+  const char* cta = "F\xC3\xBCr E-Mail-Info scannen";
   const char* body = kind == status_screen::Kind::Reserved
     ? "Wir informieren dich, wenn es wieder frei wird."
     : "Wir informieren dich, sobald es wieder verf\xC3\xBCgbar ist.";

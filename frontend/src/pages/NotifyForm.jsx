@@ -8,11 +8,11 @@ export function NotifyForm({offerId,language}) {
   async function submit(event) {
     event.preventDefault();if(busy)return;
     const data=new FormData(event.currentTarget);setBusy(true);setError(false);
-    try{await notifyRequest('offers/'+encodeURIComponent(offerId),{email:data.get('email'),name:data.get('name'),locale:language,consent:data.get('consent')==='on'});setDone(true);}
+    try{const result=await notifyRequest('offers/'+encodeURIComponent(offerId),{email:data.get('email'),name:data.get('name'),locale:language,consent:data.get('consent')==='on'});setDone(result.confirmationPending?'pending':'success');}
     catch{setError(true);}finally{setBusy(false);}
   }
   return <section className="notify-form" aria-label={t.submit}>
-    {done?<p role="status">{t.success}</p>:<form onSubmit={submit}>
+    {done?<p role="status">{t[done]}</p>:<form onSubmit={submit}>
       <h2>{t.question}</h2>
       <label>{t.email}<input name="email" type="email" autoComplete="email" maxLength={254} required disabled={busy}/></label>
       <label>{t.name}<input name="name" autoComplete="name" maxLength={120} disabled={busy}/></label>

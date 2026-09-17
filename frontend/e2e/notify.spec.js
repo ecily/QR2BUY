@@ -13,15 +13,46 @@ for(const width of [320,375,390,430])for(const lang of ['de','en'])test(`notify 
   if(width===320)await page.screenshot({path:testInfo.outputPath('notify-'+lang+'.png'),fullPage:true});
   await page.getByRole('button',{name:t.submit,exact:true}).click();
   await expect(page.getByRole('status')).toHaveText(t.success);
+  await expect(page.getByText(t.detail,{exact:true})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const confirmation=await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json();
+  expect(confirmation.mails).toBe(1);expect(confirmation.statuses).toEqual(['ACTIVE']);
+  expect(confirmation.confirmationLink).toContain('?lang='+lang);
   // Duplicate through real HTTP receives the same non-enumerating response.
   const duplicate=await request.post('/api/notify/offers/'+o.publicOfferId,{headers:{Origin:'http://127.0.0.1:5178'},data:{email:'notify-'+o.offerId+'@example.test',locale:lang,consent:true}});
   expect(duplicate.status()).toBe(200);
   await request.post(fixture+'/__test__/notify/'+o.offerId+'/available');
   const result=await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json();
-  expect(result.statuses).toEqual(['NOTIFIED']);expect(result.mails).toBe(1);
+  expect(result.statuses).toEqual(['NOTIFIED']);expect(result.mails).toBe(2);
   await request.post(fixture+'/__test__/notify/'+o.offerId+'/available');
-  expect((await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json()).mails).toBe(1);
+  expect((await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json()).mails).toBe(2);
   await page.reload();await expect(page.locator('.buyer-price')).toBeVisible();await expect(page.getByRole('heading',{name:t.question})).toHaveCount(0);
+});
+
+for(const lang of ['de','en'])test(`service-mail unsubscribe before availability ${lang}`,async({page,request})=>{
+  const t=notifyText[lang];await page.setViewportSize({width:320,height:850});
+  const o=await (await request.post(fixture+'/__test__/offer',{data:{stockQuantity:0}})).json();
+  await page.goto('/o/'+o.publicOfferId+'?lang='+lang);
+  await page.getByLabel(t.email,{exact:true}).fill('unsubscribe-'+o.offerId+'@example.test');
+  await page.getByLabel(t.consent,{exact:true}).check();await page.getByRole('button',{name:t.submit,exact:true}).click();
+  await expect(page.getByRole('status')).toHaveText(t.success);
+  const state=()=>request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId).then(r=>r.json());
+  const confirmation=await state();expect(confirmation.mails).toBe(1);
+  await page.goto(confirmation.confirmationLink);expect((await state()).statuses).toEqual(['ACTIVE']);
+  await page.getByRole('button',{name:t.cancel,exact:true}).click();await expect(page.getByRole('status')).toHaveText(t.cancelled);
+  await request.post(fixture+'/__test__/notify/'+o.offerId+'/available');
+  const result=await state();expect(result.statuses).toEqual(['CANCELLED']);expect(result.mails).toBe(1);
+});
+
+test('pending confirmation never claims email was sent in DE/EN',async({page,request})=>{
+  for(const lang of ['de','en']){
+    const t=notifyText[lang],o=await (await request.post(fixture+'/__test__/offer',{data:{stockQuantity:0}})).json();
+    await page.route('**/api/notify/offers/**',r=>r.fulfill({json:{ok:true,confirmationPending:true}}));
+    await page.goto('/o/'+o.publicOfferId+'?lang='+lang);
+    await page.getByLabel(t.email,{exact:true}).fill('pending@example.test');await page.getByLabel(t.consent,{exact:true}).check();
+    await page.getByRole('button',{name:t.submit,exact:true}).click();await expect(page.getByRole('status')).toHaveText(t.pending);
+    await expect(page.getByText(t.success,{exact:true})).toHaveCount(0);
+  }
 });
 
 test('DE/EN eligibility, errors, SOLD exclusion and unsubscribe confirmation',async({page})=>{

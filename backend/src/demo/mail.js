@@ -97,7 +97,7 @@ function smtpTlsSend(config, message) {
       if (settled) return;
       settled = true;
       socket.destroy();
-      if (error) error.retrySafe = !dataSent;
+      if (error) error.retrySafe = error.smtpRejected === true || !dataSent;
       error ? reject(error) : resolve();
     };
 
@@ -113,7 +113,13 @@ function smtpTlsSend(config, message) {
         if (!waiter) continue;
         const code = Number(line.slice(0, 3));
         if (code >= 200 && code < 400) waiter.responseResolve(code);
-        else waiter.responseReject(new Error('smtp_rejected'));
+        else {
+          const error = new Error('smtp_rejected');
+          error.smtpRejected = code >= 400 && code < 600;
+          // Record an explicit negative reply before a subsequent socket close.
+          finish(error);
+          waiter.responseReject(error);
+        }
       }
     });
     socket.on('timeout', () => finish(new Error('smtp_timeout')));
