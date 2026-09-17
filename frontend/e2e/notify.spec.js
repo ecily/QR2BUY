@@ -13,14 +13,14 @@ for(const width of [320,375,390,430])for(const lang of ['de','en'])test(`notify 
   if(width===320)await page.screenshot({path:testInfo.outputPath('notify-'+lang+'.png'),fullPage:true});
   await page.getByRole('button',{name:t.submit,exact:true}).click();
   await expect(page.getByRole('status')).toHaveText(t.success);
-  // Duplicate through real HTTP receives the same non-enumerating response.
+  // Duplicate through real HTTP receives the same non-enumerating response and no extra confirmation mail.
   const duplicate=await request.post('/api/notify/offers/'+o.publicOfferId,{headers:{Origin:'http://127.0.0.1:5178'},data:{email:'notify-'+o.offerId+'@example.test',locale:lang,consent:true}});
   expect(duplicate.status()).toBe(200);
   await request.post(fixture+'/__test__/notify/'+o.offerId+'/available');
   const result=await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json();
-  expect(result.statuses).toEqual(['NOTIFIED']);expect(result.mails).toBe(1);
+  expect(result.statuses).toEqual(['NOTIFIED']);expect(result.mails).toBe(2);
   await request.post(fixture+'/__test__/notify/'+o.offerId+'/available');
-  expect((await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json()).mails).toBe(1);
+  expect((await (await request.get(fixture+'/__test__/notify/'+o.offerId+'?publicId='+o.publicOfferId)).json()).mails).toBe(2);
   await page.reload();await expect(page.locator('.buyer-price')).toBeVisible();await expect(page.getByRole('heading',{name:t.question})).toHaveCount(0);
 });
 
