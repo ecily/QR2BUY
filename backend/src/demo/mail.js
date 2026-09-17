@@ -97,7 +97,7 @@ function smtpTlsSend(config, message) {
       if (settled) return;
       settled = true;
       socket.destroy();
-      if (error) error.retrySafe = !dataSent;
+      if (error && typeof error.retrySafe !== 'boolean') error.retrySafe = !dataSent;
       error ? reject(error) : resolve();
     };
 
@@ -131,7 +131,13 @@ function smtpTlsSend(config, message) {
         await command('DATA');
         dataSent = true;
         socket.write(`${message}\r\n.\r\n`);
-        await readResponse();
+        try {
+          await readResponse();
+        } catch (error) {
+          // A final SMTP rejection is a definite non-delivery and can be retried.
+          error.retrySafe = true;
+          throw error;
+        }
         socket.write('QUIT\r\n');
         finish();
       } catch (error) {
