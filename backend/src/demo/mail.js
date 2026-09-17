@@ -68,7 +68,7 @@ function encodeBody(value) {
   return Buffer.from(value).toString('base64').match(/.{1,76}/g).join('\r\n');
 }
 
-function smtpMessage({ from, to, subject, text, html, senderName = 'qr2buy Live-Demo' }) {
+function mimeMessage({ from, to, subject, text, html, senderName = 'qr2buy Live-Demo' }) {
   const boundary = `qr2buy-${crypto.randomBytes(12).toString('hex')}`;
   const headers = [
     `From: ${safeHeader(senderName)} <${safeHeader(from)}>`, `To: ${safeHeader(to)}`,
@@ -81,7 +81,44 @@ function smtpMessage({ from, to, subject, text, html, senderName = 'qr2buy Live-
     `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', encodeBody(html),
     `--${boundary}--`, ''
   ];
-  return [...headers, '', ...body].join('\r\n').replace(/^\./gm, '..');
+  return [...headers, '', ...body].join('\r\n');
+}
+
+const graphScope = 'https://graph.microsoft.com/.default';
+
+function graphError(message, retrySafe) {
+  const error = new Error(message);
+  error.retrySafe = retrySafe;
+  return error;
+}
+
+async function graphSend(config, message, fetchImpl) {
+  let tokenResponse;
+  try {
+    tokenResponse = await fetchImpl(`https://login.microsoftonline.com/${encodeURIComponent(config.tenantId)}/oauth2/v2.0/token`, {
+      method: 'POST', headers: {'content-type':'application/x-www-form-urlencoded'},
+      body: new URLSearchParams({client_id:config.clientId,client_secret:config.clientSecret,scope:graphScope,grant_type:'client_credentials'}),
+      signal: AbortSignal.timeout(config.timeoutMs)
+    });
+  } catch {
+    throw graphError('graph_token_unavailable', true);
+  }
+  let tokenBody = {};
+  try { tokenBody = await tokenResponse.json(); } catch { /* no response details are exposed */ }
+  if (!tokenResponse.ok || typeof tokenBody.access_token !== 'string' || !tokenBody.access_token) {
+    throw graphError('graph_token_rejected', true);
+  }
+  let mailResponse;
+  try {
+    mailResponse = await fetchImpl(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(config.from)}/sendMail`, {
+      method:'POST', headers:{authorization:`Bearer ${tokenBody.access_token}`,'content-type':'text/plain'},
+      body:Buffer.from(message,'utf8').toString('base64'), signal:AbortSignal.timeout(config.timeoutMs)
+    });
+  } catch {
+    // The request may have reached Graph. Retrying could create a duplicate mail.
+    throw graphError('graph_delivery_uncertain', false);
+  }
+  if (mailResponse.status !== 202) throw graphError('graph_delivery_rejected', true);
 }
 
 function smtpTlsSend(config, message) {
@@ -147,25 +184,34 @@ function smtpTlsSend(config, message) {
   });
 }
 
-export function createDemoMailTransport(env = process.env, senderName = 'qr2buy Live-Demo') {
+export function createDemoMailTransport(env = process.env, senderName = 'qr2buy Live-Demo', {fetchImpl=globalThis.fetch}={}) {
   const mode = String(env.DEMO_MAIL_TRANSPORT || 'disabled').toLowerCase();
-  const from = validDemoEmail(env.DEMO_SMTP_FROM);
+  const from = validDemoEmail(mode === 'microsoft' ? env.MAIL_FROM : env.DEMO_SMTP_FROM);
   const host = String(env.DEMO_SMTP_HOST || '').trim();
   const port = Number(env.DEMO_SMTP_PORT || 465);
   const user = String(env.DEMO_SMTP_USER || '');
   const pass = String(env.DEMO_SMTP_PASS || '');
   const helloName = safeHeader(env.DEMO_SMTP_HELO_NAME || '');
-  const configured = mode === 'smtp' && from && host && user && pass && helloName && Number.isInteger(port) && port > 0 && port <= 65535;
+  const tenantId = String(env.MICROSOFT_TENANT_ID || '').trim();
+  const clientId = String(env.MICROSOFT_CLIENT_ID || '').trim();
+  const clientSecret = String(env.MICROSOFT_CLIENT_SECRET || '').trim();
+  const graphTimeoutMs = Number(env.MICROSOFT_GRAPH_TIMEOUT_MS || 10000);
+  const smtpConfigured = mode === 'smtp' && from && host && user && pass && helloName && Number.isInteger(port) && port > 0 && port <= 65535;
+  const graphConfigured = mode === 'microsoft' && from && tenantId && clientId && clientSecret
+    && Number.isInteger(graphTimeoutMs) && graphTimeoutMs >= 1000 && graphTimeoutMs <= 30000;
+  const configured = smtpConfigured || graphConfigured;
   if (!configured) return { configured: false, async send() { return { accepted: false, status: 'UNAVAILABLE' }; } };
   return {
     configured: true,
     async send({ to, subject, text, html }) {
       const safeTo = validDemoEmail(to);
       if (!safeTo) return { accepted: false, status: 'UNAVAILABLE' };
-      await smtpTlsSend({
-        host, port, from, to: safeTo,
-        user, pass, helloName, timeoutMs: 10_000
-      }, smtpMessage({ from, to: safeTo, subject, text, html, senderName }));
+      const message = mimeMessage({ from, to: safeTo, subject, text, html, senderName });
+      if (mode === 'microsoft') {
+        await graphSend({tenantId,clientId,clientSecret,from,timeoutMs:graphTimeoutMs},message,fetchImpl);
+      } else {
+        await smtpTlsSend({host,port,from,to:safeTo,user,pass,helloName,timeoutMs:10_000},message.replace(/^\./gm,'..'));
+      }
       return { accepted: true, status: 'ACCEPTED' };
     }
   };

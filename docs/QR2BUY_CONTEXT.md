@@ -2,6 +2,15 @@
 
 Stand: 17. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
+## P0.5b Microsoft-Graph-Mailtransport lokal freigegeben (17. September 2026)
+
+Auf `wip/p0.5b-graph-mail` ist der bestehende Mailtransport minimal um Microsoft Graph erweitert. Verwendet werden die in anderen ecily-Projekten etablierten ENV-Namen `MAIL_PROVIDER=microsoft`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MAIL_FROM` und optional `MICROSOFT_GRAPH_TIMEOUT_MS`. Graph bleibt doppelt fail-closed: vollständige Konfiguration allein aktiviert nichts; erst `NOTIFY_MAIL_ENABLED=true` zusammen mit dem expliziten Provider `microsoft` schaltet Notify-Versand frei. Der vorhandene SMTP- und Memory-Transport bleibt kompatibel.
+
+- **Semantik:** OAuth2 Client Credentials mit `.default`, danach MIME-Mail über `POST /v1.0/users/{sender}/sendMail`. Token-/Netzfehler vor dem Mailrequest und explizite Graph-Ablehnungen sind retry-safe; ein Verbindungsabbruch oder Timeout während des nicht idempotenten `sendMail` ist `UNCERTAIN` und wird nicht automatisch wiederholt. Keine Response-, Token-, Credential-, Empfänger- oder Fehlerdetailausgabe.
+- **Vorprüfung:** Die bestehende Entra-App liefert beim realen Tokenabruf HTTP 200; das App-Token enthält die Application Role `Mail.Send`, womit Admin Consent ohne neue Berechtigung bestätigt ist. Die qr2buy-App selbst ist noch unverändert und Notify weiterhin aus.
+- **Regression:** Backend **208/208**, Frontend **62/62**, Browser/E2E **63/63**, Firmware-Vertrag **27/27**, CS5-/NOCS-Build SUCCESS, Frontend-Lint/Build, Backend-Syntax **47 Dateien**, beide npm-Audits **0 Schwachstellen**, Diff-/Secret-/Artefaktcheck grün. Ein anfänglich roter Graph-Test beruhte ausschließlich auf einer falschen Klartextannahme für korrekt base64-kodiertes MIME; Assertion korrigiert und vollständiger Lauf grün.
+- **NEXT:** Graph-Code veröffentlichen, bestehende Microsoft-Konfiguration ausschließlich als DigitalOcean-ENV in qr2buy ergänzen, bei weiterhin deaktiviertem Notify Token/Role und kontrollierten Graph-202-Smoke prüfen. Erst nach bestätigter realer Zustellung `NOTIFY_MAIL_ENABLED=true`; danach 0.3.10-Flash und realer Notify-E2E.
+
 ## P0.5b-Code produktiv / STOP vor SMTP, Flash und Real-E2E (17. September 2026)
 
 Der zuvor mit HTTP 401 blockierte lokale DigitalOcean-Zugang ist behoben. Der alte Prozess-ENV-Token und der alte `default`-Context waren ungültig. Ein neuer gültiger PAT wurde ohne Ausgabe oder Repository-Ablage als benannter doctl-Context `qr2buy` eingerichtet; der Context ist aktiv, die lokale Credential-Datei auf den aktuellen Windows-Nutzer, SYSTEM und Administratoren beschränkt und die Zwischenablage bereinigt. `doctl account get --context qr2buy`, `doctl apps list --context qr2buy` und der Zugriff auf die produktive App `qr-backend` sind verifiziert; Account aktiv, App/Deployment weiterhin ACTIVE. Keine App-Spec-, Runtime-ENV-, Deployment- oder sonstige produktive Änderung durch die Auth-Reparatur.

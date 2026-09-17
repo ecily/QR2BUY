@@ -2,9 +2,11 @@ import { createDemoMailTransport } from '../demo/mail.js';
 
 export function createAvailabilityMailTransport(env = process.env) {
   // Explicit opt-in switch: importing or running local code cannot enable mail
-  // merely because demo SMTP credentials happen to be present.
+  // merely because SMTP or Microsoft credentials happen to be present.
+  const provider = String(env.MAIL_PROVIDER || '').trim().toLowerCase();
   const transport = createDemoMailTransport({ ...env,
-    DEMO_MAIL_TRANSPORT: env.NOTIFY_MAIL_ENABLED === 'true' ? 'smtp' : 'disabled'
+    DEMO_MAIL_TRANSPORT: env.NOTIFY_MAIL_ENABLED === 'true'
+      ? (provider === 'microsoft' ? 'microsoft' : 'smtp') : 'disabled'
   }, 'qr2buy');
   return transport;
 }
