@@ -2,6 +2,15 @@
 
 Stand: 17. September 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
+## P0.5b Graph produktiv konfiguriert / STOP vor Zustellbestätigung (17. September 2026)
+
+Der Microsoft-Graph-Transport ist auf `main` veröffentlicht und produktiv deployt. Die qr2buy-Backend-Komponente enthält jetzt ausschließlich in DigitalOcean ENV `MAIL_PROVIDER=microsoft`, die drei Microsoft-Credentials, `MAIL_FROM` und `MICROSOFT_GRAPH_TIMEOUT_MS`; sensible Werte sind als `SECRET`/`RUN_TIME` gespeichert. `NOTIFY_MAIL_ENABLED` ist weiterhin nicht gesetzt, daher bleibt der öffentliche Notify-Flow fail-closed. Der erste Versuch, appgebundene DigitalOcean-Ciphertexte aus einer anderen App zu übernehmen, wurde atomar mit „cannot be decrypted“ abgewiesen und änderte nichts; anschließend wurden die bereits lokal vorhandenen und gegen Entra geprüften ecily-Werte einmalig über eine ACL-geschützte Temp-Spec eingespielt und die Temp-Datei entfernt.
+
+- **Real verifiziert:** OAuth2-Token HTTP 200, Application Role `Mail.Send` vorhanden, keine zusätzliche Graph-Berechtigung ergänzt. Kontrollierter Versand über die echte qr2buy-Transportimplementierung an das konfigurierte Senderpostfach von Graph angenommen (`sendMail` 202 / Transport `accepted=true`). Der erste lokale Node-Versuch scheiterte vor dem Mailrequest am gebündelten CA-Store; mit `--use-system-ca` erfolgreich, keine mögliche Doppelmail aus dem Fehlversuch.
+- **Offenes Gate / STOP:** Tatsächlicher Postfacheingang der Smoke-Mail mit Betreff `[qr2buy] Microsoft Graph transport smoke` ist noch nicht unabhängig bestätigt. Die Entra-App besitzt absichtlich keine `Mail.Read`-Application-Permission; diese wurde nicht ausgeweitet. Browser- und native Windows-Steuerung waren in der aktuellen Umgebung nicht verfügbar. Keine Zustellung behaupten, bevor der Nutzer den Eingang bestätigt.
+- **Nicht ausgeführt:** kein `NOTIFY_MAIL_ENABLED`, kein produktiver Notify-Opt-in, keine Offer-/Bestands-/Reservierungs-/Binding-/Assignmentänderung und kein 0.3.10-Flash. Beide Geräte bleiben auf dem zuvor bestätigten Stand 0.3.9.
+- **NEXT:** Nutzer bestätigt den Eingang der Graph-Smoke-Mail im konfigurierten Microsoft-365-Postfach. Danach `NOTIFY_MAIL_ENABLED=true`, realer Service-/Abmeldemail- und Availability-E2E, kontrollierter Flash beider Geräte und physische Abschlussabnahme. P0.5b bis dahin offen; P0.6 nicht beginnen.
+
 ## P0.5b Microsoft-Graph-Mailtransport lokal freigegeben (17. September 2026)
 
 Auf `wip/p0.5b-graph-mail` ist der bestehende Mailtransport minimal um Microsoft Graph erweitert. Verwendet werden die in anderen ecily-Projekten etablierten ENV-Namen `MAIL_PROVIDER=microsoft`, `MICROSOFT_TENANT_ID`, `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MAIL_FROM` und optional `MICROSOFT_GRAPH_TIMEOUT_MS`. Graph bleibt doppelt fail-closed: vollständige Konfiguration allein aktiviert nichts; erst `NOTIFY_MAIL_ENABLED=true` zusammen mit dem expliziten Provider `microsoft` schaltet Notify-Versand frei. Der vorhandene SMTP- und Memory-Transport bleibt kompatibel.
