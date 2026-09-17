@@ -13,12 +13,16 @@ test('availability notification: isolated Mongo lifecycle, delivery and public s
   const url='http://127.0.0.1:'+server.address().port;
   const input={email:' Reader@Example.TEST ',name:'Reader',locale:'de',consent:true};
   const post=(path,body,origin='http://127.0.0.1:5178')=>fetch(url+'/api/notify/'+path,{method:'POST',headers:{'Content-Type':'application/json',origin},body:JSON.stringify(body)});
-  await t.test('valid, normalized, concurrent duplicates; no enumeration, READY blocked',async()=>{
+  await t.test('valid, normalized, concurrent duplicates; confirmation enables immediate unsubscribe',async()=>{
     const o=await f.offer({stockQuantity:0});
     const responses=await Promise.all(Array.from({length:5},()=>post('offers/'+o.publicOfferId,input)));
     for(const r of responses){assert.equal(r.status,200);assert.deepEqual(await r.json(),{ok:true});}
     assert.equal(await Sub.countDocuments({offerId:o.offerId}),1);
-    const row=await Sub.findOne({offerId:o.offerId}).select('+emailNormalized');assert.equal(row.emailNormalized,'reader@example.test');
+    const row=await Sub.findOne({offerId:o.offerId}).select('+emailNormalized +preDeliveryUnsubscribeHash');
+    assert.equal(row.emailNormalized,'reader@example.test');assert.equal(row.delivery,'IDLE');
+    assert.equal(f.messages.length,1);assert.equal(f.messages[0].subject,'Deine Verfügbarkeitsbenachrichtigung ist aktiv');
+    const token=f.messages[0].text.match(/unsubscribe\/([a-f0-9]{64})/)[1];assert(!JSON.stringify(row).includes(token));
+    assert.equal((await post('unsubscribe',{token})).status,200);assert.equal((await Sub.findById(row._id)).status,'CANCELLED');
     const ready=await f.offer();assert.equal((await post('offers/'+ready.publicOfferId,input)).status,409);
     for(const invalid of [{...input,email:'bad'},{...input,consent:false},{...input,merchantId:'M1'}])assert.equal((await post('offers/'+o.publicOfferId,invalid)).status,400);
     assert.equal((await post('offers/'+'0'.repeat(32),input)).status,404);
@@ -42,7 +46,7 @@ test('availability notification: isolated Mongo lifecycle, delivery and public s
     await f.advance(31000);
     await Promise.all([f.notify.run(),f.notify.run()]);await f.notify.run();
     assert.equal(f.messages.length,count+1);
-    const row=await Sub.findOne({offerId:o.offerId}).select('+unsubscribeHash');assert.equal(row.status,'NOTIFIED');assert(row.notifiedAt);
+    const row=await Sub.findOne({offerId:o.offerId}).select('+unsubscribeHash +preDeliveryUnsubscribeHash');assert.equal(row.status,'NOTIFIED');assert(row.notifiedAt);
     const mail=f.messages.at(-1);assert.equal(mail.to,'reader@example.test');assert(mail.text.includes('Merchant 0'));assert(mail.text.includes('Location 0'));assert(mail.text.includes(o.publicOfferId));
     assert.equal(mail.subject,'Your product is available again');
     if(['stock','paused'].includes(state))assert(mail.text.includes('29.90'));
@@ -60,24 +64,51 @@ test('availability notification: isolated Mongo lifecycle, delivery and public s
     await f.notify.run();assert.equal(f.messages.length,n);assert.equal((await Sub.findOne({offerId:o.offerId})).status,'EXPIRED');
     await Offer.updateOne({offerId:o.offerId},{$set:{stockQuantity:0}});await f.notify.subscribe(o.publicOfferId,input);
     assert.equal(await Sub.countDocuments({offerId:o.offerId}),1);assert.equal((await Sub.findOne({offerId:o.offerId})).status,'ACTIVE');
+    assert.equal(f.messages.length,n+1);
+  });
+  await t.test('active re-opt-in updates locale without resetting uncertain delivery',async()=>{
+    const o=await f.offer({stockQuantity:0});await f.notify.subscribe(o.publicOfferId,input);
+    await Sub.updateOne({offerId:o.offerId},{$set:{delivery:'UNCERTAIN'}});const mails=f.messages.length;
+    await f.notify.subscribe(o.publicOfferId,{...input,locale:'en',name:'Updated'});
+    const row=await Sub.findOne({offerId:o.offerId}).select('+name');assert.equal(row.delivery,'UNCERTAIN');assert.equal(row.locale,'en');assert.equal(row.name,'Updated');
+    assert.equal(f.messages.length,mails);
+  });
+  await t.test('confirmation failure leaves no active subscription',async()=>{
+    const o=await f.offer({stockQuantity:0});
+    const issues=[];const transport={configured:true,async send(){const e=Error('smtp unavailable');e.retrySafe=true;throw e;}};
+    const service=createAvailabilityService({transport,now:f.now,origin:()=>url,onDeliveryIssue:i=>issues.push(i)});
+    await assert.rejects(service.subscribe(o.publicOfferId,input),e=>e.status===503&&e.code==='notify_unavailable');
+    const row=await Sub.findOne({offerId:o.offerId});assert.equal(row.status,'CANCELLED');assert.equal(row.delivery,'FAILED');
+    assert.equal(issues.length,1);assert.equal(issues[0].stage,'CONFIRMATION');assert.equal(JSON.stringify(issues).includes('reader@example.test'),false);
   });
   await t.test('definite pre-send failure retries, ambiguous acceptance never retries',async()=>{
     for(const retrySafe of [true,false]) {
       const o=await f.offer({stockQuantity:0});await f.notify.subscribe(o.publicOfferId,input);
       await Offer.updateOne({offerId:o.offerId},{$set:{stockQuantity:1}});
-      let attempts=0;
+      let attempts=0;const issues=[];
       const transport={configured:true,async send(){attempts++;const e=Error('private transport details');e.retrySafe=retrySafe;throw e;}};
-      const service=createAvailabilityService({transport,now:f.now,origin:()=>url});
+      const service=createAvailabilityService({transport,now:f.now,origin:()=>url,onDeliveryIssue:i=>issues.push(i)});
       await service.run();const row=await Sub.findOne({offerId:o.offerId});assert.equal(row.delivery,retrySafe?'IDLE':'UNCERTAIN');
       const before=attempts;await service.run();assert.equal(attempts,before);
       if(retrySafe){
         transport.send=async()=>{attempts++;return {accepted:true};};
         await f.advance(300000);await service.run();
         assert.equal(attempts,before+1);assert.equal((await Sub.findById(row._id)).status,'NOTIFIED');
+      } else {
+        await f.advance(3600001);await f.notify.subscribe(o.publicOfferId,input);await service.run();
+        assert.equal((await Sub.findById(row._id)).delivery,'UNCERTAIN');assert.equal(issues.at(-1).delivery,'UNCERTAIN');
       }
-      if(!retrySafe){await f.advance(3600001);await f.notify.subscribe(o.publicOfferId,input).catch(e=>assert.equal(e.code,'notify_unavailable'));await service.run();assert.equal((await Sub.findById(row._id)).delivery,'UNCERTAIN');}
       await Sub.updateOne({_id:row._id},{$set:{status:'CANCELLED'}});
     }
+  });
+  await t.test('safe delivery failures stop after five attempts and explicit re-opt-in can retry',async()=>{
+    const o=await f.offer({stockQuantity:0});await f.notify.subscribe(o.publicOfferId,input);await Offer.updateOne({offerId:o.offerId},{$set:{stockQuantity:1}});
+    let attempts=0;const issues=[];const transport={configured:true,async send(){attempts++;const e=Error('rejected');e.retrySafe=true;throw e;}};
+    const service=createAvailabilityService({transport,now:f.now,origin:()=>url,onDeliveryIssue:i=>issues.push(i)});
+    for(let i=0;i<5;i++){await service.run();if(i<4)await f.advance(3600001);}
+    let row=await Sub.findOne({offerId:o.offerId});assert.equal(attempts,5);assert.equal(row.delivery,'FAILED');assert.equal(issues.at(-1).delivery,'FAILED');
+    await Offer.updateOne({offerId:o.offerId},{$set:{stockQuantity:0}});await f.notify.subscribe(o.publicOfferId,{...input,locale:'en'});
+    row=await Sub.findOne({offerId:o.offerId});assert.equal(row.delivery,'IDLE');assert.equal(row.attempts,0);assert.equal(row.locale,'en');
   });
   await t.test('feature disabled exposes no fake availability capability',async()=>{
     const o=await f.offer({stockQuantity:0});const service=createAvailabilityService({enabled:()=>false});
