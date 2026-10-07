@@ -1,5 +1,6 @@
 export const offerCopy = {
   de: {
+    noApp: 'Keine App nötig.',
     loading: 'Angebot wird geladen …', unavailable: 'Angebot derzeit nicht verfügbar',
     available: 'Verfügbar', soldOut: 'Momentan ausverkauft', paused: 'Derzeit nicht verfügbar',
     soldOutDetail: 'Dieses Produkt ist derzeit nicht verfügbar.',
@@ -7,6 +8,7 @@ export const offerCopy = {
     more: 'Mehr erfahren', less: 'Weniger anzeigen', merchant: 'Händler', location: 'Standort', category: 'Kategorie',
   },
   en: {
+    noApp: 'No app needed.',
     loading: 'Loading offer …', unavailable: 'Offer currently unavailable',
     available: 'Available', soldOut: 'Temporarily sold out', paused: 'Currently unavailable',
     soldOutDetail: 'This product is currently unavailable.',

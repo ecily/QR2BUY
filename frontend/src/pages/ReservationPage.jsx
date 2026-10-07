@@ -53,9 +53,11 @@ export default function ReservationPage() {
     load(); return()=>{controller.abort();clearTimeout(timer);};
   },[publicReservationId]);
   const r=result?.id===publicReservationId?result.r:null;
-  return <main className="buyer-page reservation-ui" lang={language}><p className="buyer-brand">qr2buy</p>
+  return <main className="buyer-page reservation-ui" lang={language}>
+    {r && <p className="buyer-merchant">{r.merchantName}</p>}
     <h1>{r?(r.status==='RESERVED'?t.confirmed:t[r.status]):error?t.unavailable:t.loading}</h1>
     {r && <><ReservationSummary r={r} language={language}/>{r.status==='RESERVED' && <p>{t.pickup}</p>}</>}
     {error && r && <p role="alert">{t.refreshError}</p>}
+    <footer className="buyer-powered">powered by <a href="https://qr2buy.com">qr2buy.com</a></footer>
   </main>;
 }

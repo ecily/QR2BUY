@@ -29,15 +29,18 @@ function ProductExperience({ data, language, t }) {
       <p className="buyer-location">{data.location.name}</p>
       <h1>{data.product.name}</h1>
       <p className="buyer-price"><strong>{price.format(data.offer.priceMinor / 10 ** price.resolvedOptions().maximumFractionDigits)}</strong></p>
-      <p className={`buyer-availability buyer-availability-${availability}`}>{purchaseText[language][data.availabilityState] || (data.availabilityState === 'SOLD' ? notifyText[language].sold : data.offer.active && data.offer.temporarilyReserved ? rt.held : t[availability])}</p>
+      <p className={`buyer-availability buyer-availability-${availability}`} data-state={data.availabilityState}>{purchaseText[language][data.availabilityState] || (data.availabilityState === 'SOLD' ? notifyText[language].sold : data.offer.active && data.offer.temporarilyReserved ? rt.held : t[availability])}</p>
     </header>
-    <ProductImage key={image} src={image} name={data.product.name} />
-    {description && <p className="buyer-description">{shortDescription(description)}</p>}
     {availability === 'soldOut' && !data.offer.temporarilyReserved && <p className="buyer-muted">{t.soldOutDetail}</p>}
+    <p className="buyer-convenience">{t.noApp}</p>
+    <div className="buyer-actions">
     {canBuy(data) && <PurchaseButton offerId={data.publicOfferId} language={language}/>}
-    {canReserve(data) && !reserving && <button className="reserve-button" onClick={()=>setReserving(true)}>{rt.reserve}</button>}
+    {canReserve(data) && !reserving && <button className="reserve-button buyer-reserve" onClick={()=>setReserving(true)}>{rt.reserve}</button>}
     {reserving && canReserve(data) && <ReservationForm offerId={data.publicOfferId} language={language} duration={data.offer.reservationDuration} onClose={()=>setReserving(false)}/>}
     {canNotify(data) && <NotifyForm offerId={data.publicOfferId} language={language}/>}
+    </div>
+    <ProductImage key={image} src={image} name={data.product.name} />
+    {description && <p className="buyer-description">{shortDescription(description)}</p>}
     <details className="buyer-details" onToggle={event => setExpanded(event.currentTarget.open)}>
       <summary>{expanded ? t.less : t.more}</summary>
       {expanded && <div className="buyer-detail-content">
@@ -75,8 +78,8 @@ export default function MerchantOfferPage() {
   const ready = result?.id === publicOfferId;
   const data = ready ? result.data : null;
   return <main lang={language} className="buyer-page">
-    <p className="buyer-brand">qr2buy</p>
     {!ready ? <p role="status">{t.loading}</p> : !data?.ok ? <h1>{t.unavailable}</h1>
       : <ProductExperience key={publicOfferId} data={data} language={language} t={t} />}
+    <footer className="buyer-powered">powered by <a href="https://qr2buy.com">qr2buy.com</a></footer>
   </main>;
 }

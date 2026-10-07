@@ -5,6 +5,7 @@ const origin='http://127.0.0.1:5178', fixture='http://127.0.0.1:3001';
 for(const width of [320,375,390,430])for(const lang of ['de','en'])test(`real reservation journey ${lang} ${width}`,async({page,request},testInfo)=>{
  const t=copy[lang];await page.setViewportSize({width,height:850});
  const response=await request.post(fixture+'/__test__/offer',{data:{stockQuantity:2}}),o=await response.json();
+ await page.setExtraHTTPHeaders({'X-Forwarded-For':'192.0.2.'+Number(o.productId.slice(1))});
  await page.goto('/o/'+o.publicOfferId+'?lang='+lang);
  await expect(page.getByRole('button',{name:t.reserve,exact:true})).toBeVisible();
  await page.getByRole('button',{name:t.reserve,exact:true}).click();

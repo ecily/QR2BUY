@@ -3,6 +3,7 @@ import { purchaseText } from '../src/purchase.js';
 const fixture = 'http://127.0.0.1:3001', origin = 'http://127.0.0.1:5178';
 for (const width of [320, 375, 390, 430]) for (const lang of ['de', 'en']) test(`merchant test purchase ${lang} ${width}`, async ({ page, request }) => {
   const t = purchaseText[lang], o = await (await request.post(fixture + '/__test__/purchase/offer', { data: { stockQuantity: 2 } })).json();
+  await page.setExtraHTTPHeaders({ 'X-Forwarded-For': '192.0.2.' + Number(o.productId.slice(1)) });
   await page.setViewportSize({ width, height: 850 });
   let checkout;
   await page.route('https://checkout.stripe.com/**', async route => {

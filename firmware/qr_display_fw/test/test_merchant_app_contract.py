@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class MerchantAppContractTest(unittest.TestCase):
     def test_shared_status_screen_has_no_qr_or_system_copy(self):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
-        screen = source.split('static void drawStatusText', 1)[1].split('static void renderConfig', 1)[0]
+        screen = source.split('static void drawStatusText(const char* text, int top, int height, uint8_t largest, uint16_t color, int left =', 1)[1].split('static void renderConfig', 1)[0]
         no_notify = screen.split('static void drawNotifyScreen', 1)[0]
         self.assertNotIn('drawQrCode', no_notify)
         self.assertNotIn('STATUS LIVE AKTUALISIERT', screen)
@@ -27,16 +27,20 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertIn('config.bound && (config.status == "OUT_OF_STOCK" || config.status == "PAUSED")', source)
         screen = source.split('static void drawSoldOutOffer', 1)[1].split('static void drawUnavailableOffer', 1)[0]
         self.assertIn('status_screen::Kind::OutOfStock', screen)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.10")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.11")', source)
 
-    def test_ready_and_binding_renderers_match_pre_p05a(self):
+    def test_binding_paid_and_qr_renderers_remain_unchanged(self):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
         baseline = subprocess.check_output(['git', 'show', '28dd17d:firmware/qr_display_fw/src/static_app.cpp'], cwd=ROOT, text=True, encoding='utf-8')
-        for start, end in [('static void drawProductScreen', 'static void drawPaidScreen'),
-                           ('if (config.bindingPreview) {', '#if defined(QR2BUY_MERCHANT_DEVICE)')]:
+        for start, end in [('if (config.bindingPreview) {', '#if defined(QR2BUY_MERCHANT_DEVICE)')]:
             current = source.split(start, 1)[1].split(end, 1)[0]
             previous = baseline.split(start, 1)[1].split(end, 1)[0]
             self.assertEqual(current, previous)
+        accepted = subprocess.check_output(['git', 'show', '202ec62:firmware/qr_display_fw/src/static_app.cpp'], cwd=ROOT, text=True, encoding='utf-8')
+        for start, end in [('static bool drawQrCode', 'static const char* displayStatus'),
+                           ('static void drawPaidScreen', 'static void drawStatusText'),
+                           ('static void drawStatusScreen', 'static void renderConfig')]:
+            self.assertEqual(source.split(start, 1)[1].split(end, 1)[0], accepted.split(start, 1)[1].split(end, 1)[0])
 
     def test_preview_has_no_buyer_qr_and_expires_without_network(self):
         source = (ROOT / 'src/static_app.cpp').read_text()
@@ -48,7 +52,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertNotIn('drawQrCode', preview)
         self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
         self.assertIn('left.previewCode == right.previewCode', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.10")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.11")', source)
         self.assertNotIn('Serial.println(config.previewCode', source)
 
     def test_shared_app_and_separate_hardware_and_secret_configs(self):

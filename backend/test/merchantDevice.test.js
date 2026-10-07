@@ -41,9 +41,11 @@ test('0.3.10 notify QR contract and public eligibility preserve older firmware a
   const f=fixture(()=>true);
   for(const [active,stock,held,state] of [[true,0,0,'OUT_OF_STOCK'],[false,2,0,'PAUSED'],[true,2,2,'RESERVED'],[true,2,0,'READY']]) {
     Object.assign(f.offers[0],{active,stockQuantity:stock}); f.read.reserved=async()=>held;
-    const current=await f.service.config(f.auth(0),'0.3.10');
+    for (const fw of ['0.3.10','0.3.11']) {
+    const current=await f.service.config(f.auth(0),fw);
     assert.equal(current.assigned,true);assert.equal(current.display.status,state);
     assert.equal(current.display.notifyAvailable,state!=='READY');assert(current.display.qr.includes('/o/'));
+    }
     const old=await f.service.config(f.auth(0),'0.3.9');
     assert.equal(old.display.status,state==='OUT_OF_STOCK'?'SOLD':state);
     assert.equal(old.display.qr.length>0,state==='READY');assert.equal(old.display.notifyAvailable,undefined);

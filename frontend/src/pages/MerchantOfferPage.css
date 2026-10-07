@@ -3,9 +3,9 @@
   width: 100%;
   max-width: 660px;
   margin: 0 auto;
-  padding: 20px clamp(16px, 5vw, 32px) 40px;
+  padding: 28px clamp(20px, 5vw, 36px) 32px;
   color: #172c29;
-  background: #fff;
+  background: #fffdf8;
   text-align: left;
   overflow-wrap: anywhere;
   color-scheme: light;
@@ -13,12 +13,25 @@
 .buyer-page * { box-sizing: border-box; }
 .buyer-page .buyer-brand { margin: 0 0 24px; font-size: 15px; font-weight: 750; letter-spacing: -.03em; color: #52736b; }
 .buyer-page p { margin: 0 0 12px; }
-.buyer-page .buyer-merchant { font-weight: 650; margin-bottom: 2px; }
+.buyer-page .buyer-merchant { font-size: 21px; font-weight: 750; letter-spacing: -.025em; margin-bottom: 5px; }
 .buyer-page .buyer-location, .buyer-page .buyer-muted { color: #566663; font-size: 14px; }
-.buyer-page h1 { margin: 20px 0 12px; font-size: clamp(26px, 6vw, 38px); line-height: 1.18; letter-spacing: -.025em; }
-.buyer-page .buyer-price { font-size: 30px; line-height: 1.3; margin-bottom: 10px; }
+.buyer-page h1 { margin: 30px 0 16px; font-size: clamp(28px, 7vw, 42px); line-height: 1.15; letter-spacing: -.035em; }
+.buyer-page .buyer-price { font-size: clamp(36px, 9vw, 48px); line-height: 1.15; letter-spacing: -.04em; margin-bottom: 16px; }
 .buyer-page .buyer-availability { display: inline-block; padding: 5px 10px; border-radius: 6px; font-size: 14px; font-weight: 600; background: #f2f1ed; color: #5b5040; margin-bottom: 20px; }
 .buyer-page .buyer-availability-available { color: #215844; background: #e9f4ee; }
+.buyer-page .buyer-availability[data-state="CHECKOUT_STARTED"], .buyer-page .buyer-availability[data-state="RESERVED"] { color: #765211; background: #fff0cc; }
+.buyer-page .buyer-availability[data-state="SOLD"], .buyer-page .buyer-availability[data-state="OUT_OF_STOCK"], .buyer-page .buyer-availability[data-state="PAUSED"] { color: #89332a; background: #fcece6; }
+.buyer-page .buyer-availability::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 8px; }
+.buyer-page .buyer-convenience { color: #566663; font-size: 14px; margin: 0 0 14px; }
+.buyer-page .buyer-actions { margin-bottom: 28px; }
+.buyer-page .buyer-actions .reserve-button { display: block; width: 100%; margin: 0 0 12px; border: 1px solid #215844; border-radius: 12px; padding: 14px 18px; font: inherit; font-weight: 700; min-height: 52px; cursor: pointer; }
+.buyer-page .buyer-actions .buyer-reserve { color: #215844; background: transparent; }
+.buyer-page .buyer-actions button:focus-visible { outline: 3px solid #27785b; outline-offset: 3px; }
+.buyer-page .buyer-payment-trust { text-align: center; font-size: 13px; color: #215844; margin: 0 0 8px; }
+.buyer-page .buyer-testmode { font-size: 12px; color: #566663; line-height: 1.5; margin: 0 0 16px; }
+.buyer-page .buyer-powered { margin-top: 32px; text-align: center; font-size: 12px; color: #63716b; }
+.buyer-page .buyer-powered a { color: inherit; text-decoration: none; }
+.buyer-page .buyer-powered a:focus-visible { outline: 2px solid #27785b; outline-offset: 3px; }
 .buyer-page .buyer-image { display: block; width: 100%; height: 240px; object-fit: contain; border-radius: 12px; background: #f5f6f3; margin: 0 0 20px; }
 .buyer-page .buyer-image-large { height: auto; max-height: 600px; }
 .buyer-page .buyer-description { line-height: 1.65; margin-bottom: 20px; }

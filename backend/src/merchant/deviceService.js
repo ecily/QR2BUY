@@ -67,7 +67,7 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         }
         if (!display || !display.verifiedAt || display.endedAt || display.merchantId !== assignment.merchantId || display.locationId !== assignment.locationId) return { config: unassigned, device };
         // PAUSED is a new wire status. Older firmware retains its safe unassigned fallback.
-        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10'].includes(firmwareVersion);
+        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11'].includes(firmwareVersion);
         const resolved = await resolveOffer(read, await read.offer(display.offerId), pausedCapable);
         if (!resolved || resolved.offer.merchantId !== assignment.merchantId || resolved.offer.locationId !== assignment.locationId || resolved.product.productId !== display.productId) return { config: unassigned, device };
         const { product, offer } = resolved;
@@ -83,9 +83,9 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
           offer: { offerId: offer.offerId, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: available,
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
-          display: { status: firmwareVersion === '0.3.10' ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
-            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (firmwareVersion === '0.3.10' && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
-            ...(firmwareVersion === '0.3.10' ? { notifyAvailable: notify } : {}) }
+          display: { status: ['0.3.10', '0.3.11'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
+            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
+            ...(['0.3.10', '0.3.11'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }
         };
         // Opaque change fingerprint, not a chronological commerce event counter.
         projection.display.eventVersion = createHash('sha256').update(JSON.stringify(projection)).digest('hex').slice(0, 16);

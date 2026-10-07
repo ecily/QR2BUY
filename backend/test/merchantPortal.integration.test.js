@@ -190,7 +190,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       assert.equal((await a.call('merchant/devices')).data.items[0].assignmentStatus,'ACTIVE');
       assert.equal((await b.call('merchant/devices')).data.items[0].product,null);
     });
-    for (const fw of ['0.3.8', '0.3.9'])
+    for (const fw of ['0.3.8', '0.3.9', '0.3.11'])
     for (const oldState of ['READY','SOLD','PAUSED']) for (const targetState of ['READY','SOLD','PAUSED'])
     await t.test(`${fw} NOCS rebinds ${oldState} A to ${targetState} B, preserving the other device on A`, async () => {
       await fixture('active',true);
@@ -203,7 +203,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       await m.Offer.updateOne({offerId:offerA.offerId},{$set:{active:oldState!=='PAUSED',stockQuantity:oldState==='READY'?3:0,purchasable:false,reservable:false}});
       await m.Offer.updateOne({offerId:targetOffer.offerId},{$set:{active:targetState!=='PAUSED',stockQuantity:targetState==='READY'?2:0,purchasable:false,reservable:false}});
       const firstConfig = await devices.config(deviceAuth,fw);
-      assert.equal(firstConfig.display.status,oldState);
+      assert.equal(firstConfig.display.status,fw === '0.3.11' && oldState === 'SOLD' ? 'OUT_OF_STOCK' : oldState);
       const firstDevice = await m.ManagedDevice.findOne({deviceId:firstId}).lean();
       const firstAssignments = await m.DisplayAssignment.find({deviceId:firstId}).lean();
       const productsBefore = await m.MerchantProduct.find({}).sort({_id:1}).lean();
@@ -240,7 +240,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       assert.equal(current.length,1); assert.equal(current[0].offerId,targetOffer.offerId); assert(current[0].verifiedAt);
       const secondConfig = await devices.config(secondAuth,fw);
       assert.equal(secondConfig.assigned,true); assert.equal(secondConfig.product.productId,target.productId);
-      assert.equal(secondConfig.display.status,targetState);
+      assert.equal(secondConfig.display.status,fw === '0.3.11' && targetState === 'SOLD' ? 'OUT_OF_STOCK' : targetState);
       assert.equal(secondConfig.display.qr,targetState==='READY'?'https://qr2buy.com/o/'+targetOffer.publicOfferId:'');
       assert.deepEqual(await devices.config(deviceAuth,fw),firstConfig);
       assert.deepEqual(await m.ManagedDevice.findOne({deviceId:firstId}).lean(),firstDevice);
@@ -314,7 +314,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
       const pending = await m.DisplayAssignment.find({ deviceId: 'QR2B-000001' }).lean();
       assert.equal(pending.length, 1); assert.equal(pending[0].status, 'PENDING'); assert.equal(pending[0].verifiedAt, null);
     });
-    for (const fw of ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10']) await t.test('pause and resume preserve binding, portal and country with '+fw, async () => {
+    for (const fw of ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11']) await t.test('pause and resume preserve binding, portal and country with '+fw, async () => {
       await fixture('active');
       const before = await m.DisplayAssignment.find({deviceId:deviceAuth.deviceId}).lean();
       assert.equal((await a.call('merchant/me','PATCH',{address:{country:'AT'}})).status,200);

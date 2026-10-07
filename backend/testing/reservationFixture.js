@@ -44,7 +44,11 @@ export async function reservationFixture(origin = 'http://127.0.0.1:5178', { pur
   const transport={configured:true,async send(message){messages.push(message);return {accepted:true};}};
   const purchaseMail=createPurchaseMailService({now,transport});
   const notify=createAvailabilityService({now,transport,origin:()=>origin});
-  const app=express();app.use(express.json());
+  const app=express();
+  // Isolated loopback fixture only: browser journeys emulate distinct client IPs.
+  // Production's authentication and rate-limit keys/limits are unchanged.
+  app.set('trust proxy', 'loopback');
+  app.use(express.json());
   app.use('/api/notify',createAvailabilityRouter({service:notify,origin,limit:100}));
   app.use('/api/reservations',createReservationRouter({service,origin,limit:100}));
   app.use('/api/purchases',createPurchaseRouter({service:purchase,origin,limit:100}));

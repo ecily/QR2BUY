@@ -27,12 +27,20 @@ for (const width of [320,375,390,430]) for (const lang of ['de','en']) {
     });
     const noOverflow=async()=>expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
     await page.goto('/'+lang);
-    await expect(page.locator('.landing-hero').getByRole('link',{name:p.merchantStart,exact:true})).toBeVisible();
+    await expect(page.locator('#merchants').getByRole('link',{name:p.merchantStart,exact:true})).toBeVisible();
     await expect(page.locator('.landing-header').getByRole('link',{name:p.merchantLogin,exact:true})).toBeVisible();
     await expect(page.locator('#merchants')).toContainText(p.commerceScope);
+    await expect(page.locator('.landing-hero').getByRole('link', { name: p.demoCta })).toHaveAttribute('href', '#demo');
+    await expect(page.locator('.landing-hero').getByRole('link', { name: p.pilotCta })).toHaveAttribute('href', '#pilot');
+    await expect(page.locator('.landing-hero a[href*=merchant]')).toHaveCount(0);
+    await expect(page.locator('.landing-hero h1')).toHaveText(p.hero);
+    await expect(page.locator('.pitch-quick li')).toHaveCount(3);
+    await expect(page.locator('.merchant-case-grid article')).toHaveCount(4);
+    await expect(page.locator('.demo-safety-strip')).toContainText(p.demoSafetyText);
+    await expect(page.locator('.pitch-operator')).toHaveCount(0); // Demo has not started; no operator controls.
     await expect(page.locator('.landing-nav a[href="#demo"]')).toHaveCount(1);
     await noOverflow();
-    await page.locator('.landing-hero').getByRole('link',{name:p.merchantStart,exact:true}).click();
+    await page.locator('#merchants').getByRole('link',{name:p.merchantStart,exact:true}).click();
     await expect(page).toHaveURL('/merchant/register?lang='+lang);
     await expect(page.getByRole('heading',{name:t.register,exact:true})).toBeVisible();
     await page.goto('/'+lang);

@@ -15,6 +15,7 @@ export default function PurchaseButton({ offerId, language }) {
       else throw Error('checkout_unavailable');
     } catch { setError(t.error); setBusy(false); }
   }
-  return <section className="reservation-ui"><p>{t.test}</p><button className="reserve-button" disabled={busy} onClick={buy}>{busy ? t.loading : t.buy}</button>
+  return <section className="reservation-ui buyer-purchase"><button className="reserve-button" disabled={busy} onClick={buy}>{busy ? t.loading : t.buy}</button>
+    <p className="buyer-payment-trust">{t.secure}</p><p className="buyer-testmode">{t.test}</p>
     {error && <p role="alert">{error}</p>}</section>;
 }

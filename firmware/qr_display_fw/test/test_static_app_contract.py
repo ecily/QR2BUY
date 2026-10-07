@@ -24,8 +24,8 @@ class StaticAppContractTest(unittest.TestCase):
 
     def test_required_statuses_have_backend_driven_rendering(self):
         expected = {
-            "READY": "NOCH ZU HABEN",
-            "CHECKOUT_STARTED": "CHECKOUT LAEUFT",
+            "READY": "VERFUEGBAR",
+            "CHECKOUT_STARTED": "KAUF LAEUFT",
             "CANCELLED": "ABGEBROCHEN",
             "RESERVED": "RESERVIERT",
             "PAID": "BEZAHLT",
@@ -100,10 +100,10 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("QR_PANEL_WIDTH = 146", SOURCE)
         self.assertIn("CONTENT_X = 164", SOURCE)
         self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
-        self.assertIn('"Mit dem Handy"', SOURCE)
-        self.assertIn('"KEINE APP NOETIG"', SOURCE)
-        self.assertIn('"Fiktives Demo-Produkt"', SOURCE)
-        self.assertIn('"Status live synchronisiert"', SOURCE)
+        self.assertNotIn('"Mit dem Handy"', SOURCE)
+        self.assertIn('"KEINE APP N\\xC3\\x96TIG"', SOURCE)
+        self.assertNotIn('"Fiktives Demo-Produkt"', SOURCE)
+        self.assertNotIn('"Status live synchronisiert"', SOURCE)
 
     def test_display_palette_uses_named_rgb565_colors_and_dark_qr(self):
         expected_colors = {
@@ -142,19 +142,27 @@ class StaticAppContractTest(unittest.TestCase):
 
     def test_live_pulse_only_redraws_its_small_footer_dot(self):
         self.assertIn("LIVE_PULSE_STEP_MS = 300UL", SOURCE)
-        self.assertIn('tft.drawString("LIVE", 176, 229, 1)', SOURCE)
-        self.assertIn('tft.drawString("SICHER VERBUNDEN", 212, 229, 1)', SOURCE)
+        self.assertIn('tft.drawString("LIVE", 287, 229, 1)', SOURCE)
+        self.assertNotIn('"SICHER VERBUNDEN"', SOURCE)
         service = SOURCE[SOURCE.index("static void serviceConnectionIndicator"):SOURCE.index("static void drawProductScreen")]
         self.assertIn("drawFooterPulse(livePulseColor(pulseStep))", service)
         self.assertNotIn("fillScreen", service)
         self.assertNotIn("drawProductScreen", service)
 
-    def test_scan_usp_is_prominent_without_changing_qr_geometry(self):
-        self.assertIn('drawCenteredAt("Mit dem Handy", 79, 163, 2', SOURCE)
-        self.assertIn('drawCenteredAt("scannen", 79, 188, 4', SOURCE)
-        self.assertIn("tft.fillRoundRect(20, 204, 118, 18, 9, COLOR_READY_BG)", SOURCE)
-        self.assertIn('drawCenteredAt("KEINE APP NOETIG", 79, 213, 1', SOURCE)
-        self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", SOURCE)
+    def test_ready_screen_is_quiet_and_keeps_qr_geometry(self):
+        screen = SOURCE[SOURCE.index("static void drawProductScreen"):SOURCE.index("static void drawPaidScreen")]
+        self.assertIn('drawStatusText("KEINE APP N\\xC3\\x96TIG", 173, 16, 1', screen)
+        self.assertIn("drawQrCode(config.qr, 9, 14, 140, 140)", screen)
+        self.assertIn('tft.drawString("qr2buy.com", CONTENT_X, 17, 1)', screen)
+        self.assertIn('else if (config.status != "READY")', screen)
+        self.assertIn('tft.fillCircle(307, 137, 3, COLOR_READY_FG)', screen)
+        for removed in ('Mit dem Handy', 'NOCH ZU HABEN', 'Bestand:', 'Status live synchronisiert', 'APP_TITLE'):
+            self.assertNotIn(removed, screen)
+        self.assertIn('tft.setTextSize(1)', screen)
+        self.assertIn('tft.textWidth(amount, font) * 2 <= 132', screen)
+        title = SOURCE[SOURCE.index("static void drawReadyProductName"):SOURCE.index("static void drawProductScreen")]
+        self.assertIn('status_screen::fit', title)
+        self.assertIn('lineHeight(block.font) > 58', title)
 
     def test_transient_scan_display_preserves_commerce_priority_and_layout(self):
         self.assertIn('String interactionState;', SOURCE)
@@ -235,7 +243,13 @@ class StaticAppContractTest(unittest.TestCase):
         self.assertIn("tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4)", SOURCE)
 
     def test_paid_has_a_dedicated_positive_success_screen(self):
-        paid = SOURCE[SOURCE.index("static void drawPaidScreen"):SOURCE.index("static void drawStatusText")]
+        # Match function definitions, so a forward declaration cannot end this section.
+        start = re.search(r"static void drawPaidScreen\([^;{}]*\)\s*\{", SOURCE)
+        end = re.search(r"static void drawStatusText\([^;{}]*\)\s*\{", SOURCE)
+        self.assertIsNotNone(start)
+        self.assertIsNotNone(end)
+        self.assertLess(start.start(), end.start())
+        paid = SOURCE[start.start():end.start()]
         self.assertIn('tft.drawString("KAUF ERFOLGREICH"', paid)
         self.assertIn('tft.drawString("BEZAHLT"', paid)
         self.assertIn("tft.fillCircle(54, 99, 29, COLOR_PAID_FG)", paid)

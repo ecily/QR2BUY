@@ -268,8 +268,8 @@ static bool drawQrCode(const String& url, int16_t areaLeft, int16_t areaTop,
 }
 
 static const char* displayStatus(const String& status) {
-  if (status == "READY") return "NOCH ZU HABEN";
-  if (status == "CHECKOUT_STARTED") return "CHECKOUT LAEUFT";
+  if (status == "READY") return "VERFUEGBAR";
+  if (status == "CHECKOUT_STARTED") return "KAUF LAEUFT";
   if (status == "CANCELLED") return "ABGEBROCHEN";
   if (status == "RESERVED") return "RESERVIERT";
   if (status == "PAID") return "BEZAHLT";
@@ -486,8 +486,8 @@ static uint16_t livePulseColor(uint8_t step) {
 }
 
 static void drawFooterPulse(uint16_t color) {
-  tft.fillCircle(166, 233, 4, COLOR_WARM);
-  tft.fillCircle(166, 233, 3, color);
+  tft.fillCircle(279, 233, 3, COLOR_WARM);
+  tft.fillCircle(279, 233, 2, color);
 }
 
 static void drawConnectionFooter(bool live, uint32_t now) {
@@ -497,14 +497,12 @@ static void drawConnectionFooter(bool live, uint32_t now) {
     footerPulseStep = (now / LIVE_PULSE_STEP_MS) % 6;
     drawFooterPulse(livePulseColor(footerPulseStep));
     tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
-    tft.drawString("LIVE", 176, 229, 1);
-    tft.fillCircle(205, 233, 1, COLOR_PINE);
-    tft.drawString("SICHER VERBUNDEN", 212, 229, 1);
+    tft.drawString("LIVE", 287, 229, 1);
   } else {
     footerPulseStep = 0xFF;
     drawFooterPulse(COLOR_MUTED);
     tft.setTextColor(COLOR_MUTED, COLOR_WARM);
-    tft.drawString("VERBINDUNG...", 176, 229, 1);
+    // A stale connection never claims LIVE; the muted dot remains visible.
   }
   footerIndicatorLive = live;
 }
@@ -525,6 +523,24 @@ static void serviceConnectionIndicator() {
   drawFooterPulse(livePulseColor(pulseStep));
 }
 
+static void drawStatusText(const char* text, int top, int height, uint8_t largest,
+                           uint16_t color, int left, int width);
+
+static void drawReadyProductName(const String& name) {
+  // Keep extreme names inside the title area; the complete name remains on the buyer page.
+  std::string text = name.c_str();
+  auto measure = [](char c, uint8_t font) { char value[] = {c, 0}; return int(tft.textWidth(value, font)); };
+  auto block = status_screen::fit(text, 34, 58, 145, 4, measure);
+  while (int(block.lines.size()) * status_screen::lineHeight(block.font) > 58 && text.size() > 3) {
+    text.pop_back();
+    while (!text.empty() && (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80) text.pop_back();
+    if (!text.empty() && static_cast<unsigned char>(text.back()) >= 0xC0) text.pop_back();
+    block = status_screen::fit(text + "...", 34, 58, 145, 4, measure);
+  }
+  if (text != name.c_str()) text += "...";
+  drawStatusText(text.c_str(), 34, 58, 4, COLOR_INK, 166, 145);
+}
+
 static void drawProductScreen(const ConfigPayload& config) {
   static const int16_t QR_PANEL_X = 6;
   static const int16_t QR_PANEL_WIDTH = 146;
@@ -535,39 +551,42 @@ static void drawProductScreen(const ConfigPayload& config) {
   tft.drawFastVLine(157, 12, 216, COLOR_MUTED);
   drawQrCode(config.qr, 9, 14, 140, 140);
 
-  drawCenteredAt("Mit dem Handy", 79, 163, 2, COLOR_INK, COLOR_PAPER);
-  drawCenteredAt("scannen", 79, 188, 4, COLOR_INK, COLOR_PAPER);
-  tft.fillRoundRect(20, 204, 118, 18, 9, COLOR_READY_BG);
-  drawCenteredAt("KEINE APP NOETIG", 79, 213, 1, COLOR_READY_FG, COLOR_READY_BG);
+  drawStatusText("KEINE APP N\xC3\x96TIG", 173, 16, 1, COLOR_MUTED, 9, 140);
 
   tft.setTextDatum(TL_DATUM);
   tft.setTextColor(COLOR_MUTED, COLOR_WARM);
-#if defined(QR2BUY_MERCHANT_DEVICE)
-  tft.drawString("QR2BUY", CONTENT_X, 17, 1);
-#else
-  tft.drawString("QR2BUY LIVE-DEMO", CONTENT_X, 17, 1);
-#endif
+  tft.drawString("qr2buy.com", CONTENT_X, 17, 1);
   tft.fillRoundRect(CONTENT_X - 5, 31, 156, 58, 6, COLOR_PAPER);
-  drawProminentProductName(config.text, CONTENT_X + 2, 145);
+  if (config.status == "READY" && !scanInteractionVisible(config)) drawReadyProductName(config.text);
+  else drawProminentProductName(config.text, CONTENT_X + 2, 145);
   tft.setTextColor(COLOR_PINE_DARK, COLOR_WARM);
-  tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4);
+  if (config.status == "READY" && !scanInteractionVisible(config)) {
+    // Double-size amount gives the price priority; currency stays legible below.
+    const String price = displayPrice(config.priceText);
+    const int split = price.lastIndexOf(' ');
+    const String amount = split > 0 ? price.substring(0, split) : price;
+    const String currency = split > 0 ? price.substring(split + 1) : "";
+    uint8_t font = 4;
+    if (tft.textWidth(amount, font) > 132) font = 2;
+    tft.setTextSize(tft.textWidth(amount, font) * 2 <= 132 ? 2 : 1);
+    tft.drawString(amount, CONTENT_X, 110, font);
+    tft.setTextSize(1);
+    tft.drawString(currency, CONTENT_X, 166, 2);
+    tft.fillCircle(307, 137, 3, COLOR_READY_FG);
+  } else {
+    tft.drawString(displayPrice(config.priceText), CONTENT_X, 94, 4);
+    const uint16_t dot = config.status == "CHECKOUT_STARTED" || config.status == "CANCELLED"
+      ? COLOR_CHECKOUT_FG : COLOR_SOLD_FG;
+    tft.fillCircle(307, 115, 3, dot);
+  }
   if (scanInteractionVisible(config)) {
     drawScanStatus(CONTENT_X, 122);
   } else if (config.status == "CANCELLED") {
     drawCancelledStatus(CONTENT_X, 122);
-  } else {
+  } else if (config.status != "READY") {
     drawStatusPill(config.status, CONTENT_X, 129);
-    tft.setTextColor(COLOR_MUTED, COLOR_WARM);
-#if defined(QR2BUY_MERCHANT_DEVICE)
-    tft.drawString(String("Bestand: ") + String((long)config.stockQuantity), CONTENT_X, 176, 1);
-#else
-    tft.drawString("Fiktives Demo-Produkt", CONTENT_X, 176, 1);
-#endif
-    tft.drawString("Status live synchronisiert", CONTENT_X, 194, 1);
   }
   tft.fillRect(0, 225, tft.width(), 15, COLOR_WARM);
-  tft.setTextColor(COLOR_PINE, COLOR_WARM);
-  tft.drawString(APP_TITLE, 8, 229, 1);
   footerIndicatorVisible = true;
   const uint32_t now = millis();
   drawConnectionFooter(connectionIsFresh(now), now);
@@ -991,7 +1010,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.10");
+  http.addHeader("x-firmware-version", "0.3.11");
 #endif
 
   const int statusCode = http.GET();

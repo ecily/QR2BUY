@@ -497,7 +497,7 @@ html { scroll-behavior: smooth; }
 .merchant-case-grid h3 { margin: 52px 0 9px; color: var(--landing-pine-dark); font-size: 19px; letter-spacing: -.035em; line-height: 1.2; }
 .merchant-case-grid p { margin: 0; color: #43534b; font-size: 14px; line-height: 1.55; }
 .landing-how { background: var(--landing-cream); }
-.how-grid { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 0; border-top: 1px solid var(--landing-line); list-style: none; }
+.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin: 0; padding: 0; border-top: 1px solid var(--landing-line); list-style: none; }
 .how-grid li { min-height: 230px; padding: 28px 24px; border-right: 1px solid var(--landing-line); }
 .how-grid li:last-child { border-right: 0; }
 .how-grid span { color: #a44f2d; font-size: 12px; font-weight: 900; letter-spacing: .12em; }
@@ -880,3 +880,18 @@ html { scroll-behavior: smooth; }
   .landing-hero__actions { flex-wrap: wrap; }
   .landing-hero__actions .landing-button { white-space: normal; text-align: center; }
 }
+
+/* Pitch hierarchy: retain the existing warm visual language. */
+.pitch-quick { padding-top: 28px; padding-bottom: 28px; }
+.pitch-quick ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; list-style: none; padding: 0; margin: 0 0 16px; }
+.pitch-quick strong { color: var(--landing-pine); letter-spacing: .1em; }
+.pitch-quick p { line-height: 1.5; }
+.pitch-quick > div > p { color: var(--landing-muted); font-size: 14px; }
+.pitch-story { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+.pitch-story h3 { font-size: 14px; letter-spacing: .1em; }
+.compare-cards ul { padding-left: 20px; margin-bottom: 0; line-height: 1.6; }
+.compare-cards li + li { margin-top: 10px; }
+.pitch-operator { margin-top: 20px; color: var(--landing-muted); font-size: 12px; }
+.pitch-operator summary { cursor: pointer; padding: 10px 0; }
+@media (min-width: 701px) { .merchant-case-grid article:last-child { grid-column: auto; width: auto; justify-self: stretch; } }
+@media (max-width: 700px) { .pitch-quick ol { gap: 12px; } .pitch-quick strong { font-size: 12px; } .pitch-quick li p { font-size: 13px; } .pitch-story { grid-template-columns: 1fr; gap: 16px; } }
