@@ -112,6 +112,7 @@ for(const width of [320,375,390,430])for(const language of ['de','en'])test(`mer
       expect(request.headers().authorization).toBeUndefined();
       if(method!=='GET')expect(request.headers()['x-csrf-token']).toBe('test-only-csrf');
       if(path==='/api/merchant/me'){if(body)merchant={...merchant,...body};response={ok:true,merchant};}
+      else if(path==='/api/merchant/sales')response={ok:true,items:[]};
       else if(path.includes('/binding/devices/')){
         if(path.endsWith('/preview'))response={ok:true,previewId:'b'.repeat(32),expiresAt:new Date(Date.now()+120000).toISOString(),product:{name:products[0].name},offer:{priceMinor:12900,currency:'EUR'},device:{displayName:devices[0].displayName}};
         else if(path.endsWith('/confirm')){expect(body.code).toBe('123456');confirmed=true;response={ok:true,status:'ACTIVE'};}

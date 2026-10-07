@@ -64,6 +64,7 @@ export function createMerchantPortal(options = {}) {
   });
   portal.get('/me', (req, res) => res.json({ ok: true, merchant: clean(req.merchantAuth.merchant) }));
   portal.get('/orders', handle(async (req, res) => res.json(await purchases.list(req.merchantAuth.merchantId))));
+  portal.get('/sales', handle(async (req, res) => res.json(await purchases.recentSales(req.merchantAuth.merchantId))));
   portal.get('/reservations', handle(async (req, res) => res.json(await reservations.list(req.merchantAuth.merchantId))));
   portal.get('/reservations/:id', handle(async (req, res) => res.json(await reservations.detail(req.merchantAuth.merchantId, req.params.id))));
   for (const action of ['cancel','collect']) portal.post('/reservations/:id/'+action, handle(async (req, res) => {

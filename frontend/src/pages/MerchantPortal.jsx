@@ -7,6 +7,7 @@ import './MerchantPortal.css';
 import { countryOptions, addressLabel } from '../countries.js';
 import MerchantReservations from './MerchantReservations.jsx';
 import MerchantOrders from './MerchantOrders.jsx';
+import MerchantRecentSales from './MerchantRecentSales.jsx';
 
 const empty = { products: [], offers: [], devices: [], locations: [], merchant: {} };
 const fields = ['line1','line2','postalCode','city','region','country'];
@@ -108,7 +109,7 @@ function Portal() {
         <p className="merchant-eyebrow">{data.merchant.displayName}</p><h1>{t[section] || t.overview}</h1>
         {section === 'reservations' && <MerchantReservations language={language} csrfToken={auth.csrfToken}/>}
         {section === 'orders' && <MerchantOrders language={language}/>}
-        {section === 'overview' && <><p>{t.intro}</p><div className="merchant-stats">{[['products',t.products],['devices',t.devices],['online',t.onlineCount],['unassigned',t.unassignedCount],['activeOffers',t.activeOffers]].map(([key,label]) => <article key={key}><strong>{summary[key]}</strong><span>{label}</span></article>)}</div><div className="merchant-actions"><Link className="merchant-button" to={'/merchant/products'+langQuery}>{t.newProduct}</Link><Link to={'/merchant/devices'+langQuery}>{t.devices}</Link></div><p className="merchant-help">{t.checkout}</p></>}
+        {section === 'overview' && <><MerchantRecentSales language={language}/><p>{t.intro}</p><div className="merchant-stats">{[['products',t.products],['devices',t.devices],['online',t.onlineCount],['unassigned',t.unassignedCount],['activeOffers',t.activeOffers]].map(([key,label]) => <article key={key}><strong>{summary[key]}</strong><span>{label}</span></article>)}</div><div className="merchant-actions"><Link className="merchant-button" to={'/merchant/products'+langQuery}>{t.newProduct}</Link><Link to={'/merchant/devices'+langQuery}>{t.devices}</Link></div><p className="merchant-help">{t.checkout}</p></>}
         {section === 'products' && <><button onClick={() => startEdit('product')}>{t.newProduct}</button>{!data.products.length && <p>{t.emptyProducts}</p>}<div className="merchant-cards">{data.products.map(p => {
           const offers = data.offers.filter(o => o.productId === p.productId), active = offers.filter(o => o.active), count = data.devices.filter(d => d.product?.productId === p.productId).length;
           return <article key={p.productId}>{p.image && <img className="merchant-product-image" src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer"/>}<h2>{p.name}</h2><p className="merchant-help">{t.boundOffers}: {active.length} · {t.stock}: {active.reduce((n,o) => n+o.stockQuantity,0)} · {t.displayCount}: {count}</p>

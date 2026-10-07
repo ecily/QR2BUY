@@ -6,7 +6,7 @@ export function purchaseGateway(now = () => new Date()) {
       if (keys.has(options.idempotencyKey)) return structuredClone(sessions.get(keys.get(options.idempotencyKey)));
       const id = 'cs_test_fixture_' + ++sequence;
       const s = { id, livemode: false, mode: params.mode, status: 'open', payment_status: 'unpaid',
-        amount_total: params.line_items[0].price_data.unit_amount, currency: params.line_items[0].price_data.currency,
+        amount_total: params.line_items[0].price_data.unit_amount, currency: params.line_items[0].price_data.currency, customer_details:{email:'buyer@example.test'},
         metadata: params.metadata, client_reference_id: params.client_reference_id,
         url: 'https://checkout.stripe.com/c/pay/' + id, expires_at: params.expires_at, created: Math.floor(+now() / 1000), quantity: params.line_items[0].quantity };
       sessions.set(id, s); keys.set(options.idempotencyKey, id);

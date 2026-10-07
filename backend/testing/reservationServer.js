@@ -4,7 +4,8 @@ import { AvailabilitySubscription } from '../src/merchant/availabilitySubscripti
 import { reservationFixture } from './reservationFixture.js';
 const fixture=await reservationFixture(undefined,{purchases:true});
 fixture.app.post('/__test__/purchase/offer',async(req,res)=>{const o=await fixture.offer(req.body);fixture.checkoutOffers.add(o.offerId);res.json(o);});
-fixture.app.post('/__test__/purchase/:id/paid',async(req,res)=>{const order=await (await import('../src/merchant/orderModel.js')).MerchantOrder.findOne({publicOrderId:req.params.id});res.json(await fixture.purchase.webhook(fixture.gateway.event(order.stripeSessionId)));});
+fixture.app.post('/__test__/purchase/:id/paid',async(req,res)=>{const order=await (await import('../src/merchant/orderModel.js')).MerchantOrder.findOne({publicOrderId:req.params.id});const result=await fixture.purchase.webhook(fixture.gateway.event(order.stripeSessionId));await fixture.purchaseMail.run();res.json(result);});
+fixture.app.get('/__test__/purchase/:id/mail',async(req,res)=>{res.json({mails:fixture.messages.filter(m=>m.text.includes(req.params.id)).length});});
 fixture.app.get('/__test__/health',(_req,res)=>res.json({ok:true}));
 fixture.app.post('/__test__/offer',async(req,res)=>res.json(await fixture.offer(req.body)));
 fixture.app.post('/__test__/advance',async(req,res)=>{await fixture.advance(31*60000);res.json({ok:true});});

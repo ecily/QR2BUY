@@ -31,6 +31,7 @@ import { createReservationRouter } from './routes/reservations.js';
 import { startReservationExpiry } from './merchant/inventory.js';
 import { createPurchaseRouter } from './routes/purchases.js';
 import { startPurchaseReconciliation } from './merchant/purchases.js';
+import { startPurchaseMailDelivery } from './merchant/purchaseMail.js';
 
 dotenv.config();
 
@@ -122,7 +123,7 @@ app.use((err, req, res, next) => {
 /* ───────────────── MongoDB ───────────────── */
 mongoose
   .connect(MONGO_URL)
-  .then(() => { logger.info({ msg: '[db] connected' }); startAvailabilityNotifications(() => logger.error({msg:'availability worker unavailable'})); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); startPurchaseReconciliation(() => logger.error({ msg: 'purchase reconciliation unavailable' })); })
+  .then(() => { logger.info({ msg: '[db] connected' }); startAvailabilityNotifications(() => logger.error({msg:'availability worker unavailable'})); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); startPurchaseReconciliation(() => logger.error({ msg: 'purchase reconciliation unavailable' })); startPurchaseMailDelivery(() => logger.error({ msg: 'purchase mail worker unavailable' })); })
   .catch((err) => {
     logger.error({ msg: '[db] connection error', err: err.message });
     process.exit(1);

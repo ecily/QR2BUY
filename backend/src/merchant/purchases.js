@@ -6,6 +6,7 @@ import { Merchant, Location, MerchantProduct, Offer } from './models.js';
 import { MerchantOrder } from './orderModel.js';
 import { reservedQuantity } from './inventory.js';
 import { DeviceApiError } from './deviceCredentials.js';
+import { validDemoEmail } from '../demo/mail.js';
 
 const fail = (status, code) => { throw new DeviceApiError(status, code); };
 const validId = id => typeof id === 'string' && /^[a-f0-9]{32}$/.test(id);
@@ -100,6 +101,11 @@ export function createPurchaseService({ stripe: injectedStripe, configured = che
         if (offer.stockQuantity < 1) fail(409, 'inventory_mismatch');
         offer.stockQuantity -= 1; offer.depletedByPurchase = offer.stockQuantity === 0;
         order.paidAt = now(); order.paidEventId = eventId; order.paymentIntentId = s.payment_intent || null;
+        // Only this verified PAID transition creates the mail outbox. Duplicate
+        // events and historical PAID orders never reset a claim or trigger backfill.
+        order.buyerEmail = validDemoEmail(s.customer_details?.email) || validDemoEmail(s.customer_email);
+        order.mailStatus = order.buyerEmail ? 'NOT_SENT' : 'FAILED';
+        order.mailNextAttemptAt = order.buyerEmail ? now() : null;
       } else order.closedAt = now();
       order.status = status; order.stripeSessionId = s?.id || order.stripeSessionId;
       if (offer.commerceOrderId === order.orderId) {
@@ -171,6 +177,7 @@ export function createPurchaseService({ stripe: injectedStripe, configured = che
       return { ok: true, order: await finish(o, s, 'PAID', event.id) };
     },
     async list(merchantId) { return { ok: true, items: (await MerchantOrder.find({ merchantId }).sort({ createdAt: -1 }).limit(200).lean()).map(o => orderView(o, true)) }; },
+    async recentSales(merchantId) { return { ok: true, items: (await MerchantOrder.find({ merchantId, status: 'PAID' }).sort({ paidAt: -1 }).limit(5).lean()).map(o => orderView(o, true)) }; },
     async reconcile() {
       if (!configured()) return;
       const orders = await MerchantOrder.find({ status: 'CHECKOUT_STARTED', createdAt: { $lte: new Date(+now() - 30000) } }).select('+returnOrigin').sort({ createdAt: 1 }).limit(100);

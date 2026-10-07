@@ -18,6 +18,7 @@ import { MerchantOrder } from '../src/merchant/orderModel.js';
 import { createPurchaseService } from '../src/merchant/purchases.js';
 import { createPurchaseRouter } from '../src/routes/purchases.js';
 import { purchaseGateway } from './purchaseGateway.js';
+import { createPurchaseMailService } from '../src/merchant/purchaseMail.js';
 
 export async function reservationFixture(origin = 'http://127.0.0.1:5178', { purchases = false } = {}) {
   const repl = await MongoMemoryReplSet.create({binary:{version:'8.2.6',downloadDir:fileURLToPath(new URL('../node_modules/.cache/mongodb-memory-server',import.meta.url))},replSet:{count:1,ip:'127.0.0.1',storageEngine:'wiredTiger'}});
@@ -41,6 +42,7 @@ export async function reservationFixture(origin = 'http://127.0.0.1:5178', { pur
   const device=createDeviceService({now,notifyEnabled:()=>true,checkoutEnabled:o=>purchases && checkoutOffers.has(o.offerId)});
   const messages=[];
   const transport={configured:true,async send(message){messages.push(message);return {accepted:true};}};
+  const purchaseMail=createPurchaseMailService({now,transport});
   const notify=createAvailabilityService({now,transport,origin:()=>origin});
   const app=express();app.use(express.json());
   app.use('/api/notify',createAvailabilityRouter({service:notify,origin,limit:100}));
@@ -56,6 +58,6 @@ export async function reservationFixture(origin = 'http://127.0.0.1:5178', { pur
     await MerchantProduct.create({productId,merchantId:'M0',name:'Reservation product '+id,description:'A real local test product.'});
     return Offer.create({offerId:'O'+id,productId,merchantId:'M0',locationId:'L0',priceMinor:1990,currency:'EUR',stockQuantity:1,reservable:true,reservationDuration:30,...fields});
   }
-  return {app,service,device,offer,now,password,notify,messages,transport,purchase,gateway,checkoutOffers,advance:async ms=>{offset+=ms;await expireReservations(now());},
+  return {app,service,device,offer,now,password,notify,messages,transport,purchaseMail,purchase,gateway,checkoutOffers,advance:async ms=>{offset+=ms;await expireReservations(now());},
     close:async()=>{await mongoose.disconnect();await repl.stop();}};
 }

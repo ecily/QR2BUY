@@ -138,15 +138,19 @@ test('P0.6 isolated Mongo, signed HTTP webhooks, inventory and device consistenc
       assert.deepEqual(states[2].display, baseline.display); assert.equal(states[0].offer.stockQuantity, 1);
     });
     await t.test('merchant orders require owner session and exclude other merchant orders / secrets', async () => {
-      assert.equal((await fetch(base + '/api/merchant/orders')).status, 401);
+      for (const path of ['orders','sales']) assert.equal((await fetch(base + '/api/merchant/'+path)).status, 401);
       async function login(i) {
         let r = await fetch(base + '/api/merchant-auth/csrf'), cookie = r.headers.get('set-cookie').split(';')[0], csrf = (await r.json()).csrfToken;
         r = await fetch(base + '/api/merchant-auth/login', { method: 'POST', headers: { cookie, origin, 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify({ email: `merchant${i}@example.test`, password: f.password }) });
         assert.equal(r.status, 200); return r.headers.get('set-cookie').split(';')[0];
       }
-      const own = await (await fetch(base + '/api/merchant/orders', { headers: { cookie: await login(0) } })).json(); assert.ok(own.items.length > 0);
-      for (const o of own.items) for (const key of ['stripeSessionId', 'requestKey', 'paymentIntentId', 'paidEventId', 'checkoutUrl']) assert.equal(o[key], undefined);
-      const foreign = await (await fetch(base + '/api/merchant/orders', { headers: { cookie: await login(1) } })).json(); assert.deepEqual(foreign.items, []);
+      const ownerCookie=await login(0), foreignCookie=await login(1);
+      for (const path of ['orders','sales']) {
+        const own = await (await fetch(base + '/api/merchant/'+path, { headers: { cookie:ownerCookie } })).json(); assert.ok(own.items.length > 0);
+        for (const o of own.items) for (const key of ['stripeSessionId', 'requestKey', 'paymentIntentId', 'paidEventId', 'checkoutUrl', 'buyerEmail', 'mailStatus']) assert.equal(o[key], undefined);
+        if(path==='sales') assert.ok(own.items.every(o=>o.status==='PAID'));
+        const foreign = await (await fetch(base + '/api/merchant/'+path, { headers: { cookie:foreignCookie } })).json(); assert.deepEqual(foreign.items, []);
+      }
     });
   } finally { await Promise.all([server, webhookServer].map(s => new Promise(r => s.close(r)))); await f.close(); }
 });

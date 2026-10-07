@@ -23,6 +23,12 @@ const schema = new mongoose.Schema({
   checkoutUrl: { type: String, default: null, select: false },
   paymentIntentId: { type: String, default: null, select: false },
   paidEventId: { type: String, default: null, select: false },
+  buyerEmail: { type: String, default: null, select: false },
+  mailStatus: { type: String, enum: ['NOT_SENT', 'SENDING', 'SENT', 'FAILED', 'UNCERTAIN'], default: 'NOT_SENT' },
+  mailAttempts: { type: Number, default: 0 },
+  mailClaimedAt: { type: Date, default: null },
+  mailNextAttemptAt: { type: Date, default: null },
+  mailSentAt: { type: Date, default: null },
   expiresAt: { type: Date, required: true },
   paidAt: { type: Date, default: null },
   closedAt: { type: Date, default: null },
@@ -33,4 +39,6 @@ schema.index({ stripeSessionId: 1 }, { unique: true, partialFilterExpression: { 
 schema.index({ offerId: 1, status: 1 });
 schema.index({ status: 1, expiresAt: 1 });
 schema.index({ merchantId: 1, createdAt: -1 });
+schema.index({ merchantId: 1, status: 1, paidAt: -1 });
+schema.index({ status: 1, mailStatus: 1, mailNextAttemptAt: 1 });
 export const MerchantOrder = mongoose.models.MerchantOrder || mongoose.model('MerchantOrder', schema);
