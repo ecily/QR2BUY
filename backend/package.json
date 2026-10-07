@@ -8,7 +8,7 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "nodemon src/index.js",
+    "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "seed": "node src/scripts/seed.js",
     "seed:merchant-demo": "node src/scripts/seedMerchantDemo.js",
@@ -32,7 +32,6 @@
   },
   "devDependencies": {
     "mongodb-memory-server": "11.2.0",
-    "nodemon": "^3.1.10",
     "pino-pretty": "^11.2.2"
   },
   "overrides": {
