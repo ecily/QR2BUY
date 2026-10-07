@@ -46,6 +46,8 @@ test('actual production logger omits credential headers and device query strings
       body:JSON.stringify({buyerName:secret,buyerEmail:secret,buyerPhone:secret,buyerNote:secret}) });
     await r.text();
   }
+  assert.equal(sanitizeRequestUrl('/api/purchases/'+secret+'?session='+secret), '/api/purchases/[REDACTED]');
+  assert.equal(sanitizeRequestUrl('/buy/'+secret), '/api/purchases/[REDACTED]');
   assert.ok(captured.includes('/api/device/config'));
   assert.ok(!captured.includes(secret)); assert.ok(!captured.includes(authorization));
   assert.ok(!captured.includes('?x-device-secret='));

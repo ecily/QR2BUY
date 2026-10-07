@@ -6,6 +6,7 @@ import { merchantText } from '../merchantText.js';
 import './MerchantPortal.css';
 import { countryOptions, addressLabel } from '../countries.js';
 import MerchantReservations from './MerchantReservations.jsx';
+import MerchantOrders from './MerchantOrders.jsx';
 
 const empty = { products: [], offers: [], devices: [], locations: [], merchant: {} };
 const fields = ['line1','line2','postalCode','city','region','country'];
@@ -92,7 +93,7 @@ function Portal() {
   const summary = merchantSummary(data.products, data.offers, data.devices);
   return <div className="merchant-portal" lang={language}>
     <header className="merchant-top"><Link to="/" aria-label="qr2buy"><BrandLogo/></Link><button className="merchant-quiet" onClick={() => setLanguage(language === 'de' ? 'en' : 'de')}>{language === 'de' ? 'English' : 'Deutsch'}</button></header>
-    {!authPage && auth?.account && <nav aria-label={t.title}>{[['overview',''],['devices','/devices'],['products','/products'],['reservations','/reservations'],['locations','/locations'],['settings','/settings']].map(([key, p]) => <Link key={key} aria-current={section === key ? 'page' : undefined} to={'/merchant'+p+langQuery}>{t[key]}</Link>)}<button disabled={busy} onClick={() => perform(async () => { await merchantRequest('/api/merchant-auth/logout', {}, 'POST', auth.csrfToken); setAuth(null); setData(empty); navigate('/merchant/login'+langQuery); })}>{t.logout}</button></nav>}
+    {!authPage && auth?.account && <nav aria-label={t.title}>{[['overview',''],['devices','/devices'],['products','/products'],['reservations','/reservations'],['orders','/orders'],['locations','/locations'],['settings','/settings']].map(([key, p]) => <Link key={key} aria-current={section === key ? 'page' : undefined} to={'/merchant'+p+langQuery}>{t[key]}</Link>)}<button disabled={busy} onClick={() => perform(async () => { await merchantRequest('/api/merchant-auth/logout', {}, 'POST', auth.csrfToken); setAuth(null); setData(empty); navigate('/merchant/login'+langQuery); })}>{t.logout}</button></nav>}
     <main>
       {!ready ? <p role="status">{t.loading}</p> : authPage ? <section className="merchant-auth">
         <p className="merchant-eyebrow">qr2buy · {t.title}</p><h1>{register ? t.register : t.login}</h1><p>{register ? t.registerIntro : t.loginIntro}</p>
@@ -106,6 +107,7 @@ function Portal() {
       </section> : auth?.account && <>
         <p className="merchant-eyebrow">{data.merchant.displayName}</p><h1>{t[section] || t.overview}</h1>
         {section === 'reservations' && <MerchantReservations language={language} csrfToken={auth.csrfToken}/>}
+        {section === 'orders' && <MerchantOrders language={language}/>}
         {section === 'overview' && <><p>{t.intro}</p><div className="merchant-stats">{[['products',t.products],['devices',t.devices],['online',t.onlineCount],['unassigned',t.unassignedCount],['activeOffers',t.activeOffers]].map(([key,label]) => <article key={key}><strong>{summary[key]}</strong><span>{label}</span></article>)}</div><div className="merchant-actions"><Link className="merchant-button" to={'/merchant/products'+langQuery}>{t.newProduct}</Link><Link to={'/merchant/devices'+langQuery}>{t.devices}</Link></div><p className="merchant-help">{t.checkout}</p></>}
         {section === 'products' && <><button onClick={() => startEdit('product')}>{t.newProduct}</button>{!data.products.length && <p>{t.emptyProducts}</p>}<div className="merchant-cards">{data.products.map(p => {
           const offers = data.offers.filter(o => o.productId === p.productId), active = offers.filter(o => o.active), count = data.devices.filter(d => d.product?.productId === p.productId).length;

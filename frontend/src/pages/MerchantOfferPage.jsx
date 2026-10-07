@@ -6,6 +6,8 @@ import { offerCopy, shortDescription, offerAvailability, productImage } from './
 import './MerchantOfferPage.css';
 import { canReserve, reservationText } from '../reservation.js';
 import { ReservationForm } from './ReservationPage.jsx';
+import PurchaseButton from './PurchaseButton.jsx';
+import { canBuy, purchaseText } from '../purchase.js';
 
 function ProductImage({ src, name, expanded = false }) {
   const [failed, setFailed] = useState(false);
@@ -27,11 +29,12 @@ function ProductExperience({ data, language, t }) {
       <p className="buyer-location">{data.location.name}</p>
       <h1>{data.product.name}</h1>
       <p className="buyer-price"><strong>{price.format(data.offer.priceMinor / 10 ** price.resolvedOptions().maximumFractionDigits)}</strong></p>
-      <p className={`buyer-availability buyer-availability-${availability}`}>{data.availabilityState === 'SOLD' ? notifyText[language].sold : data.offer.active && data.offer.temporarilyReserved ? rt.held : t[availability]}</p>
+      <p className={`buyer-availability buyer-availability-${availability}`}>{purchaseText[language][data.availabilityState] || (data.availabilityState === 'SOLD' ? notifyText[language].sold : data.offer.active && data.offer.temporarilyReserved ? rt.held : t[availability])}</p>
     </header>
     <ProductImage key={image} src={image} name={data.product.name} />
     {description && <p className="buyer-description">{shortDescription(description)}</p>}
     {availability === 'soldOut' && !data.offer.temporarilyReserved && <p className="buyer-muted">{t.soldOutDetail}</p>}
+    {canBuy(data) && <PurchaseButton offerId={data.publicOfferId} language={language}/>}
     {canReserve(data) && !reserving && <button className="reserve-button" onClick={()=>setReserving(true)}>{rt.reserve}</button>}
     {reserving && canReserve(data) && <ReservationForm offerId={data.publicOfferId} language={language} duration={data.offer.reservationDuration} onClose={()=>setReserving(false)}/>}
     {canNotify(data) && <NotifyForm offerId={data.publicOfferId} language={language}/>}
@@ -47,12 +50,12 @@ function ProductExperience({ data, language, t }) {
         </dl>
       </div>}
     </details>
-    {/* Offer flags alone never authorize commerce. Add actions here only with real backend flows. */}
-    <aside className="buyer-commerce">{data.reservationAvailable ? rt.purchase : t.checkout}</aside>
+    {/* Backend capability gates the test purchase; offer flags alone are insufficient. */}
+    {!data.checkoutAvailable && !['CHECKOUT_STARTED', 'PAID', 'SOLD'].includes(data.availabilityState) && <aside className="buyer-commerce">{data.reservationAvailable ? rt.purchase : t.checkout}</aside>}
   </article>;
 }
 
-// Read-only foundation. Merchant checkout/reservations are a later milestone.
+// Buyer and physical display read the same server-side offer projection.
 export default function MerchantOfferPage() {
   const { publicOfferId } = useParams();
   const [params] = useSearchParams();

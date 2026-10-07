@@ -118,6 +118,10 @@ const OfferSchema = new mongoose.Schema({
   inventorySource: { type: String, enum: Object.values(INVENTORY_SOURCE), default: INVENTORY_SOURCE.QR2BUY },
   externalInventoryRef: { type: String, trim: true, default: null },
   reservationRevision: { type: Number, default: 0 },
+  commerceOrderId: { type: String, default: null },
+  commerceState: { type: String, enum: ['CHECKOUT_STARTED', 'PAID', 'CANCELLED', 'EXPIRED'], default: null },
+  commerceUntil: { type: Date, default: null },
+  depletedByPurchase: { type: Boolean, default: false },
   active: { type: Boolean, required: true, default: true, index: true }
 }, { timestamps: true, collection: 'merchant_offers' });
 OfferSchema.index({ merchantId: 1, productId: 1, locationId: 1, active: 1 });

@@ -44,7 +44,7 @@ export function createAvailabilityService({now=()=>new Date(), transport=createA
       Location.findOne({merchantId:offer.merchantId,locationId:offer.locationId,status:'ACTIVE'}).lean(),
       MerchantProduct.findOne({merchantId:offer.merchantId,productId:offer.productId,status:'ACTIVE'}).lean()]);
     if (!merchant || !location || !product) return null;
-    return {offer,merchant,location,product,state:availabilityState(offer,await reservedQuantity(offer.offerId,now()))};
+    return {offer,merchant,location,product,state:availabilityState(offer,await reservedQuantity(offer.offerId,now()),now())};
   }
   function logDelivery(row, delivery) {
     operatorLog({event:'availability_delivery',subscriptionId:row.subscriptionId,generation:row.generation,

@@ -75,7 +75,7 @@ export async function listOffers(merchantId) {
 export async function saveOffer(merchantId, offerId, input) {
   const data = (offerId ? offerSchema.partial() : offerSchema).parse(input);
   return bindingTransaction(async session => {
-    const existing = offerId && await Offer.findOne({ merchantId, offerId }).session(session);
+    const existing = offerId && await Offer.findOneAndUpdate({ merchantId, offerId }, { $inc: { reservationRevision: 1 } }, { session, new: true });
     if (offerId && !existing) notFound();
     const final = { ...(existing?.toObject() || {}), ...data };
     if (existing && final.productId !== existing.productId) throw new DeviceApiError(400, 'product_identity_immutable');
@@ -89,6 +89,7 @@ export async function saveOffer(merchantId, offerId, input) {
       throw new DeviceApiError(409, 'offer_location_immutable');
     }
     if (existing) {
+      if (data.stockQuantity !== undefined && data.stockQuantity !== existing.stockQuantity) existing.depletedByPurchase = false;
       Object.assign(existing, data); await existing.save({ session }); return clean(existing);
     }
     const [offer] = await Offer.create([{ ...data, merchantId, offerId: randomUUID(), inventorySource: 'QR2BUY' }], { session });

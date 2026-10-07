@@ -1,5 +1,6 @@
 export const merchantText = {
   de: {
+    orders:'Bestellungen',
     title:'Mein Händlerbereich', overview:'Übersicht', devices:'Verkaufsschilder', products:'Produkte', locations:'Standorte', settings:'Mein Geschäft', logout:'Abmelden',
     login:'Anmelden', register:'Geschäft eröffnen', email:'E-Mail', password:'Passwort', passwordHint:'Mindestens 12 Zeichen. Verwende ein eigenes, langes Passwort.', business:'Geschäftsname', locationName:'Standortname', phone:'Telefon (optional)',
     welcome:'Dein Geschäft. Deine Verkaufsschilder.', intro:'Produkte vorbereiten, Angebote pflegen und Verkaufsschilder vor Ort verbinden.', registerIntro:'Starte mit deinem Geschäft und einem ersten Standort.', loginIntro:'Melde dich mit deinem Händlerkonto an.',
@@ -8,7 +9,7 @@ export const merchantText = {
     newProduct:'Neues Produkt', emptyProducts:'Noch keine Produkte. Lege dein erstes Produkt an.', emptyDevices:'Noch keine Verkaufsschilder. Zugeordnete Schilder erscheinen hier nach der Bereitstellung durch qr2buy.',
     newLocation:'Neuer Standort', emptyLocations:'Noch keine Standorte.', offers:'Preis & Verkauf', newOffer:'Verkaufsangebot anlegen', emptyOffers:'Noch kein Verkaufsangebot für dieses Produkt.',
     price:'Preis', currency:'Währung', stock:'Bestand', purchasable:'Kaufen erlauben', reservable:'Reservieren erlauben', active:'Angebot aktiv', duration:'Reservierungsdauer (Minuten, optional)', conditions:'Bedingungen', location:'Standort',
-    offerLocationHelp:'Produkt und Standort eines bestehenden Angebots bleiben fest. Lege für einen anderen Standort ein weiteres Angebot an.', reservations:'Reservierungen', availableStock:'Verfügbar', heldStock:'Reserviert', stock_below_reservations:'Bestand darf aktive Reservierungen nicht unterschreiten.', checkout:'Online-Kauf ist noch nicht freigeschaltet.',
+    offerLocationHelp:'Produkt und Standort eines bestehenden Angebots bleiben fest. Lege für einen anderen Standort ein weiteres Angebot an.', reservations:'Reservierungen', availableStock:'Verfügbar', heldStock:'Reserviert / im Checkout', stock_below_reservations:'Bestand darf laufende Reservierungen oder Checkouts nicht unterschreiten.', checkout:'Online-Käufe im Pilot erfolgen ausschließlich im Stripe-Testmodus.',
     online:'Online', offline:'Offline', lastSeen:'Letzter Kontakt', firmware:'Firmware', unassigned:'Kein Produkt zugewiesen', rename:'Schild umbenennen', technical:'Technische Details', status:'Status',
     PAUSED:'Angebot pausiert', ACTIVE:'Aktiv', PENDING:'Vor Ort noch nicht bestätigt', NONE:'Noch nicht verbunden', INACTIVE:'Inaktiv', SUSPENDED:'Gesperrt', ARCHIVED:'Archiviert',
     connect:'Vor Ort verbinden', showOnDisplay:'Auf Verkaufsschild anzeigen', selectDisplay:'Verkaufsschild auswählen', bindHelp:'Stelle dich mit dem Produkt vor das Schild. Öffne dessen Geräte-QR und bestätige anschließend den Code auf dem echten Display.',
@@ -19,6 +20,7 @@ export const merchantText = {
     none:'—', back:'Zurück', product:'Produkt', contactEmail:'Kontakt-E-Mail', boundOffers:'Aktive Angebote'
   },
   en: {
+    orders:'Orders',
     title:'My merchant space', overview:'Overview', devices:'Displays', products:'Products', locations:'Locations', settings:'My business', logout:'Sign out',
     login:'Sign in', register:'Create your business', email:'Email', password:'Password', passwordHint:'At least 12 characters. Use a unique, long password.', business:'Business name', locationName:'Location name', phone:'Phone (optional)',
     welcome:'Your business. Your displays.', intro:'Prepare products, manage offers and connect displays on site.', registerIntro:'Start with your business and its first location.', loginIntro:'Sign in with your merchant account.',
@@ -27,7 +29,7 @@ export const merchantText = {
     newProduct:'New product', emptyProducts:'No products yet. Add your first product.', emptyDevices:'No displays yet. Displays appear here after qr2buy has assigned them to your business.',
     newLocation:'New location', emptyLocations:'No locations yet.', offers:'Price & selling', newOffer:'Create selling offer', emptyOffers:'No selling offer for this product yet.',
     price:'Price', currency:'Currency', stock:'Stock', purchasable:'Allow buying', reservable:'Allow reservations', active:'Offer active', duration:'Reservation duration (minutes, optional)', conditions:'Conditions', location:'Location',
-    offerLocationHelp:'A saved offer keeps its product and location. Create another offer for a different location.', reservations:'Reservations', availableStock:'Available', heldStock:'Reserved', stock_below_reservations:'Stock cannot be lower than active reservations.', checkout:'Online checkout is not yet available.',
+    offerLocationHelp:'A saved offer keeps its product and location. Create another offer for a different location.', reservations:'Reservations', availableStock:'Available', heldStock:'Reserved / in checkout', stock_below_reservations:'Stock cannot be lower than active reservations or checkouts.', checkout:'Online purchases in this pilot use Stripe test mode only.',
     online:'Online', offline:'Offline', lastSeen:'Last contact', firmware:'Firmware', unassigned:'No product assigned', rename:'Rename display', technical:'Technical details', status:'Status',
     PAUSED:'Offer paused', ACTIVE:'Active', PENDING:'On-site confirmation pending', NONE:'Not connected yet', INACTIVE:'Inactive', SUSPENDED:'Suspended', ARCHIVED:'Archived',
     connect:'Connect on site', showOnDisplay:'Show on a display', selectDisplay:'Choose a display', bindHelp:'Stand beside the display with the product. Open its device QR and then confirm the code shown on the physical display.',

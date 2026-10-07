@@ -29,6 +29,8 @@ import bindingRouter, { createDeviceEntryRouter } from './routes/binding.js';
 import { createMerchantPortal } from './routes/merchantPortal.js';
 import { createReservationRouter } from './routes/reservations.js';
 import { startReservationExpiry } from './merchant/inventory.js';
+import { createPurchaseRouter } from './routes/purchases.js';
+import { startPurchaseReconciliation } from './merchant/purchases.js';
 
 dotenv.config();
 
@@ -63,6 +65,7 @@ const logger = pino({
 });
 
 function sanitizeRequestUrl(url = '') {
+  if (String(url).startsWith('/api/purchases') || String(url).startsWith('/buy/')) return '/api/purchases/[REDACTED]';
   if (String(url).startsWith('/api/notify') || String(url).startsWith('/notify/')) return '/notify/[REDACTED]';
   if (String(url).startsWith('/api/reservations')) return '/api/reservations/[REDACTED]';
   if (String(url).startsWith('/api/merchant/reservations')) return '/api/merchant/reservations/[REDACTED]';
@@ -111,7 +114,7 @@ app.use(express.json({ limit: '1mb' }));
 // Parser errors may contain fragments of submitted passwords. Never forward these
 // details to the generic logger for merchant account/session requests.
 app.use((err, req, res, next) => {
-  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path) || req.path.startsWith('/api/reservations') || req.path.startsWith('/api/notify'))
+  if (/^\/api\/merchant(?:-auth)?(?:\/|$)/.test(req.path) || req.path.startsWith('/api/reservations') || req.path.startsWith('/api/notify') || req.path.startsWith('/api/purchases'))
     return res.status(err.status === 413 ? 413 : 400).json({ ok: false, error: 'invalid_input' });
   next(err);
 });
@@ -119,7 +122,7 @@ app.use((err, req, res, next) => {
 /* ───────────────── MongoDB ───────────────── */
 mongoose
   .connect(MONGO_URL)
-  .then(() => { logger.info({ msg: '[db] connected' }); startAvailabilityNotifications(() => logger.error({msg:'availability worker unavailable'})); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); })
+  .then(() => { logger.info({ msg: '[db] connected' }); startAvailabilityNotifications(() => logger.error({msg:'availability worker unavailable'})); startReservationExpiry(() => logger.error({ msg: 'reservation expiry unavailable' })); startPurchaseReconciliation(() => logger.error({ msg: 'purchase reconciliation unavailable' })); })
   .catch((err) => {
     logger.error({ msg: '[db] connection error', err: err.message });
     process.exit(1);
@@ -177,6 +180,7 @@ app.use('/api/binding', bindingRouter);
 app.use('/device', createDeviceEntryRouter());
 app.use('/api/public/merchant-offers', createPublicOfferRouter());
 app.use('/api/reservations', createReservationRouter());
+app.use('/api/purchases', createPurchaseRouter());
 app.use('/api/notify', createAvailabilityRouter());
 app.use('/api/admin', adminRouter);
 app.use('/api/checkout', checkoutRouter);

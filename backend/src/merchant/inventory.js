@@ -1,9 +1,13 @@
 import { MerchantReservation } from './models.js';
+import { MerchantOrder } from './orderModel.js';
 
-export function reservedQuantity(offerId, at = new Date(), session = null) {
+export async function reservedQuantity(offerId, at = new Date(), session = null) {
   // P0.5 reserves exactly one unit. Expired holds never reduce availability,
   // even when the cleanup worker is delayed or the application was offline.
-  return MerchantReservation.countDocuments({ offerId, status: 'RESERVED', expiresAt: { $gt: at } }).session(session);
+  const reservations = await MerchantReservation.countDocuments({ offerId, status: 'RESERVED', expiresAt: { $gt: at } }).session(session);
+  // A wall clock timeout cannot release a potentially paid Stripe session.
+  const checkouts = await MerchantOrder.countDocuments({ offerId, status: 'CHECKOUT_STARTED' }).session(session);
+  return reservations + checkouts;
 }
 export function expireReservations(at = new Date()) {
   return MerchantReservation.updateMany({ status: 'RESERVED', expiresAt: { $lte: at } }, { $set: { status: 'EXPIRED' } });

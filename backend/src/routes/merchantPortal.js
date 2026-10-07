@@ -7,6 +7,7 @@ import { createMerchantSession, authenticateMerchant, csrf, csrfToken, saveSessi
 import { createBindingService } from '../merchant/binding.js';
 import { DeviceApiError } from '../merchant/deviceCredentials.js';
 import { createReservationService } from '../merchant/reservations.js';
+import { createPurchaseService } from '../merchant/purchases.js';
 import { listOffers } from '../merchant/portal.js';
 import { Merchant, Location, MerchantProduct, Offer, DisplayAssignment, clean, profileSchema, locationSchema, productSchema, saveScoped, saveOffer, listDevices, renameDevice } from '../merchant/portal.js';
 
@@ -25,6 +26,7 @@ export function createMerchantPortal(options = {}) {
   const config = createMerchantSession(options);
   const binding = options.binding || createBindingService();
   const reservations = options.reservations || createReservationService();
+  const purchases = options.purchases || createPurchaseService();
   router.use(['/merchant-auth','/merchant'], (req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
     req.merchantOrigin = config.origin;
@@ -61,6 +63,7 @@ export function createMerchantPortal(options = {}) {
     return ['GET','HEAD'].includes(req.method) ? next() : csrf(req, res, next);
   });
   portal.get('/me', (req, res) => res.json({ ok: true, merchant: clean(req.merchantAuth.merchant) }));
+  portal.get('/orders', handle(async (req, res) => res.json(await purchases.list(req.merchantAuth.merchantId))));
   portal.get('/reservations', handle(async (req, res) => res.json(await reservations.list(req.merchantAuth.merchantId))));
   portal.get('/reservations/:id', handle(async (req, res) => res.json(await reservations.detail(req.merchantAuth.merchantId, req.params.id))));
   for (const action of ['cancel','collect']) portal.post('/reservations/:id/'+action, handle(async (req, res) => {

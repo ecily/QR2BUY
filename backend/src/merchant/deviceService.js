@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { DeviceApiError, verifyCredential } from './deviceCredentials.js';
 import { createDeviceRepository } from './deviceRepository.js';
 import { bindingCode } from './binding.js';
+import { checkoutConfigured } from './purchases.js';
 
 export const deviceOnline = (device, at = new Date()) => !!device.lastSeenAt
   && ['ACTIVE', 'PROVISIONED'].includes(device.status)
@@ -34,7 +35,7 @@ async function resolveOffer(read, offer, allowPaused = false) {
   return { merchant, location, product, offer };
 }
 export function createDeviceService({ repository = createDeviceRepository(), pepper = () => process.env.DEVICE_CREDENTIAL_PEPPER,
-  publicOrigin = () => process.env.PUBLIC_BASE_URL, now = () => new Date(), notifyEnabled = notifyConfigured } = {}) {
+  publicOrigin = () => process.env.PUBLIC_BASE_URL, now = () => new Date(), notifyEnabled = notifyConfigured, checkoutEnabled = checkoutConfigured } = {}) {
   return {
     async config(auth, firmwareVersion) {
       if (firmwareVersion !== undefined && (typeof firmwareVersion !== 'string' || !/^[A-Za-z0-9._+-]{1,64}$/.test(firmwareVersion)))
@@ -72,7 +73,7 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         const { product, offer } = resolved;
         const held = await read.reserved?.(offer.offerId, at) || 0;
         const available = Math.max(0, offer.stockQuantity - held);
-        const state = availabilityState(offer, held);
+        const state = availabilityState(offer, held, at);
         const notify = notifyEnabled() && notifyStateAllowed(state);
         const projection = {
           ok: true, deviceId: device.deviceId, displayName: device.displayName,
@@ -83,7 +84,7 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
           display: { status: firmwareVersion === '0.3.10' ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
-            qr: state === 'READY' || (firmwareVersion === '0.3.10' && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
+            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (firmwareVersion === '0.3.10' && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
             ...(firmwareVersion === '0.3.10' ? { notifyAvailable: notify } : {}) }
         };
         // Opaque change fingerprint, not a chronological commerce event counter.
@@ -103,7 +104,7 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         const { merchant, location, product, offer } = resolved;
         const held = await read.reserved?.(offer.offerId, now()) || 0;
         const available = Math.max(0, offer.stockQuantity - held);
-        const state = availabilityState(offer, held);
+        const state = availabilityState(offer, held, now());
         const notify = notifyEnabled() && notifyStateAllowed(state);
         return { ok: true, publicOfferId, merchant: { displayName: merchant.displayName }, location: { name: location.name },
           product: { name: product.name, description: product.description || null,
@@ -113,7 +114,8 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
           availabilityState: state, notifyAvailable: notify,
-          checkoutAvailable: false, reservationAvailable: offer.inventorySource === 'QR2BUY' };
+          checkoutAvailable: checkoutEnabled(offer) && offer.inventorySource === 'QR2BUY' && offer.purchasable
+            && offer.priceMinor > 0 && state === 'READY', reservationAvailable: offer.inventorySource === 'QR2BUY' };
       });
     }
   };
