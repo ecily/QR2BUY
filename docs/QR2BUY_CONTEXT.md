@@ -989,3 +989,12 @@ Der separate Abschlusscommit `2b338ae` (`feat: finalize qr2buy hardware paid exp
 - `8de5efa`: Hardware-Synchronisierung Stufe 1–3
 - `a7bca06`: Logger-Redaction und GTS-Root-R4-Fix
 - `072a9f5`: dokumentierte Secret-Rotation; Ausgangs-HEAD vor dem finalen Displayabschluss
+
+
+## P0.1 ? URL-Log-Redaktion abgesichert (15. Oktober 2026)
+
+Lokaler Folgefix zu e414e3e auf wip/p3-merchant-integration; ausschlie?lich Logging, keine ?nderung am Claim-Protokoll oder an Device-APIs. Die zentrale sanitizeRequestUrl-Funktion verwirft s?mtliche Querystrings/Fragmente und protokolliert ausschlie?lich bekannte statische Pfade oder redigierte Routenfamilien. Gro?-/Kleinschreibung, mehrfaches URL-Encoding, wiederholte Slashes, unbekannte dynamische Pfade, Dot-Segmente und ung?ltiges Encoding werden normalisiert oder geschlossen redigiert. Diagnosefelder HTTP-Methode, Status, bekannte Route/Routenfamilie und Remote-Adresse bleiben erhalten; unbekannte Pfade erscheinen als /[REDACTED]. Neue statische Diagnoserouten m?ssen ausdr?cklich in die Positivliste aufgenommen werden.
+
+HTTP-Logger serialisiert keine rohen Exception-Texte/Stacks; auch der generische HTTP-Fehlerhandler und der Checkout-Verifikationslogger geben keine potentiell URL-/Credential-haltigen Exception-Details mehr aus. Request-Bodies werden weiterhin nicht protokolliert. Synthetische Regression pr?ft den best?tigten Gro?schreibungsfehler, kodierte Pfade/Werte, unbekannte Pfade, Querywerte und Fehlerantworten ?ber den tats?chlichen Pino-HTTP-Serializer sowie den produktiven Fehlerhandler. Keine echten Secrets verwendet.
+
+Gezielte Backend-/Claim-/Device-/Mongo-/Rollbacktests: 38/38 PASS; erweiterter Loggingtest separat PASS. Vollst?ndige Backendregression (`npm test -- --test-reporter=dot`): PASS, Exit 0, einschlie?lich Commerce-/Portalregression gegen isolierte Testdatenbanken. Keine produktiven Zugriffe, Ger?te-/Credential-/Binding?nderungen, kein Flash, Push oder Deployment. Dieser Fix erteilt keine Deploymentfreigabe: die im letzten lesenden Review festgestellten drei fehlenden Claim-Unique-Indizes bleiben Blocker; neue 0.3.12-TFT-Screens bleiben physisch abzunehmen. Rollbackziel 6d13148 enth?lt diesen neuen Loggingfix nicht; dessen separate Absicherung ist vor einer sp?teren Verwendung zu bewerten, hier unver?ndert belassen.

@@ -26,7 +26,11 @@ test('actual production logger omits credential headers and device query strings
   const app = express(); app.use(middleware);
   app.use(express.json());
   app.post('/api/binding/operator/devices/:deviceId/confirm', (_req,res) => res.status(400).json({ok:false,error:'incorrect_display_code'}));
+  app.get('/synthetic-error', (_req, _res, next) => next(new Error(secret)));
   app.use('/api/device', createDeviceRouter({ config: async () => { throw new Error(secret); } }));
+  const errorHandlerStart = source.indexOf('app.use((err, _req, res, _next) => {');
+  const errorHandlerEnd = source.indexOf('\n});', errorHandlerStart) + 4;
+  new Function('app', 'logger', source.slice(errorHandlerStart, errorHandlerEnd))(app, logger);
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   t.after(() => server.close());
@@ -37,6 +41,8 @@ test('actual production logger omits credential headers and device query strings
   assert.deepEqual(await error.json(), { ok: false, error: 'device_unavailable' });
   const query = await fetch(`${origin}/api/device/config?x-device-secret=${secret}`, { headers });
   assert.equal(query.status, 401); await query.text();
+  const syntheticError = await fetch(origin + '/synthetic-error?token=' + secret);
+  assert.equal(syntheticError.status, 500); await syntheticError.text();
   const binding = await fetch(`${origin}/api/binding/operator/devices/QR2B-000001/confirm?code=${secret}`, {
     method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify({ code: secret, previewId: secret })
   });
@@ -46,9 +52,27 @@ test('actual production logger omits credential headers and device query strings
       body:JSON.stringify({buyerName:secret,buyerEmail:secret,buyerPhone:secret,buyerNote:secret}) });
     await r.text();
   }
+  for (const path of [
+    '/api/MERCHANT/DEVICE-CLAIMS', '/API/merchant/device-claims/' + secret + '/confirm',
+    '/%61pi/merchant/%64evice-claims/' + secret, '/%2561pi/merchant/device-claims/' + secret,
+    '/api//merchant///device-claims/' + secret, '/api/binding/' + secret,
+    '/api/device/' + secret, '/unknown/' + secret, '/api/merchant/device-claims%2f' + secret,
+    '/api/merchant/device-claims%ZZ/' + secret, '/api/../' + secret,
+    '//foreign.example/' + secret, '/api/demo/sessions/' + secret,
+    '/api/notify/' + secret, '/health', '/unknown/' + [...secret].map(c => '%' + c.charCodeAt(0).toString(16)).join(''),
+    '/api/merchant/device-claims%25252f' + secret, '/api\\merchant\\device-claims/' + secret
+  ]) {
+    const url = path + '?setupCode=' + secret + '&code=' + secret + '&token=' + secret;
+    assert.ok(!sanitizeRequestUrl(url).includes(secret));
+    assert.ok(!sanitizeRequestUrl(url).includes('?'));
+    const response = await fetch(origin + url); await response.text();
+  }
+  assert.equal(sanitizeRequestUrl('/api/device/config?unexpected=' + secret), '/api/device/config');
+  assert.equal(sanitizeRequestUrl('/health?token=' + secret), '/health');
   assert.equal(sanitizeRequestUrl('/api/purchases/'+secret+'?session='+secret), '/api/purchases/[REDACTED]');
   assert.equal(sanitizeRequestUrl('/buy/'+secret), '/api/purchases/[REDACTED]');
   assert.ok(captured.includes('/api/device/config'));
+  assert.ok(!decodeURIComponent(captured).includes(secret));
   assert.ok(!captured.includes(secret)); assert.ok(!captured.includes(authorization));
   assert.ok(!captured.includes('?x-device-secret='));
   assert.ok(!captured.includes('?code='));
