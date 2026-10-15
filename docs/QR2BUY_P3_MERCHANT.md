@@ -2,6 +2,27 @@
 
 Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktive neutrale Registrierung ist abgeschlossen; Merchant-Flash ist nicht ausgeführt.**
 
+## WLAN und frischer Merchant-Build bereit – STOP vor Flash
+
+Dieser Nachtrag ersetzt sämtliche älteren P3-Angaben zu WLAN-Platzhaltern und noch fehlendem frischem Build. Ausgangscommit 1826a34 auf wip/p3-merchant-integration, sauber; keine produktive Datenprüfung/-mutation in diesem Schritt.
+
+- **WLAN konfiguriert:** zwei bereits im Projekt verwendete Einträge aus der unabhängigen ignorierten `firmware/qr_display_fw/src/secrets.h`, ausschließlich WIFI_LIST, in den eigenen P3-Header übernommen. Keine Zugangsdaten erfunden, keine Geräte-Secrets übernommen, Device-1/2-Header weder als WLAN-Quelle verwendet noch verändert (Hashvergleich). Keine SSIDs/Passwörter ausgegeben. Fallbacklogik unverändert: je 15 Sekunden Versuch, anschließend Wiederholung/Runtime-Reconnect. Reale Erreichbarkeit noch nicht getestet.
+- **Credential PASS:** registrierter eigener Token Version 1 unverändert, ID QR2B-000003/Origin/Format geprüft. Keine neue Registrierung oder Rotation. P3-Header bleibt gitignored und per geschützter DACL ausschließlich für aktuellen Nutzer/SYSTEM/Administratoren zugänglich. Nur WLAN-Liste und ihr lokaler Kommentar geändert.
+- **Hardware PASS:** bestehendes CS5-Setup, ILI9341, GPIO18/23/15/4/5, Rotation 1, SPI 4 MHz; LED laut physischer Nutzerabnahme fest an 3V3, TFT_BL=-1. MISO/Touch unverbunden. Keine Pin-/Firmwareänderung.
+- **Frischer Build SUCCESS:** vollständig neues leeres Ausgabeverzeichnis durch prozesslokales PLATFORMIO_BUILD_DIR; exakt das Merchant-Environment `esp32dev_spi_cs5_rst4_device3_merchant_app`, Version 0.3.11. RAM 48.204 Byte / Flash 1.002.797 Byte, nur bekannte unbenutzte TOUCH_CS-Warnung. Keine alten Objects/Binaries übernommen. Artefakte ignoriert und ohne breite Benutzergruppenrechte; firmware.bin nur aktueller Nutzer/SYSTEM/Administratoren. Keine produktiven Builds oder Device-1/2-Konfigurationen geändert.
+
+Verifiziertes Artefakt relativ zu `firmware/qr_display_fw`:
+
+```text
+.pio/p3-validation/fresh-merchant-23ade50503914c598d370500e8eda6fd/esp32dev_spi_cs5_rst4_device3_merchant_app/firmware.bin
+SHA-256: 8406ec284043892150fa100eae024b8f2b3f37b7acaff8ff13259f501a97f225
+Dateigröße: 1009376 Byte
+```
+
+13 Isolationsprüfungen PASS: eigener registrierter Token und beide tatsächlich konfigurierten WLAN-Einträge im Binary, keine Device-1/2-ID, keine Farb-/Textdiagnose, Version 0.3.11, keine konfigurierten Platzhalter, Credentialdefinition und P1/P2-Header unverändert. Das Binary enthält einmal `YOUR_WIFI_SSID` aus der bestehenden Abwehrprüfung `hasConfiguredWifi`; diese Zeichenfolge ist **kein WLAN-Eintrag**. `YOUR_WIFI_PASSWORD`/`YOUR_DEVICE_SECRET` fehlen. Keine Source-/Dependencyänderung, deshalb keine erneute vollständige Backend-/Firmwaretestsuite; bestehender 273/273-/30/30-Stand bleibt der letzte vollständige Nachweis.
+
+**GO für separat freizugebenden kontrollierten Merchant-Flash, noch nicht ausgeführt.** Windows zeigt aktuell COM3/COM5/COM6; nur passive Enumeration, keine aktuelle P3-MAC-Abfrage. Letzter P3-Port COM3 darf nicht blind verwendet werden. Nach ausdrücklichem Go zuerst physische Portzuordnung und MAC f4:2d:c9:6b:c2:90 bestätigen, dann ausschließlich P3-Environment mit explizitem bestätigtem Port und obigem Buildverzeichnis (PLATFORMIO_BUILD_DIR) verwenden. Bei Header-/Quelländerung neu bauen und Artefakthash neu verifizieren. Nach Flash Hashprüfung, tatsächliche 0.3.11-Heartbeats und neutralen UNBOUND-Screen ohne Käufer-QR abnehmen. Reale WLAN-/NTP-/TLS-Funktion erst dann nachweisbar. Keine Bindung, Datenmutation, Push/Merge oder Deployment freigegeben.
+
 ## Produktive Registrierung SUCCESS – 15. Oktober 2026
 
 Dieser Abschnitt ersetzt alle historischen Angaben darunter zu noch fehlender Registrierung/unprovisioniertem Buildtoken.
