@@ -1,6 +1,56 @@
 # qr2buy.com – operativer Projektkontext
 
-## CURRENT - Admin-Loginfix produktiv, echte Browseranmeldung noch offen (15. Oktober 2026)
+## CURRENT / NEXT – verbindlicher Tagesabschluss 15.10.2026; Fortsetzung 16.10.2026
+
+Dieser Checkpoint ist der operative Einstiegspunkt. Ältere Statusblöcke unten sind historische Nachweise und keine aktuellen Freigaben. Kein weiterer Release oder Flash ist für den nächsten Zuordnungsschritt nötig. Heute ausschließlich lesend verifiziert und Dokumentation geändert; keine Freigabe, Zuordnung oder sonstige produktive Mutation durch diesen Abschlussauftrag.
+
+### Verifizierter Produktions- und Gerätestand
+
+- DigitalOcean-App `98a0580a-65ee-4e45-b929-3617463966d2`: **a80d50ac-7b53-4e59-92be-f4d3fc14a6aa ACTIVE**, Backend und Frontend tatsächlich **aa82d5e4e25d97753a6c7c7ef58180d9558a7de6**. Lesender Nachweis am 15.10.2026 um **18:42:36 Europe/Berlin / 16:42:36 UTC**: kein Pending-Deployment, Health **200**, elf Backenddateien korrekt, App-Spec/ENV unverändert zur geschützten Releasesicherung, beide Auto-Deploys aus. Frontend `index-Bse0BHT6.js`, SHA256 `1a97be417f2969cf3b50dcbd46d375e47cff546c1a1867d43686618fcd3c43d6`, bytegleich zum freigegebenen Build. Alle vier erforderlichen Claim-Unique-Indizes vorhanden.
+- **P3 `QR2B-000003`**, MAC `f4:2d:c9:6b:c2:90`, Firmware **0.3.13 / Claim-Protokoll 3**, Credential **v1 ACTIVE**, **PROVISIONED/ungebunden**: keine Merchant-/DisplayAssignments, keine Produktprojektion. Letzter beim Audit beobachteter Heartbeat **18:41:54.996**. WLAN/TLS/Auth/Polling/Heartbeats im heutigen Flash-/Releaseablauf nachgewiesen; Hardware, Hashverifikation und neutrale Anzeige vom Nutzer abgenommen. Achtstelliger Setup- und sechsstelliger Bestätigungsbildschirm sind implementiert/getestet, der vollständige reale Zuordnungsablauf ist **nicht abgenommen**.
+- P3: ESP32-D0WD-V3 Rev.3.1, KMRTM28028-SPI/ILI9341 240×320, Rotation 1; VCC/LED an 3V3, GND, SCK18/MOSI23/DC15/RST4/CS5, MISO/Touch offen; `TFT_BL=-1`. Merchant-Environment `esp32dev_spi_cs5_rst4_device3_merchant_app`, eigener ignorierter Credentialheader, zwei konfigurierte autorisierte WLAN-Netze. Zuletzt COM3; bei einem später ausdrücklich freigegebenen Flash Port/MAC immer neu prüfen. Morgen kein Flash vorgesehen.
+- P1/P2 unverändert **0.3.11 / ACTIVE / Credential v1 ACTIVE / READY**, bestehende Bindings: Die Odysee **20 EUR / Bestand 8**, Der Herr der Ringe **19,90 EUR / Bestand 12**. Frische beobachtete Heartbeats 18:41:48 bzw. 18:41:52. Credentials, Bindings und Geschäftsdaten hashgleich zur Release-Vorprüfung.
+- Admin-Loginfix **vom Nutzer erfolgreich live bestätigt**, Screenshot zeigt „Backendzugang bestätigt“ und Freigabeformular; P3 im Dropdown bestätigt. Aktuelle Nutzerangabe: P3 und ecily.com bereits korrekt ausgewählt. Geschützter Options-GET hatte beide eindeutig angeboten. Nur separaten bestehenden Adminzugang verwenden, Händlerlogin ist davon getrennt; Zugangsdaten bleiben ausschließlich im Arbeitsspeicher. Reload/neuer Tag kann Anmeldung und Auswahl erneut erfordern.
+- Ziel produktiv lesend bestätigt: **ecily.com**, merchantId `abd5bc60-76bb-40a6-a3b9-19983254485b`, ACTIVE; **ecily - webentwicklung**, locationId `19b9930f-41bd-4a69-bfed-56d1ccb0bfeb`, ACTIVE und demselben Händler zugehörig. Standortwahl erfolgt im Händlerportal, nicht im Adminfreigabeformular.
+
+### Exakter Haltepunkt und belegte Abweichung
+
+**Keine abgeschlossene Erstzuordnung, kein Setup-Claim, keine Bestätigung und keine Produkt-/Offerbindung für P3.** Die physische Erstzuordnung ist auf **16.10.2026** verschoben. Die bloße Auswahl in den Formularen erzeugt weder Freigabe noch Zuordnung.
+
+Die Nutzerbeschreibung „Adminfreigabe noch nicht ausgelöst“ stimmt jedoch nicht mit der aktuellen Datenbankhistorie überein: lesend um **18:42:59** verifiziert: P3-Freigabe für den genannten Händler **AUTHORIZED am 15.10.2026 18:39:34.632**, **REVOKED um 18:39:55.503**; Dokument aktualisiert 18:39:55.510. Beide Auditakteure entsprechen dem konfigurierten Adminakteur; keine darüber hinausgehende Personenzuordnung behauptet. Keine Auslösung/Widerruf durch diesen Tagesabschluss. Aktuell **eine widerrufene Freigabe, zwei Auditereignisse, null Claims und null Claimversuchsdokumente**, Setupversuche 0, kein Verbrauch/Claim. Ursprüngliche Deadline 18:41:34.632, Wiederfreigabe frühestens **18:49:34.632 am 15.10.2026**; morgen neue Freigabe mit neuer Frist erforderlich. Keine Löschung dieser Historie und kein Cooldown-Workaround.
+
+Bestandsvergleich aller **24 Collections**: ausschließlich Freigabe-/Auditcollections und ManagedDevice-Lockrevision abweichend; bei P3 `bindingRevision=2`. In einer reinen In-Memory-Vergleichskopie erklären exakt die zwei Lockinkremente aus Erteilung/Widerruf die gesamte Geräteabweichung. Alle anderen Gerätedaten einschließlich P1/P2 stimmen zur Releasebaseline, normale Heartbeatzeiten sowie Sessionablaufzeiten ausgenommen. Übrige 21 Collection-Hashes gleich, insbesondere Credentials, Zuordnungen, Produkte/Offers, Bestände, Reservierungen und Orders. Eigene Mongo-Mutationsspur leer. Historische Aussagen „alle Claimcollections leer“ und „Login weiter blockiert“ gelten deshalb nicht mehr.
+
+### Morgen 16.10.2026 – exakte Fortsetzung, erst nach ausdrücklicher Ausführungsfreigabe
+
+1. Zuerst diesen Checkpoint, `QR2BUY_DEVICE_FIRST_ASSIGNMENT.md` und `QR2BUY_P3_MERCHANT.md` lesen; Git-/Remote-HEAD und ACTIVE-Deployment/Health mit diesem Stand vergleichen. Nur aktuelle Zustandsprüfung, keine erneute historische Rekonstruktion. Bei unerwarteten Abweichungen stoppen.
+2. Adminportal `https://qr2buy.com/admin` und Händlerportal `https://qr2buy.com/merchant/devices?lang=de` öffnen/anmelden; Adminzugang und Händler-OWNER-Session getrennt prüfen. Keine Zugangsdaten/Codes im Chat, URL oder Logs.
+3. Im Adminformular **QR2B-000003 → ecily.com** anhand der IDs prüfen. Vorhandene widerrufene Freigabe/status und abgelaufenen Cooldown lesend prüfen. Keine alte Anfrage wiederholen, die nur REVOKED zurückliefert; bewussten neuen Vorgang verwenden.
+4. Im Händlerportal Geräte-ID **QR2B-000003** und Standort **ecily - webentwicklung** auswählen. Keine Produktbindung; Standort gehört nicht zur Adminfreigabe selbst.
+5. Physischen P3 einschalten/bereithalten; WLAN, frischen Heartbeat, lesbare neutrale Anzeige und beide Browserformulare vor dem Start sicherstellen.
+6. Erst nach separater Freigabe die Adminbestätigung bewusst setzen und neue Freigabe auslösen. Ab jetzt **gemeinsame maximal 120 Sekunden bis zur abschließenden Bestätigung**, keine weitere volle Frist ab Setupstart.
+7. Achtstelligen Setupcode ausschließlich vom TFT im Händlerportal eingeben; führende Nullen erhalten. Höchstens fünf Setupversuche je Freigabe; bei Problemen nicht blind neu freigeben. Codes nicht im Chat übermitteln.
+8. Händler **ecily.com** und Standort **ecily - webentwicklung** tatsächlich am TFT vergleichen. Nur bei korrekten Angaben fortsetzen.
+9. Den separaten sechsstelligen TFT-Bestätigungscode rechtzeitig im Händlerportal eingeben. Bei unklarer Antwort vorgesehenes idempotentes Wiederaufnehmen/Ergebnislesen nutzen; keine zweite unkontrollierte Zuordnung, Frist/Cooldown nicht umgehen.
+10. Erfolgreiche Händler-/Standortzuordnung produktiv lesend und physisch **ohne Produktbindung** verifizieren: Device ACTIVE, genau richtige ACTIVE MerchantAssignment, Freigabe CONSUMED/Audit, kein DisplayAssignment/Produkt/Offer, neutrale Anzeige ohne Käufer-QR; permanente ID/MAC/Credential v1 unverändert.
+11. **Nach weiterer separater Freigabe** eigenständiges Testprodukt und Offer für diesen Händler/Standort anlegen; keine Wiederverwendung oder Änderung der P1/P2-Produkte/Offers/Bestände.
+12. Produkt ausschließlich über vorgesehenen authentifizierten Vor-Ort-Bindingflow mit echtem TFT-Vergleich binden. READY, Produkt/Preis/Bestand und Käufer-QR physisch abnehmen; QR-Ziel lesend prüfen, keine Testzahlung/Reservierung ohne eigene Freigabe.
+13. P1/P2 erneut mit Vorzustand vergleichen: Firmware .11, Credential v1 ACTIVE, gleiche Merchant-/DisplayAssignments, Produkte/Offers/Preise/Bestände und READY; normale Heartbeats ausnehmen. P3-Isolation bestätigen.
+14. Tatsächliche Ergebnisse/physische Nutzerbestätigungen, offene Punkte und Produktions-/Gitstände in den Projekt-MDs dokumentieren; Dokumentationscheckpoint committen und nur Arbeitsbranch synchronisieren, main unverändert.
+
+### Abnahmegrenzen, spätere Meilensteine und Rückzug
+
+**Technische Vorbereitung für echte P3-Erstzuordnung bereit; Ausführung morgen separat freizugeben.** Noch offen: realer 8-/6-Ziffern-/Namens-/Countdownablauf, neutrale zugeordnete Anzeige und danach separat Testprodukt-/READY-/QR-Abnahme. Ablauf/Widerruf/Antwortverlust/Deadline/Brute-Force sind automatisiert geprüft, nicht als vollständig physisch abgenommen behauptet. Letzter heute erfolgreicher Teststand: Frontend 65/65, Browser 107/107 (gezielt Admin/Login 15/15), Lint/Build und .13-Rollbackrekonstruktion PASS. Reiner Dokumentationsabschluss braucht keine neue Funktionsregression.
+
+Globale Wiederverwendbarkeit bleibt verbindlich für **alle** Schilder, einschließlich P1/P2: Händler-/Standort-/Produktwechsel ohne normale Firmware-/Identitäts-/Credentialänderung, Rotation bei Sicherheitsvorfällen möglich. Vollständiger nachvollziehbarer **A → B → A**-Transfer mit Rechteentzug, neutralem Zwischenzustand, alter QR-/Reservierungs-/Checkoutbehandlung und getrennter Geschäftsdaten-/Bestandshistorie ist **noch nicht vollständig implementiert, automatisiert oder physisch abgenommen**. Eigenständiger späterer Meilenstein, **kein Blocker der jetzigen P3-Erstintegration**, keine aktuelle Transferfreigabe. Später ebenfalls: optionale Händler-App mit QR-Scan des vollständigen 128-Bit-Setupnachweises sowie weitergehende Adminrollen/MFA; jetzt nicht implementieren.
+
+Rollback: vorheriges Deployment **da0453fa-99cc-49fe-b9a7-3c2c4c836522** nach Superseding als gültig verifiziert, App-Spec/ENV geschützt gesichert. Tieferes Claim-deaktivierendes Backendziel **origin/rollback/p01-firmware-0313 / 687d0855c93aacbf616b93b6b7d8b3c0bfe9bf06**, .11/.12/.13-kompatibel; Patch/Manifest im Repo, SHA256 `89246b3b344fea4e838f1dfd73e96746a3ef444b1e94cb14ce0592d03fd0cfde`. Bei nötigem Rückzug UI zuerst, kompatibles Backend kontrolliert; keine DB-Rücksetzung/Firmwaredowngrade. Vor einem späteren Rollback Verfügbarkeit erneut prüfen. Keine automatische Release-/Flashfortsetzung; beide Auto-Deploys bleiben aus.
+
+Git: Arbeitsbranch **wip/p3-merchant-integration**, sauberer Ausgangs-/Remote-HEAD **86cb3ee32b9790647bb5cfcc95a7435a577cab75**; Tagesabschluss wird als reiner MD-Folgecommit lokal und auf demselben origin-Branch gespeichert. Sein Hash steht in Git und Abschlussbericht (keine zirkuläre Eigenhashangabe). Tatsächlich deployter Code bleibt **aa82d5e**, main lokal/remote **502d5391d61b306f34c242d2b372c173dfc7bb2d**. Ignorierte lesende Nachweise unter `firmware/qr_display_fw/.pio/p3-validation/admin-login-release-20261015/` (`post-audit.json`, `day-end-read.json`, `day-end-compare.json`); geschützt, keine Secret-/Codewerte.
+
+> **Historisches Nachweisarchiv ab hier.** Datierte Berichte beschreiben den damaligen Zustand; bei Widerspruch gilt ausschließlich der aktuelle Tagescheckpoint oben bzw. die operative QR2BUY_CONTEXT.md. Frühere Freigaben sind keine neue Ausführungsfreigabe.
+
+## HISTORISCH – Admin-Loginfix produktiv, echte Browseranmeldung noch offen (15. Oktober 2026)
 
 Freigegebener Release **aa82d5e4e25d97753a6c7c7ef58180d9558a7de6** auf dem Arbeitsbranch normal veroeffentlicht. Genau ein App-Redeploy **a80d50ac-7b53-4e59-92be-f4d3fc14a6aa ACTIVE**, beide Komponentenquellen aa82d5e. Gegen vorherige Produktion 4cb002d ausschliesslich Login-Frontend, synthetische Tests und Dokumentation geaendert; kompletter Backend-Gitbaum identisch **00d879e862185e8a6c67e7a66fa1400b0b5eb36a**. Backend-Code unveraendert, Quellcommit-Metadatum aktualisiert. POST deployments mit force_build:false; keine Spec-/ENV-Aenderung, beide Auto-Deploys aus. Buildschritte beider Komponenten SUCCESS; vollstaendige Backend-Artefaktwiederverwendung nicht belegt. Neuer Backendcontainer beobachtet, freigegebener Prozessneustart erfolgt.
 
@@ -16,7 +66,7 @@ Bestandsschutz **24 Collections hashgleich** nach Normalisierung ausschliesslich
 
 
 
-## CURRENT - Admin-Login-/Browserauthfehler lokal korrigiert (15. Oktober 2026)
+## HISTORISCH – Admin-Login-/Browserauthfehler lokal korrigiert (15. Oktober 2026)
 
 Ausgangsstand 6d7598d, Arbeitsbranch wip/p3-merchant-integration. Produktion rein lesend bestaetigt: da0453fa... ACTIVE, beide Komponenten 4cb002d, Health 200. Drei echte HTTPS-Messrunden mit ausschliesslich im geschuetzten Backendprozess verwendeten bestehenden Admincredentials: GET /api/admin/products **76-106 ms**, /api/admin/devices **19-38 ms**, /api/binding/admin/claim-authorizations/options **43-66 ms**, jeweils 200. Unauthentifizierter Products-GET **401/86 ms** mit WWW-Authenticate. Produktive Logstichprobe: abgelehnte Binding-Anfragen serverseitig **0-1 ms**, keine 5xx. Products-/Devices-Handler lesen Mongo erst nach erfolgreicher Basic-Auth; schnelle 401 sind keine langsamen Mongo-Abfragen. Keine Belege fuer aktuelle Mongo-Ueberlastung oder CORS-Blockade; drei Messrunden sind kein Ausschluss jeder historischen Netzstoerung. Backend-Zugangsdaten sind Latin1/UTF8-kompatibel, deshalb kein spekulativer Encodingfix.
 
@@ -30,7 +80,7 @@ Gezielte Browserregression **15/15 PASS**, einschliesslich echtem Basic-401-/Rep
 
 **Neuer Frontend-Release erforderlich; noch nicht veroeffentlicht. NO-GO fuer P3-Erstzuordnung bis separater Releasefreigabe und erfolgreicher realer Adminanmeldung.** Neues Backend, ENV, Indizes, Firmware und Credentialrotation sind fuer diesen Fix nicht erforderlich. Falls DigitalOcean gemeinsamen Redeploy benoetigt, Backend unveraendert und Prozessneustart separat freigeben; kein Deployment aus diesem Auftrag. Nach Release 200-Login, 401 ohne Popup/automatische Wiederholung, geladenen P3-/Haendlerdropdown und Bestandsschutz pruefen, ohne reale Freigabe. Der konkrete initiale Nutzer-Credentialfehler ist ohne Secretvergleich weiterhin nicht diagnostiziert; keine unsichere Reset-/Umgehungsloesung.
 
-## CURRENT - Adminfreigabe-Release produktiv, Browseranmeldung noch offen (15. Oktober 2026)
+## HISTORISCH – Adminfreigabe-Release produktiv, Browseranmeldung noch offen (15. Oktober 2026)
 
 Ausdruecklich freigegebener gemeinsamer Backend-/Frontend-Release abgeschlossen: **da0453fa-99cc-49fe-b9a7-3c2c4c836522 ACTIVE**, beide Komponenten exakt **4cb002de92bc06254215a42a071db463de216d8a**. Releaseumfang gegen dab90fe geprueft: nur die zehn vorgesehenen Admin-UX-/Lese-API-/Test-/Dokumentationsdateien. Claim-Protokoll, Device-Auth-/Credentiallogik, Modelle, Firmware und Bindings unveraendert. Arbeitsbranch normal auf origin synchronisiert; main bleibt 502d539, Rollback 687d085 explizit von origin abrufbar.
 
@@ -46,7 +96,7 @@ Haendlerportal nach Release mit bestehender echter Session neu geladen: ecily.co
 
 DigitalOcean bestaetigt vorheriges Deployment **f9791925... rollback/validate valid:true** nach Superseding. Bei kritischer UX-Regression zuerst vorheriges Frontend, bei Bedarf gesicherten vorherigen .13-kompatiblen Backendstand dab90fe herstellen; 687d085 bleibt der Claim-deaktivierende kompatible Rueckzug. Keine DB-Ruecksetzung/Firmwareaenderung. Kein Rollback erforderlich. **Release technisch SUCCESS; noch kein uneingeschraenktes GO fuer echte P3-Erstzuordnung vor offener Admin-Sichtabnahme.** Danach erst separate ausdrueckliche Freigabe fuer reale Adminfreigabe/physische Besitzbestaetigung, keine automatische Fortsetzung. Kein Claim, Binding, Flash, Credentialwechsel oder Stripe-Aufruf erfolgt. Nachfolgender Dokumentationscommit nur auf Arbeitsbranch synchronisieren; tatsaechlich deployter Commit bleibt 4cb002d.
 
-## CURRENT - Adminfreigabe-Oberflaeche lokal ergaenzt (15. Oktober 2026)
+## HISTORISCH – Adminfreigabe-Oberflaeche lokal ergaenzt (15. Oktober 2026)
 
 UX-Luecke auf wip/p3-merchant-integration, Ausgangscommit 792e502, lokal geschlossen: /admin besitzt nach Eingabe des bestehenden Adminzugangs den Abschnitt **Schild fuer Haendler freigeben**. Provisioniertes, noch nie zugeordnetes Schild waehlen; aktiven Zielhaendler anhand Anzeigename, optionalem Rechtsnamen und permanenter merchantId eindeutig pruefen. Auswahl nochmals sichtbar, bewusste Checkbox plus Freigabebutton. Bestehende POST-Erteilung/Widerruf unveraendert; keine Freigabe beim Laden, Aktualisieren oder Auswaehlen. Restgueltigkeit maximal 120 Sekunden, Status und zehnminuetige Wiederfreigabesperre angezeigt. Danach separater Haendlerportal-Besitznachweis mit TFT-Code, noch keine Produktbindung.
 
@@ -62,7 +112,7 @@ Validierung: vollstaendige Backendregression PASS (Exit 0), gezielte Claim-/Admi
 
 Produktiv durch diesen Auftrag NICHT veraendert: zuletzt bestaetigtes Deployment f9791925... mit Backend/Frontend dab90fe, P1/P2 .11, P3 .13 PROVISIONED/ungebunden. Echte P3-Adminfreigabe fuer ecily.com / ecily - webentwicklung und physische 8-/6-Ziffern-/Countdownabnahme bleiben gesondert freizugebende Schritte. Kein Push, Merge, Deployment, Flash, Haendler-/Produktbinding, Transferfeature oder produktiver Schreibzugriff.
 
-## CURRENT - P3 Firmware 0.3.13 geflasht und neutrale Anzeige abgenommen (15. Oktober 2026)
+## HISTORISCH – P3 Firmware 0.3.13 geflasht und neutrale Anzeige abgenommen (15. Oktober 2026)
 
 Schritt 4 mit ausdruecklicher Flashfreigabe ausschliesslich fuer P3 abgeschlossen. Buildquelle **28b83b8b9db4e24fb350fe735809136d5b5c5855** auf wip/p3-merchant-integration; Backend/Frontend unveraendert **dab90fe**, Deployment **f9791925-c4b3-4f14-93ce-b969b3b49af3 ACTIVE**, Health 200, beide Auto-Deploys aus. Release-/Remote-/main-/Rollbackstand vorab bestaetigt, alle vier erforderlichen Claim-Unique-Indizes PASS. Keine App-Spec-/ENV-Aenderung und kein Deployment ausgefuehrt.
 
@@ -82,7 +132,7 @@ Produktive rein lesende Nachpruefung **14:46:56 UTC**: P3 **0.3.13 / PROVISIONED
 
 Lokale ignorierte Nachweise: firmware/qr_display_fw/.pio/p3-validation/p3-flash-0313-20261015/ (Buildhash, Identitaet, Digestverifikation, gefilterte Serialdiagnose, native Mongo-Vorher-/Nachher-Hashes). Kein Secretwert enthalten; Buildartefakte selbst bleiben lokal zugriffsgeschuetzt und unversioniert.
 
-## CURRENT - Claim-Protokoll 3 produktiv veroeffentlicht (15. Oktober 2026)
+## HISTORISCH – Claim-Protokoll 3 produktiv veroeffentlicht (15. Oktober 2026)
 
 Schritt 3 mit ausdruecklicher Freigabe fuer gemeinsamen App-Redeploy abgeschlossen. DigitalOcean-Deployment **f9791925-c4b3-4f14-93ce-b969b3b49af3 ACTIVE**, Backend und Frontend exakt **dab90fea89dccb866afe089657ec2f15ba2a96aa**; Funktionscode gegenueber geprueftem **902106e** unveraendert (nur Dokumentation). Vorversion 9073d75d-2251-4ce0-a124-44d3cdaf7a52 mit beiden Komponenten c9aefac vorab gesichert. Aktuelle App-Spec einschliesslich ENV ausschliesslich DPAPI-verschluesselt in ignoriertem, ACL-geschuetztem Nachweisverzeichnis gesichert; keine Secretwerte ausgegeben. Remote-Release, main und .13-Rollback sowie Patch/Manifest/Hashes vorab geprueft.
 
@@ -98,7 +148,7 @@ Rollback **687d085** auf origin/rollback/p01-firmware-0313 abrufbar; Rekonstrukt
 
 **Technisches GO fuer den separat freizugebenden Firmware-0.3.13-Flash ausschliesslich auf P3.** Unmittelbar davor frischer Build, COM-Port/MAC f4:2d:c9:6b:c2:90, Credential-/WLAN-/Backendstatus erneut pruefen. .13-TFT-Codeanzeige physisch noch offen, Adminfreigabe/Erstzuordnung und eigenstaendiges Testprodukt bleiben separate Schritte. P1/P2 unveraendert lassen. Nur Dokumentationsabschluss auf wip/p3-merchant-integration committen/synchronisieren; tatsaechlich deployter Commit bleibt dab90fe. Kein automatischer Flash, keine Adminfreigabe, Haendler-/Produktbindung oder weitere Deploymentfreigabe.
 
-## CURRENT - Produktive Claim-Freigabe-/Auditcollections vorbereitet (15. Oktober 2026)
+## HISTORISCH – Produktive Claim-Freigabe-/Auditcollections vorbereitet (15. Oktober 2026)
 
 Schritt 2 mit ausdruecklicher, ausschliesslicher Collections-/Indexfreigabe abgeschlossen. Ziel **qr2buy** im geschuetzten produktiven Backendprozess, ACTIVE-Deployment 9073d75d-2251-4ce0-a124-44d3cdaf7a52, Backend/Frontend weiterhin c9aefac. Datenbankname, Replikaset-/Hostfingerprint und Runtime-Dateihash vor Ausfuehrung identifiziert und im Ausfuehrungslauf gegen den lesenden Preflight abgeglichen. Keine URI, Credentials oder Secretwerte ausgegeben/gespeichert.
 
@@ -112,7 +162,7 @@ Bestandsschutz PASS: **22 bestehende Collections** vor/nachher hashgleich; nur m
 
 DigitalOcean danach unveraendert ACTIVE, Health 200, beide Auto-Deploys aus. Funktionaler Release weiterhin 902106e, vorheriger Dokumentationsstand 093e204, kompatibles .13-Rollback 687d085 remote verfuegbar. Projekt-MDs nachfolgend ausschliesslich als Dokumentationscommit auf wip/p3-merchant-integration synchronisieren; origin/main bleibt 502d539. **GO fuer den separat freizugebenden gemeinsamen Backend-/Frontend-App-Redeploy.** Keine Deploymentfreigabe aus dieser DDL-Freigabe ableiten, kein Flash, kein Claim/Binding, keine Credentialrotation oder weitere Datenbankaenderung.
 
-## CURRENT - Release und .13-Rollback remote bereitgestellt (15. Oktober 2026)
+## HISTORISCH – Release und .13-Rollback remote bereitgestellt (15. Oktober 2026)
 
 Schritt 1 gemaess ausdruecklicher Pushfreigabe abgeschlossen. Sauberer Ausgangsbranch wip/p3-merchant-integration, funktionaler Release **902106e29ee2f268600054e31ba7666608cb5439**; Rollback **687d0855c93aacbf616b93b6b7d8b3c0bfe9bf06** auf rollback/p01-firmware-0313. Beide Branches gemeinsam per normalem atomarem Push auf origin veroeffentlicht, keine Force-Option. ls-remote bestaetigt exakte Hashes; Rollback-Commit anschliessend explizit von origin abrufbar. Nachfolgender reiner Dokumentationscommit wird ausschliesslich auf dem freigegebenen Arbeitsbranch synchronisiert; Funktionscode bleibt 902106e.
 
@@ -122,7 +172,7 @@ DigitalOcean vor und nach Branchpush rein lesend geprueft: weiterhin ACTIVE **90
 
 Damit sind die bisherigen Remote-Bereitstellungsblocker erledigt. **GO fuer die separat freizugebende produktive Datenbankvorbereitung**, nicht fuer deren automatische Ausfuehrung: unmittelbar vorher Preflight wiederholen, dann ausschliesslich Freigabe-/Auditcollections und erforderlichen Unique-Index nach eigener Freigabe anlegen. Keine produktive Datenbankabfrage/-aenderung in diesem Schritt, kein Flash, Claim, Binding oder Eingriff an Device 1/2/3. Produktiver Firmwarestand aus vorherigem Nachweis bleibt P1/P2 .11, P3 .12; hier nicht erneut an Hardware oder DB geprueft.
 
-## CURRENT - Strikte Claim-Deadline lokal abgesichert (15. Oktober 2026)
+## HISTORISCH – Strikte Claim-Deadline lokal abgesichert (15. Oktober 2026)
 
 P2-Ablauffehler aus dem Sicherheitsreview auf Basis 0eb6c3f lokal behoben: keine neue Bestaetigung allein mit einem vor asynchronen Zugriffen erfassten Zeitwert. Letzter transaktionaler Freigabeuebergang prueft die Deadline strikt mit MongoDB-$$NOW und aktueller Anwendungszeit. Verspaetete Operationen rollen Assignment, Geraete-/Claimstatus und Audit vollstaendig zurueck; Gleichheit zur Deadline wird abgelehnt. Rechtzeitig abgeschlossene Vorgange bleiben nach Antwortverlust idempotent abrufbar.
 
@@ -130,7 +180,7 @@ Schutz auch fuer Setupstart/Fehlversuche; Erteilung beginnt ihre Frist nach Elig
 
 Details und Semantik des rechtzeitigen Datenbankschritts gegenueber spaeterer Netzwerk-/Commitbestaetigung: [QR2BUY_DEVICE_FIRST_ASSIGNMENT.md](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md), oberster CURRENT-Abschnitt. Releaseblocker aus dem Review (neue Collections/Index, Remotebereitstellung insbesondere .13-Rollback 687d085, physische Abnahme) bleiben offen; kein neuer produktiver Preflight in diesem Auftrag. Keine produktiven Daten-/Geraeteaenderungen, Pushes, Deployments oder Flashs. GO nur fuer erneutes Sicherheitsreview.
 
-## CURRENT - Autorisierte Erstzuordnung mit acht Ziffern lokal implementiert (15. Oktober 2026)
+## HISTORISCH – Autorisierte Erstzuordnung mit acht Ziffern lokal implementiert (15. Oktober 2026)
 
 Lokale Abschlussvalidierung: Backend-Gesamtsuite 289/289 und gezielte Security-/Logging-/Rollbackpruefung 16/16 PASS; Frontend 65/65, volle Browserregression 91/91 plus aktualisierte Claim-/Recoveryfaelle 11/11, Firmware/C++-Hosttests 32/32, alle drei Merchant-Builds SUCCESS, Lint und Produktionsbuild PASS. Credentialheader 1/2/3 hashgleich und ignoriert; jedes .13-Binary enthaelt nur sein eigenes Device-Credential, keine Fremdcredentials. Keine echten Credentialliterale in versionierten/neuen Dateien oder Frontendassets. Neue .13-Anzeigen sind noch nicht physisch abgenommen.
 
@@ -142,7 +192,7 @@ Verbindlicher Vertrag, Angriffsrechnung, Adminprozess, Wiederverwendungsgrenzen 
 
 Neue Releaseblocker: rein lesend zu pruefende und separat freizugebende Freigabe-/Auditcollections plus Unique-Index device_claim_authorizations.deviceId_1; keine produktive Anlage erfolgt. Neues .13-kompatibles Rollback **687d085** auf lokalem rollback/p01-firmware-0313, reproduzierbarer Patch/Manifest vorhanden, noch nicht remote bereitgestellt. Bisheriges .12-Rollback 3d9cb86 bleibt erhalten und ist nach .13-Flash kein pauschal geeignetes Ziel. Keine produktiven Abfragen/Aenderungen, Deployments, Flashs, Claims, Zuordnungen, Pushes oder main-Merges aus diesem Auftrag. GO nur fuer Sicherheitsreview nach lokalen Tests, keine operative Freigabe.
 
-## CURRENT - Achtstelliger Setupcode: Sicherheits-Gate BLOCKED (15. Oktober 2026)
+## HISTORISCH – Achtstelliger Setupcode: Sicherheits-Gate BLOCKED (15. Oktober 2026)
 
 Validierung dieses lokalen Checkpoints: Backend **286/286**, Frontend **65/65**, gezielte Claim-/Recovery-Browsertests **10/10**, Firmware-/C++-Hosttests **32/32** PASS; Logging und reproduzierbarer Rollback in den Backendtests enthalten. Nur Test und Dokumentation geaendert. Wegen Sicherheits-STOP keine neue Firmware, keine drei Merchant-Neubauten und keine vollstaendige Browser-/Produktionsbuild-Freigabe fuer einen achtstelligen Vertrag; dieser existiert nicht.
 
@@ -152,7 +202,7 @@ Verbindliche Analyse, quantitative Angriffsannahmen, neuer isolierter Mehrhaendl
 
 Rein lesend bestaetigt: Deployment 9073d75d ACTIVE, beide Komponenten c9aefac, Health 200, Indizes 3/3; P1/P2 0.3.11/ACTIVE/READY, P3 0.3.12/PROVISIONED/ungebunden und Credential v1 ACTIVE. Audit ohne mutierende Mongo-Befehle. Aelterer Flash-Baselinevergleich meldet externe Unterschiede in merchant_accounts, merchant_products und merchant_sessions; deren Ursache ist nicht geprueft, kein behaupteter vollstaendiger Bestandsgleichstand. Keine Geraete, Credentials oder produktiven Daten durch diesen Auftrag geaendert.
 
-## CURRENT - P3 Firmware 0.3.12 geflasht und Grundanzeige abgenommen (15. Oktober 2026)
+## HISTORISCH – P3 Firmware 0.3.12 geflasht und Grundanzeige abgenommen (15. Oktober 2026)
 
 Ausdrueckliche Flashfreigabe ausschliesslich fuer Device 3 umgesetzt. Ausgangsbranch wip/p3-merchant-integration, Buildquellcommit **caf4bffe8bcab09d4fc06f02c84403981e56e125**. P3 **QR2B-000003**, ESP32-D0WD-V3 Rev.3.1, MAC **f4:2d:c9:6b:c2:90**, jetzt produktiv Firmware **0.3.12**, Status weiterhin **PROVISIONED/ungebunden**, unveraendertes eigenes Credential **v1 ACTIVE**. Keine Claim-Challenge, Haendler-/Standort-/Produktzuordnung oder Transaktion ausgefuehrt.
 
@@ -170,7 +220,7 @@ Produktiver Nachweis 13:16:30 UTC: P3 Firmware 0.3.12/PROVISIONED/v1 ACTIVE, fri
 
 **Technisches GO fuer den separat freizugebenden echten Besitznachweis-/Erstzuordnungsablauf.** P3 bleibt bis dahin neutral/ungebunden. Erst nach eigener Freigabe aktuellen TFT-Setupcode ueber authentifiziertes Portal verwenden, Zielhaendler und Standort physisch vergleichen und separaten TFT-Bestaetigungscode durch Nutzer pruefen; keine Bestaetigung simulieren und keine Produktbindung. Keine automatische Fortsetzung. Kein P1/P2-Flash, Backend-/Frontend-Deployment, main-Merge, Credential-/Pepperrotation oder Stripe-Aufruf. Nachfolgend nur Dokumentation committen und Arbeitsbranch bei deaktivierten Auto-Deploys synchronisieren.
 
-## CURRENT - Kontrollierter P0.1-App-Redeploy erfolgreich (15. Oktober 2026)
+## HISTORISCH – Kontrollierter P0.1-App-Redeploy erfolgreich (15. Oktober 2026)
 
 Ausdrueckliche Freigabe fuer App-Redeploy inklusive moeglichem Neustart des unveraenderten Backendprozesses umgesetzt. Genau EIN Deployment gestartet: **9073d75d-2251-4ce0-a124-44d3cdaf7a52**, **ACTIVE seit 12:59:43 UTC**. Backend UND Frontend tatsaechlich **c9aefac5abba6487ed07c5d47d77ee95335ec8a2**. Gepruefter Funktionsstand 1c7a691; Frontend-/Backend-/Firmwarequellen zwischen 1c7a691, c9aefac und Ausgangs-HEAD 0dccb07 unveraendert. Frueherer Phase-2-STOP/NO-GO ist durch diesen separat autorisierten und verifizierten Lauf abgeloest; Versuch acb78784 bleibt CANCELED.
 
@@ -190,7 +240,7 @@ Rollback: DigitalOcean **rollback/validate** fuer gemischtes Ziel **c67fad83-5e9
 
 **Technisches GO fuer den separat freizugebenden Firmware-0.3.12-Flash ausschliesslich auf P3.** Vor spaeterem Flash frischer Device-3-Merchant-Build mit unveraendertem eigenen Credential, aktuellen COM-Port ermitteln und ESP32-MAC f4:2d:c9:6b:c2:90 eindeutig abgleichen. Keine Flashfreigabe aus diesem Deploymentauftrag ableiten. Echte TFT-Setup-/Bestaetigungs-/TTL-/Offlineabnahme sowie anschliessende Haendlerzuordnung bleiben getrennte Schritte; kein Produktbinding. Keine automatische Fortsetzung. Nachfolgender reiner Dokumentationscommit nur auf Arbeitsbranch synchronisieren; Auto-Deploys bleiben aus.
 
-## CURRENT - Phase 2 STOP: Frontendversuch vor Deploy abgebrochen (15. Oktober 2026)
+## HISTORISCH – Phase 2 STOP: Frontendversuch vor Deploy abgebrochen (15. Oktober 2026)
 
 Phase-2-Versuch **acb78784-25bf-418f-80d3-0799a477043d**, angelegt 12:47:20 UTC, nach unerwarteter Deploy-Planung aktiv abgebrochen, Status **CANCELED**. Deploy-Schritt einschliesslich Backend-Deploy/Wait blieb PENDING, wurde nicht gestartet. **Kein Frontendrelease und kein Backend-Redeploy abgeschlossen.** Weiterhin aktives Deployment **c67fad83-5e90-45c6-a1ae-be0e58955e77**, Backend **c9aefac5abba6487ed07c5d47d77ee95335ec8a2**, Frontend **502d5391d61b306f34c242d2b372c173dfc7bb2d**. Kein weiterer Veroeffentlichungsversuch und kein Rollback notwendig.
 
@@ -206,7 +256,7 @@ Bestandsschutz: Device 1/2 ACTIVE, READY, Firmware 0.3.11, Credential v1 ACTIVE,
 
 **NO-GO fuer Firmware-0.3.12-Flash und Fortsetzung von Phase 2 unter der Grenze kein Backend-Deployment.** Naechster separater Auftrag muss einen nachweislich komponentenisolierten Static-Frontend-Pfad pruefen oder einen kontrollierten Redeploy des unveraenderten gesunden Backends ausdruecklich mitfreigeben. Keine Architektur-/Deploymentaenderung dafuer in diesem Auftrag. Backend-Rollbackbranch 3d9cb86 bleibt remote bereit; kein DB-/Credential-/Firmware-Rollback. Dokumentationscommit ausschliesslich auf Arbeitsbranch synchronisieren, beide Auto-Deploys vorher/nachher als deaktiviert verifizieren.
 
-## CURRENT - Phase 1 Backend produktiv ACTIVE (15. Oktober 2026)
+## HISTORISCH – Phase 1 Backend produktiv ACTIVE (15. Oktober 2026)
 
 Ausdruecklich freigegebenes ausschliessliches Backend-Deployment erfolgreich: **c67fad83-5e90-45c6-a1ae-be0e58955e77**, angelegt 12:37:50 UTC, ACTIVE vor erster Nachpruefung 12:39:55 UTC. Backend **c9aefac5abba6487ed07c5d47d77ee95335ec8a2**, funktional gepruefter Stand 1c7a691. Frontend unveraendert **502d5391d61b306f34c242d2b372c173dfc7bb2d**. Kein main-Push/Merge, Frontend-Release, Flash, Claim oder Binding vorgenommen. Phase 2 NICHT ausgefuehrt oder freigegeben.
 
@@ -222,7 +272,7 @@ Rollback **rollback/p01-firmware-0312 / 3d9cb86** remote verfuegbar; kompatibel 
 
 **Technisches GO fuer separat freizugebende Phase 2 (Frontend)**. Backend-Auto-Deploy ist jetzt deaktiviert, sodass reine Dokumentationssynchronisierung auf wip keinen neuen Backendrollout ausloest. Frontend bleibt bis eigener Freigabe auf main/502d539; main-Auto-Deploy weiterhin beachten. Zukuenftig nur Frontendquelle kontrolliert aktualisieren, Backend auf aktivem c9aefac halten, Remote-HEAD/Codegleichheit und Quellhashes vorher erneut pruefen. Physischer 0.3.12-Flash/Setup-/Erstzuordnungsablauf sowie globale Wiederverwendbarkeit bleiben separate Aufgaben. Dieser nachfolgende Dokumentationscommit wird ausschliesslich auf dem Arbeitsbranch synchronisiert; keine weitere Veroeffentlichung von Runtime-Code.
 
-## CURRENT - Release und Rollback remote bereitgestellt (15. Oktober 2026)
+## HISTORISCH – Release und Rollback remote bereitgestellt (15. Oktober 2026)
 
 Nutzerfreigabe ausschliesslich fuer gleichnamige Branch-Pushes umgesetzt: Releasecode 1c7a6918b4ff60b053925c32b3a880f4b878a020 auf origin/wip/p3-merchant-integration und Rollback 3d9cb86be9e9e57c58f5a62d6a2b14e9b71afb4a auf origin/rollback/p01-firmware-0312. Atomarer Push mit expliziten RefSpecs, keine Tags, kein Force-Push. Beide Hashes per git ls-remote bestaetigt; Rollbackbranch zusaetzlich erfolgreich von origin gefetcht. Secret-/Buildartefaktpruefung beider Branchhistorien unauffaellig. Dieser nachfolgende reine Dokumentationscommit wird ebenfalls auf den Releasebranch synchronisiert; Code-/Teststand bleibt 1c7a691.
 
@@ -232,7 +282,7 @@ Kleinster spaeterer kontrollierter Rollout (separate Konfigurations-/Deploymentf
 
 Der zuletzt festgestellte Blocker fehlender Remote-Rollbackverfuegbarkeit ist behoben. Technisches GO fuer die separate Freigabe eines kontrollierten Backend-dann-Frontend-Rollouts; keine pauschale main-Auto-Deploymentfreigabe. Letzte vollstaendige Releasepruefung: Backend 285/285, Frontend 65/65, Browser 91/91, Firmware 32/32, drei Merchant-Builds sowie Lint/Produktionsbuild PASS; hier nur Dokumentationsnachtrag, keine erneute Codeaenderung. Physische 0.3.12-/Erstzuordnungsabnahme und globale Transfer-/Release-/Commerce-Themen bleiben separate Grenzen. Neuester Checkpoint ersetzt aeltere Aussagen zur nur lokalen Verfuegbarkeit.
 
-## CURRENT - Rollback mit Loggingfix verifiziert (15. Oktober 2026)
+## HISTORISCH – Rollback mit Loggingfix verifiziert (15. Oktober 2026)
 
 Aktueller lokaler Rollbackbranch rollback/p01-firmware-0312: **3d9cb86be9e9e57c58f5a62d6a2b14e9b71afb4a**. Ersetzt fuer jeden kuenftigen Rueckzug das historische Ziel 6d13148; unveraendertes 502d539 bleibt ungeeignet fuer 0.3.12. Basis weiterhin 502d5391d61b306f34c242d2b372c173dfc7bb2d. Arbeitsbranch wip/p3-merchant-integration, Ausgangsstand c5519b3. Nur lokale Aenderungen und isolierte Tests; keine produktiven Zugriffe/Datenaenderungen, kein Push/Merge/Deployment/Flash.
 
@@ -256,12 +306,11 @@ Nutzerentscheidung vom 15. Oktober 2026: **Jedes qr2buy-Schild muss wiederholt z
 - Alter Händler verliert jeden aktuellen Zugriff auf das übergebene Gerät und jeden Zugriff auf Daten/Vorgänge des neuen Händlers. Eigene historische Geschäftsdaten des alten Händlers bleiben getrennt erhalten; keine Account-/Historienlöschung als Ersatz für gerätebezogenen Rechteentzug.
 - Alte Käufer-QRs, Reservierungen, Käufe und offene Checkout-Sessions müssen ausdrücklich sicher behandelt werden: kein Umschreiben auf den neuen Händler, keine falsche Display-/Kaufzuordnung, kein Übertragen/Vermischen von Beständen, Kundendaten oder Geschäftsvorgängen. QR-/Commerce-Übergangsregeln sind Teil der Wechselabnahme, nicht durch einfaches Display-Rebinding erledigt.
 - Jeder Wechsel muss autorisiert, nachvollziehbar und überprüfbar sein; überprüfbarer neutraler Zwischenzustand und neue Vor-Ort-Produktbestätigung. Abnahmekriterium: dasselbe physische Schild vollständig aus Händler A lösen, einem unabhängigen Händler B zuordnen und dessen eigenes Produkt ohne Flash/Identitäts-/Credentialwechsel binden; wiederholt, auch mit Standortwechsel und Rückgabe. Sicherheitsrotation ist eine gesonderte Ausnahme.
-- **Umsetzungsstatus: teilweise vorhanden, vollständige globale Anforderung NICHT erfüllt/physisch abgenommen.** Vorhanden sind serverseitige Assignment-Historie, transaktionaler Ersatz, aktuelle Merchant-Scope-Prüfungen, physischer Produktcodeflow und Credentialrotation; dazu bestehende automatisierte Einzeltests. P0.1-Portal-Erstzuordnung/Aktivierung PROVISIONED→ACTIVE ist jetzt zusätzlich lokal implementiert und automatisiert getestet, noch nicht produktiv oder physisch abgenommen. Offen sind Portal-Release/Transfer, explizites Produkt-Unbind/Neutralisieren, vollständige Transferauditierung mit Akteur/Grund, Commerce-/QR-Übergangsvertrag und durchgängige A→B-Isolations-/Offline-/Race-/physische Abnahme. Rebinding innerhalb eines Händlers und historischer Demo→ecily-Operatorwechsel ersetzen diese Abnahme nicht.
 - **Sicherheitsbefund für Planung:** assignDeviceToMerchant ist nur interner Domainservice, kein authentifizierter Portalflow. Er beendet ACTIVE Display-/MerchantAssignments und erhält Credentials, behandelt aber keine offenen Commercevorgänge, keinen expliziten neutralen Release, keine vollständige Pending-/Previewbereinigung und prüft im requireScope nur Existenz/Beziehungen, nicht Zielstatus ACTIVE. Preview-Nutzung ist bereits an aktuelle MerchantAssignment gebunden und wird nach Wechsel gesperrt; vollständige Lifecyclebereinigung/Audit fehlen. Normale gültige Firmwareanzeigen verfallen bei Netz-/HTTP-Fehlern nicht automatisch: der LIVE-Indikator wird unfrisch, alter Inhalt/QR kann bleiben. Sichere tatsächliche Neutralisierung benötigt daher einen eigenen überprüfbaren Übergangsvertrag.
-- **Aktueller P3-Auftrag BLOCKED:** ausschließlich Portalflow erlaubt, keine direkten DB-Änderungen; Portal kann vorhandene eigene Geräte lesen/umbenennen/Produktbindung starten, aber kein neutrales Gerät beanspruchen, aktivieren oder erstmals zuordnen. Kein weiterer Login-/Bestätigungsklick kann einen fehlenden Flow ersetzen. Device 3 produktiv lesend weiterhin PROVISIONED/0.3.11, Credential v1 ACTIVE, MAC korrekt, frischer Heartbeat, sämtliche Merchant-/DisplayAssignments/Previews 0. Ziel ecily.com / ecily - webentwicklung ACTIVE und konsistent. Keine Zuordnung vorgenommen, keine Produktbindung, keine neue physische Sichtabnahme; letzter neutraler Screen vom Nutzer bestätigt. Neueste Ergänzung untersagt zudem sämtliche produktiven Datenänderungen.
-- Detailaudit und zukünftiger Testplan: [P3-/globale Wiederverwendbarkeitsprüfung](QR2BUY_P3_MERCHANT.md). In diesem Auftrag ausschließlich lesende Prüfung und lokale Dokumentationscommits; keine Implementierung, Gerätezugriffe, Änderungen an Device 1/2 oder produktive Mutation. Nächster Schritt ist eine gesondert beauftragte Ausgestaltung des sicheren Portal-/Lifecyclevertrags, bevor Händlerzuordnung/Produktbindung mit P3 fortgesetzt werden kann.
 
-## CURRENT / NEXT – P0.1 Reviewbefunde lokal behoben, 15. Oktober 2026
+- **Umsetzungsstatus zum Tagesabschluss 15.10.2026:** Sichere administrative Freigabe und Portal-Erstzuordnung für ungebundene .13-Geräte sind produktiv und automatisiert geprüft. P3 ist .13/PROVISIONED, physische Erstzuordnung morgen offen. Vollständiger Händlertransfer, Produkt-Unbind/Neutralisieren, Rechte-/QR-/Commerceübergang und durchgängige A → B → A-Abnahme fehlen weiterhin; eigenständiger späterer Meilenstein, kein Blocker der aktuellen P3-Erstintegration. Siehe aktuellen Tagescheckpoint und [P3-Detailaudit](QR2BUY_P3_MERCHANT.md). Keine Geräteänderung durch diesen Dokumentationsauftrag.
+
+## HISTORISCH – P0.1 Reviewbefunde lokal behoben, 15. Oktober 2026
 
 Ausgangsbranch `wip/p3-merchant-integration`, sauberer Ausgangscommit `472a11a`. Dieser Checkpoint und der aktualisierte [Erstzuordnungsvertrag](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md) ersetzen die ältere GO-Einschätzung und die geräteweite Sperre des ersten Entwurfs. **Nur lokale Umsetzung, keine produktiven Zugriffe/Indexänderungen, keine Credential-/Bindingänderung, kein Flash/Push/Merge/Deployment.**
 
@@ -288,7 +337,7 @@ Dieser Checkpoint ersetzt für P0.1 ältere Aussagen, dass der Claim-/Aktivierun
 - **Technischer lokaler Rolloutkandidat; keine Veröffentlichung ausgeführt. NO-GO für sofortige physische Erstzuordnung auf P3-0.3.11.** Erst separat freigegebener Backend-/Frontendrollout und Claim-Unique-Indexprüfung, dann ausschließlich MAC-/Port-geprüfter P3-Flash nach eigener Freigabe und reale Claim-/TTL-/Neutralabnahme. Den Code muss der Nutzer tatsächlich am TFT ablesen. Kein Produktbinding in diesem Schritt. Grenzen und genaue Reihenfolge: [P0.1 Sicherheitsvertrag](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md).
 - **Globale Wiederverwendbarkeit bleibt unvollständig:** P0.1 schließt lokal nur Erstzuordnung/Aktivierung. Produkt-Unbind, Release/Neutralisieren, Händlertransfer, vollständiger Rechteentzug-/Commerce-/Alt-QR-Vertrag und physische A→neutral→B-Abnahme bleiben offen. Die ältere globale Statusliste oben ist bezüglich „Claim fehlt“ historisch; dieser Checkpoint präzisiert den lokalen Umsetzungsstand.
 
-## CURRENT / NEXT – P3 Merchant-Vorbereitung, 15. Oktober 2026
+## HISTORISCH – P3 Merchant-Vorbereitung, 15. Oktober 2026
 
 Dieser Abschnitt ersetzt für Device 3 die älteren Angaben zu ausstehender Hardwarelieferung/-abnahme. Der produktive Stand von Device 1/2 bleibt der zuletzt am 7. Oktober belegte Checkpoint darunter; keine neue Live-/Online-Abnahme behauptet.
 
@@ -342,7 +391,7 @@ Dieser Abschluss hat Vorrang vor sämtlichen darunterstehenden P3-Angaben „nic
 - **Validierung:** alle drei Merchant-Builds SUCCESS, Firmware-Vertrag/Hosttests 30/30; vollständige Backend-Testsuite erfolgreich. Zusätzlicher echter Loopback-Mongo-/HTTP-Test: Device 3 PROVISIONED, eigenes Credential Version 1, Config 0.3.11 → HTTP 200/assigned=false, keine Assignments; vertauschte Credentials 401, doppelte MAC abgewiesen, bestehende Geräte/Credentials/Geschäftsdaten unverändert. Gezielte Mongo-Suite 7/7 inklusive Parent; isolierte Testdaten und Replica Set entfernt. Keine Live-/Stripe-/Mailaktion.
 - **NEXT / STOP vor Merchant-Flash:** [P3-Ablauf und Provisioningvoraussetzungen](QR2BUY_P3_MERCHANT.md). Zuerst Review/Freigabe der getrennten produktiven ID-/MAC-Prüfung und neutralen Registrierung, dann geschützte Device-3-WLAN-/Credentialkonfiguration, erneuter Build, aktuelle Port-/MAC-Zuordnung und ausdrückliche Flashfreigabe. Kein Merchant-Flash in dieser Vorbereitung, kein Push/Merge/main/Deploy. Device 4 und Multi-Merchant-Produktausbau bleiben offen.
 
-## CURRENT / NEXT – verbindlicher Tagescheckpoint 7. Oktober 2026 / Pitch-UX produktiv
+## HISTORISCH – verbindlicher Tagescheckpoint 7. Oktober 2026 / Pitch-UX produktiv
 
 Dieser Abschnitt hat Vorrang vor historischen NEXT-/STOP-/Online-/Bestandsangaben. **P0.5b = CLOSED. Security = CLOSED. P0.6 = CLOSED.** Ausschließlich Stripe-TESTMODE; Backend ist die einzige Commerce-Source-of-Truth.
 

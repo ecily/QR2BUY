@@ -1,5 +1,7 @@
 # P0.3.5 – lokale Stabilisierung, 14. September 2026
 
+> **Historisches Plan-/Testprotokoll, kein aktueller Arbeitsauftrag.** Zum Tagesabschluss 15.10.2026 gilt [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). P1/P2 sind längst produktiv .11/READY, P3 .13/PROVISIONED; alte Port-, Flash-, Produkt- und Freigabeangaben unten nicht ausführen. Morgen ausschließlich separat freigegebene P3-Erstzuordnung gemäß zentralem Checkpoint.
+
 Scope: vorhandene Implementierung stabilisieren, keine neuen Funktionen. Ausgangs-HEAD `6f86c6d366411452ab854660bdd9c2f8c4aefc2e`. Kein Commit, Push, Deploy, produktiver DB-Zugriff, Account-Linking, Assignment-Wechsel oder Flash in diesem Auftrag.
 
 ## Erfasster Arbeitsbaum

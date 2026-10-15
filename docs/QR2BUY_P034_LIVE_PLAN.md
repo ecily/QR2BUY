@@ -1,5 +1,7 @@
 # P0.3.4 – geplanter realer Abnahmelauf
 
+> **Historisches Plan-/Testprotokoll, kein aktueller Arbeitsauftrag.** Zum Tagesabschluss 15.10.2026 gilt [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). P1/P2 sind längst produktiv .11/READY, P3 .13/PROVISIONED; alte Port-, Flash-, Produkt- und Freigabeangaben unten nicht ausführen. Morgen ausschließlich separat freigegebene P3-Erstzuordnung gemäß zentralem Checkpoint.
+
 Dieser Plan ist **nicht ausgeführt**. Kein Deploy, Flash oder produktiver Assignment-Wechsel gehört zur lokalen Implementierung.
 
 Aktuelle Freigabe nach lokaler Implementierung: Veröffentlichung und erste reale Abnahme ausschließlich für Schild 1/Ledertasche. Erforderlichen Ingress/Operator-Scope und Produktcodes kontrolliert vorbereiten. Firmware 0.3.4 nur auf COM3; COM4 nicht öffnen oder flashen. Schild 2 erhält keine Preview oder Aktivierung und bleibt PENDING/assigned=false. Der unten beschriebene analoge zweite Gerätelauf ist erst nach einem weiteren ausdrücklichen Go freigegeben.

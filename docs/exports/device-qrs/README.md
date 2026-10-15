@@ -14,4 +14,4 @@
 
 Die Aufkleber identifizieren nur das Gerät. Sie enthalten weder Secret, MAC, Mongo-ID noch Session-Token und autorisieren keine Bindung. Käufer-QRs bleiben separate `/o/:publicOfferId`-URLs.
 
-P0.3.4 ist nur lokal implementiert. Vor der realen Nutzung sind der freigegebene Backend-/Frontend-Rollout und die `/device`-Ingress-Zuordnung erforderlich.
+Historischer P0.3.4-Planungsstand: Die damalige Aussage „nur lokal implementiert“ ist überholt. Aktueller Produktions-/P3-Stand und nächste Freigabegrenzen stehen ausschließlich in [QR2BUY_CONTEXT.md](../../QR2BUY_CONTEXT.md). P1/P2-Aufkleber unverändert; dieser Dokumentationsabschluss erzeugt keinen P3-Aufkleber und erteilt keine Binding-/Flashfreigabe.

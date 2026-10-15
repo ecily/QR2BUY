@@ -1,6 +1,17 @@
 # qr2buy ESP32 display firmware
 
-## Local P0.1 candidate and physical device state
+## Current physical state — checkpoint 2026-10-15
+
+The operative source of truth is [QR2BUY_CONTEXT.md](../../docs/QR2BUY_CONTEXT.md). P1/P2 remain on **0.3.11**, existing READY bindings/credentials unchanged. P3 **QR2B-000003**, MAC **f4:2d:c9:6b:c2:90**, runs hash-verified **0.3.13 / claim protocol 3**, credential v1 ACTIVE, PROVISIONED/unbound. Hardware and neutral display were physically accepted. Merchant environment: `esp32dev_spi_cs5_rst4_device3_merchant_app`; separate ignored registered credential header and two configured authorized Wi-Fi networks. Never display or commit them.
+
+P3 ILI9341 KMRTM28028-SPI: VCC/LED 3V3, common GND, SCK18/MOSI23/DC15/RST4/CS5; MISO/touch disconnected, rotation 1, TFT_BL=-1. Last confirmed port COM3 is historical, not permission to upload; rediscover and verify MAC for any separately authorized future flash. **No flash needed for tomorrow's initial assignment.**
+
+Protocol 3 uses an **eight-digit setup code only after a live administrative authorization**, then a separate **six-digit TFT confirmation** with merchant/location comparison, all within the same maximum 120 seconds. Without a live grant the neutral screen is expected. A grant was issued and revoked on 2026-10-15; there is no claim or merchant/product binding. Physical first-assignment/code-screen acceptance is deferred to 2026-10-16 and requires separate authorization. P3 will need a new grant. Product/READY/buyer-QR acceptance follows separately. Existing .11 sales behavior remains supported; do not flash P1/P2 merely to assign P3.
+
+All older candidate, firmware, provisioning, port and build statements below are **historical references**, including the superseded 32-hex protocol and assertions that P3 is not provisioned/flashed. Full merchant transfer A → B → A for all devices is a later milestone; normal reassignment must preserve identity/credentials and require no firmware flash. Current compatible claim-disabled backend rollback: **687d085**; no automatic firmware downgrade.
+
+
+## Historical P0.1 candidate before protocol 3
 
 Reviewfix: the unreleased 0.3.12 candidate now requires a separate **32-hex-character physical setup code** before the merchant/location six-digit challenge. The authenticated unbound config supplies `claimSetup`; TFT shows permanent ID plus two lines of 16 characters. Both setup and confirmation expire locally even offline. Old 0.3.12 binaries from 472a11a do not implement setup and must not be flashed. Rebuild and verify the current commit/hash before any separately authorized P3 flash. Merchant/location names fail closed unless exactly supported (printable ASCII plus ÄÖÜäöü, at most 64 UTF-8 bytes). No replacement of unsupported characters. All physical devices remain unchanged on 0.3.11. See the updated [security, index and rollback contract](../../docs/QR2BUY_DEVICE_FIRST_ASSIGNMENT.md).
 
