@@ -134,8 +134,9 @@ test('definitive rejection remains editable and offline device cannot issue', as
 
 test('unauthorized read fails closed without issuing', async ({ page }) => {
   const { section, writes } = await setup(page, { rejectRead: true });
-  await expect(section.getByRole('alert')).toContainText('Adminzugang abgelehnt');
-  await expect(section.getByRole('button', { name: 'Freigabe bewusst bestätigen' })).toBeDisabled();
+  await expect(page.getByText(/Adminzugang abgelehnt \(HTTP 401\)/)).toBeVisible();
+  await expect(section).toHaveCount(0);
+  await expect(page.getByText('✓ Backendzugang bestätigt')).toHaveCount(0);
   expect(writes).toHaveLength(0);
 });
 

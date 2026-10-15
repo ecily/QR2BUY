@@ -13,7 +13,7 @@ const messages = {
   claim_expired: 'Freigabe abgelaufen. Eine neue Freigabe benötigt die reguläre Wartezeit.',
   claim_indexes_unavailable: 'Freigabe derzeit nicht verfügbar. Backendvoraussetzungen prüfen.'
 };
-export default function AdminClaimAuthorization() {
+export default function AdminClaimAuthorization({ initialOptions }) {
   const [options, setOptions] = useState({ devices: [], merchants: [] });
   const [deviceId, setDeviceId] = useState(''), [merchantId, setMerchantId] = useState('');
   const [confirmed, setConfirmed] = useState(false), [busy, setBusy] = useState(true);
@@ -54,7 +54,7 @@ export default function AdminClaimAuthorization() {
   useEffect(() => {
     let disposed = false;
     const started = Date.now();
-    adminClaimRequest().then(data => {
+    (initialOptions ? Promise.resolve(initialOptions) : adminClaimRequest()).then(data => {
       if (disposed) return;
       offset.current = Date.parse(data.serverNow) - started;
       setClock(Date.now() + offset.current); setOptions(data);
@@ -62,7 +62,7 @@ export default function AdminClaimAuthorization() {
       .finally(() => { if (!disposed) { lock.current = false; setBusy(false); } });
     const timer = setInterval(() => setClock(Date.now() + offset.current), 1000);
     return () => { disposed = true; clearInterval(timer); };
-  }, []);
+  }, [initialOptions]);
   function selectDevice(value) {
     setDeviceId(value); setGrant(options.devices.find(d => d.deviceId === value)?.authorization || null);
     setConfirmed(false); setMessage('');

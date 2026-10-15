@@ -8,16 +8,21 @@ export function setAdminAuth(user, pass) {
   adminAuthHeader = user == null ? null : 'Basic ' + btoa(`${String(user)}:${String(pass)}`);
 }
 
+function adminRequestError(error) {
+  return Object.assign(new Error(error.name === 'TimeoutError' ? 'request_timeout'
+    : error.name === 'AbortError' ? 'request_aborted' : 'network_error'), { status: error.response?.status });
+}
+
 // Explicit operator requests only; no automatic mutation retries or credential storage.
 export async function adminClaimRequest(path = '/options', body) {
   try {
     return await api('binding/admin/claim-authorizations' + path, {
-      method: body ? 'POST' : 'GET', json: body, retry: 0,
+      method: body ? 'POST' : 'GET', json: body, retry: 0, credentials: 'omit',
       headers: { ...(adminAuthHeader ? { Authorization: adminAuthHeader } : {}),
         'x-qr2buy-admin-action': 'claim-authorization' }
     }).json();
   } catch (error) {
-    let code = 'request_uncertain';
+    let code = adminRequestError(error).message;
     if (error.response) {
       try { code = (await error.response.json()).error || 'authorization_unavailable'; } catch { /* No raw response in UI/logs. */ }
     }
@@ -35,11 +40,15 @@ const api = ky.create({
 
 /** Unified HTTP helper with optional query + admin auth */
 async function http(method, path, { json, searchParams, headers } = {}) {
+  const isAdmin = path.startsWith('admin/');
   try {
     const res = await api(path, {
       method,
       json,
       searchParams,
+      // Keep explicit Basic authorization, but never engage browser-managed auth
+      // challenges/cookies. Otherwise a 401 can open a modal and replay the request.
+      ...(isAdmin ? { credentials: 'omit', retry: 0 } : {}),
       headers: {
         ...(adminAuthHeader ? { Authorization: adminAuthHeader } : {}),
         ...headers
@@ -47,6 +56,10 @@ async function http(method, path, { json, searchParams, headers } = {}) {
     }).json();
     return res;
   } catch (err) {
+    if (isAdmin) {
+      if (err.response) throw Object.assign(new Error(err.response.status === 401 ? 'unauthorized' : 'admin_request_failed'), { status: err.response.status });
+      throw adminRequestError(err);
+    }
     if (err?.response) {
       // Try to extract server error message
       try {

@@ -1,8 +1,9 @@
 // C:\QR\frontend\src\pages\Admin.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminClaimAuthorization from './AdminClaimAuthorization.jsx';
 import {
   setAdminAuth,
+  adminClaimRequest,
   adminListProducts,
   adminCreateProduct,
   adminListDevices,
@@ -14,6 +15,13 @@ import {
 } from "../api.js";
 
 function clsx(...parts) { return parts.filter(Boolean).join(" "); }
+function adminError(error) {
+  return error.status === 401 ? 'Adminzugang abgelehnt (HTTP 401). Benutzer und Passwort im Formular prüfen. Der Browser-Auth-Dialog ist hierfür nicht zuständig.'
+    : error.message === 'request_timeout' ? 'Admin-Anfrage hat das Zeitlimit überschritten. Kein HTTP-401-Nachweis; Verbindung prüfen und erneut anmelden.'
+      : error.message === 'request_aborted' ? 'Admin-Anfrage wurde abgebrochen. Erneut anmelden.'
+        : !error.status ? 'Admin-Anfrage ist am Netzwerkzugriff gescheitert. Verbindung oder Browserblockierung prüfen.'
+          : 'Admin-Anfrage fehlgeschlagen (HTTP ' + error.status + ').';
+}
 
 export default function Admin() {
   /* ───────── Auth ───────── */
@@ -22,11 +30,15 @@ export default function Admin() {
     pass: ""
   });
   const [authed, setAuthed] = useState(false);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [claimOptions, setClaimOptions] = useState(null);
+  const loginLock = useRef(false), loginGeneration = useRef(0);
+  const invalidateLogin = useCallback(() => { loginGeneration.current++; setAdminAuth(null); }, []);
   useEffect(() => {
     // Remove credentials persisted by the legacy admin page; never restore them.
     sessionStorage.removeItem('adm_user'); sessionStorage.removeItem('adm_pass');
-    return () => setAdminAuth(null);
-  }, []);
+    return invalidateLogin;
+  }, [invalidateLogin]);
 
   /* ───────── Data ───────── */
   const [products, setProducts] = useState([]);
@@ -41,27 +53,44 @@ export default function Admin() {
 
   const buyerBase = useMemo(() => window.location.origin, []);
 
-  useEffect(() => { if (authed) refresh(); }, [authed]);
-
-  async function refresh() {
+  const refresh = useCallback(async () => {
+    const generation = loginGeneration.current;
     setLoading(true);
     setMsg(null);
     try {
       const [p, d] = await Promise.all([adminListProducts(), adminListDevices()]);
+      if (generation !== loginGeneration.current) return;
       setProducts(p.products || []);
       setDevices(d.devices || []);
     } catch (e) {
-      setMsg({ tone: "error", text: e.message || "Admin-API Fehler" });
+      if (generation === loginGeneration.current) setMsg({ tone: "error", text: adminError(e) });
     } finally {
-      setLoading(false);
+      if (generation === loginGeneration.current) setLoading(false);
     }
-  }
-
-  function onAuthSave(e) {
+  }, []);
+  useEffect(() => { if (authed) refresh(); }, [authed, refresh]);
+  async function onAuthSave(e) {
     e?.preventDefault?.();
-    setAdminAuth(auth.user, auth.pass);
-    setAuth({ user: auth.user, pass: '' });
-    setAuthed(value => Number(value) + 1);
+    if (loginLock.current || !auth.user || !auth.pass) return;
+    loginLock.current = true; setLoginBusy(true); setAuthed(false);
+    setClaimOptions(null); setProducts([]); setDevices([]); setMsg(null); setLoading(false);
+    const generation = ++loginGeneration.current;
+    try {
+      setAdminAuth(auth.user, auth.pass);
+      // One authoritative read first. No green status or parallel protected
+      // requests before the server has accepted the form's credentials.
+      const data = await adminClaimRequest();
+      if (generation !== loginGeneration.current) return;
+      setClaimOptions(data); setAuthed(generation);
+    } catch (error) {
+      if (generation !== loginGeneration.current) return;
+      setAdminAuth(null); setMsg({ tone: 'error', text: adminError(error) });
+    } finally {
+      if (generation === loginGeneration.current) {
+        setAuth(previous => ({ ...previous, pass: '' }));
+        loginLock.current = false; setLoginBusy(false);
+      }
+    }
   }
 
   /* ───────── Handlers: Product ───────── */
@@ -259,22 +288,23 @@ export default function Admin() {
         <form onSubmit={onAuthSave} style={styles.formWide}>
           <div>
             <label style={styles.label}>Benutzer</label>
-            <input aria-label="Adminbenutzer" autoComplete="off" style={styles.input} value={auth.user} onChange={(e) => setAuth((s) => ({ ...s, user: e.target.value }))} />
+            <input aria-label="Adminbenutzer" autoComplete="off" disabled={loginBusy} style={styles.input} value={auth.user} onChange={(e) => setAuth((s) => ({ ...s, user: e.target.value }))} />
           </div>
             <div>
             <label style={styles.label}>Passwort</label>
-            <input aria-label="Adminpasswort" autoComplete="off" style={styles.input} type="password" value={auth.pass}
+            <input aria-label="Adminpasswort" autoComplete="off" disabled={loginBusy} style={styles.input} type="password" value={auth.pass}
                    onChange={(e) => setAuth((s) => ({ ...s, pass: e.target.value }))} />
           </div>
           <div>
-            <button style={styles.btn} type="submit">Login setzen</button>
-            {authed && <button type="button" style={styles.btnGhost} onClick={() => { setAdminAuth(null); setAuth({ user: '', pass: '' }); setAuthed(false); }}>Admin abmelden</button>}
-            {authed && <span style={{ marginLeft: 10, color: "#16a34a", fontWeight: 600 }}>✓ aktiv</span>}
+            <button style={styles.btn} type="submit" disabled={loginBusy || !auth.user || !auth.pass}>Login setzen</button>
+            {loginBusy && <span role="status">Adminzugang wird geprüft …</span>}
+            {authed && <button type="button" style={styles.btnGhost} onClick={() => { loginGeneration.current++; setAdminAuth(null); setAuth({ user: '', pass: '' }); setAuthed(false); setProducts([]); setDevices([]); }}>Admin abmelden</button>}
+            {authed && <span style={{ marginLeft: 10, color: "#16a34a", fontWeight: 600 }}>✓ Backendzugang bestätigt</span>}
           </div>
         </form>
       </section>
 
-      {!!authed && <AdminClaimAuthorization key={authed} />}
+      {!!authed && <AdminClaimAuthorization key={authed} initialOptions={claimOptions} />}
       {/* 2-Spalten-Bereich */}
       <div style={{ ...(isWide ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } : { display: "grid", gridTemplateColumns: "1fr", gap: 16 }) }}>
         {/* Create Product */}
