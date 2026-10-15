@@ -1,8 +1,37 @@
 # Prototyp 3 – Merchant-Vorbereitung, 15. Oktober 2026
 
-Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktive neutrale Registrierung ist abgeschlossen; Merchant-Flash ist nicht ausgeführt.**
+Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktiv registriert, Merchant-Firmware 0.3.11 geflasht, neutraler UNBOUND-Zustand technisch und vom Nutzer physisch abgenommen. Noch keine Händler-/Produktbindung.**
 
-## WLAN und frischer Merchant-Build bereit – STOP vor Flash
+## Merchant-Flash und neutrale Abnahme SUCCESS – 15. Oktober 2026
+
+Dieser Abschluss hat Vorrang vor allen historischen Aussagen darunter zu noch fehlendem Flash, Heartbeat oder physischer Merchant-Abnahme.
+
+| Prüfung | Ergebnis |
+| --- | --- |
+| Ausgangsstand | wip/p3-merchant-integration, b4dd5f4, sauber |
+| Identifizierter Port | COM3, bisherige USB-Instanz VID_10C4/PID_EA60/0001 |
+| MAC-Abfrage vor Flash | f4:2d:c9:6b:c2:90, ESP32-D0WD-V3 Rev. 3.1 |
+| Build | esp32dev_spi_cs5_rst4_device3_merchant_app, registriertes Credential v1, 0.3.11, CS5/Rotation 1 |
+| Artefakt | obiger frischer Buildpfad; SHA-256 8406ec284043892150fa100eae024b8f2b3f37b7acaff8ff13259f501a97f225 vor/nach Upload identisch |
+| Upload | explizit COM3, richtige MAC erneut bestätigt, SUCCESS und vier Flash-Hashprüfungen bestanden |
+| Erststart / 115200 Baud | Merchant-Start, WLAN-Verbindung, NTP-Anforderung, 14 erfolgreiche authentifizierte HTTPS-200/UNBOUND-Configs in 50 Sekunden |
+| Gezielter P3-Neustart | nur COM3 EN/RTS; automatische WLAN-Wiederverbindung, NTP-Anforderung, 11 erfolgreiche UNBOUND-Configs in 45 Sekunden |
+| Renderer nach Neustart | mode=UNBOUND, einmal redraw=yes, zehnmal redraw=no, keine beobachteten Configfehler |
+| Produktiv | PROVISIONED, Firmware 0.3.11, Credential v1 ACTIVE; eigene echte frische/fortschreitende Heartbeats, Onlineprojektion true |
+| Bindings | MerchantAssignments=0, DisplayAssignments=0, BindingPreviews=0 |
+| Physische Nutzerabnahme | „Ja, Anzeige ist korrekt“ auf konkrete Frage nach richtiger Orientierung, neutralem „Kein Produkt zugewiesen“, keinem Käufer-QR und keinen sichtbaren Artefakten |
+
+MAC-Abfrage/Upload/serieller Monitor ausschließlich auf COM3. COM5/COM6 passiv gelistet, nie geöffnet/zurückgesetzt/geflasht. USB-Instanz und MAC gemeinsam verwendet, keine Auswahl allein anhand historischer Portnummer. Erster Tool-Aufruf via Python-Modul konnte esptool nicht importieren und hat kein Gerät geöffnet; anschließend vorhandenes PlatformIO-esptool-Skript korrekt verwendet.
+
+NTP-Zeitanforderung wurde tatsächlich geloggt; erfolgreiche Configpolls passieren nur hinter gültigem Zeitgate mit WiFiClientSecure/GTS Root R4 und eigener Device-ID/Credentialversion. Damit sind WLAN, verwendbarer Zeit-/TLS-Pfad, Backendauthentifizierung und Polling technisch belegt. Kein unsicheres TLS, kein Operator-Config-GET, keine simulierten Heartbeats. lastSeenAt von 11:07:48.551Z auf 11:08:59.780Z fortgeschritten; beim Abschlusslesen 19 Sekunden alt. Keine Behauptung einer separaten NTP-Paket-/Zertifikatskettenmessung. WLAN-Wiederverbindung **nach Gerätestart** getestet; ein WLAN-Ausfall im laufenden Betrieb und das zweite Fallbacknetz wurden nicht gezielt getestet. Dafür keine Router-/WLAN-Änderung an anderen Geräten durchgeführt.
+
+Serielle Daten nur als sanitisierten Diagnoseklassen/Rendererzustände behalten; keine SSIDs, Passwörter, Token oder Configantwortbodies ausgegeben/gespeichert. Serielle Rendererbeobachtung und ausdrücklich bestätigte physische Nutzeransicht sind getrennte Nachweise. Abgenommen ist UNBOUND, kein P3-Produkt-/READY-/Commerce-Zustand.
+
+Bestandsschutz: 13 Collections vor/nach verglichen; Device 3 aus managed_devices ausgenommen, reguläre lastSeenAt/updatedAt anderer Geräte normalisiert. Keine anderen Änderungen an Device 1/2, Credentials, Merchant-/Displayzuordnungen, Produkten/Offers/Beständen, Orders oder übrigen erfassten Geschäftsdaten. Lokale P1/P2-Header hashgleich. Eigene P3-Polls und Firmware-/Heartbeatfortschreibung sind die einzigen erwarteten produktiven Geräteänderungen. Keine Zuordnung, Stripe-Transaktion, Push, Merge oder Backend-/Frontenddeployment.
+
+**GO für den nächsten separat freizugebenden kontrollierten Händler-/Standortzuordnungsschritt und anschließende Produktbindung.** P3 bleibt bis dahin PROVISIONED/neutral. Zielhändler, Standort und Produkt/Offer vorab festlegen; Binding erfordert ACTIVE-Gerät plus gültige MerchantAssignment. Kein Umgehen der bestehenden Freigabe-/Vor-Ort-Codeprüfung, keine automatische Aktivierung durch diesen Auftrag.
+
+## Historie: WLAN und frischer Merchant-Build vor Flash
 
 Dieser Nachtrag ersetzt sämtliche älteren P3-Angaben zu WLAN-Platzhaltern und noch fehlendem frischem Build. Ausgangscommit 1826a34 auf wip/p3-merchant-integration, sauber; keine produktive Datenprüfung/-mutation in diesem Schritt.
 
