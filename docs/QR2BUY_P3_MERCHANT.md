@@ -1,8 +1,32 @@
 # Prototyp 3 – Merchant-Vorbereitung, 15. Oktober 2026
 
-Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). Dieser Ablauf ist vorbereitet; produktive Registrierung und Merchant-Flash sind nicht ausgeführt.
+Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktive neutrale Registrierung ist abgeschlossen; Merchant-Flash ist nicht ausgeführt.**
 
-## Aktueller Nachtrag: Provisioning-Helfer und Zugriff geprüft
+## Produktive Registrierung SUCCESS – 15. Oktober 2026
+
+Dieser Abschnitt ersetzt alle historischen Angaben darunter zu noch fehlender Registrierung/unprovisioniertem Buildtoken.
+
+| Feld | Produktiv lesend verifiziert |
+| --- | --- |
+| Device-ID / MAC | QR2B-000003 / f4:2d:c9:6b:c2:90 |
+| Name / Hardwarevariante | Schild 3 / ESP32_ILI9341_CS5 |
+| Gerätestatus | PROVISIONED, neutral/ungebunden |
+| Credential | genau eines, Version 1, ACTIVE; Tokenzuordnung im Backend verifiziert |
+| Angelegt | 2026-10-15T10:55:55.647Z |
+| Firmware | erwartet 0.3.11; gemeldete Version null, noch kein Merchant-Flash |
+| Heartbeat / Aktivierung | lastSeenAt=null, activatedAt=null |
+| Zuordnungen | keine MerchantAssignments, DisplayAssignments oder BindingPreviews |
+
+- Ausdrückliche Nutzerfreigabe; Ausgangsbranch wip/p3-merchant-integration / Commit f6c7e41d01b8028595512931530bcc9f1476d438, Arbeitsbaum sauber. Registrierungshelfer exakt aus diesem getesteten Commit, SHA-256 5b37aad7b9395acee7acc9a046f79e2b025a4b4eaa14b6bb091c115b0566dacb. Im geschützten Backendprozess unveränderte Quelle per speicherinternem VM-Modul ausgeführt, Hash vor Ausführung geprüft; vorhandenes produktives Authmodul verknüpft. Kein Helfer auf produktivem Datenträger abgelegt, kein Deployment.
+- Erneute Vorprüfung im tatsächlichen Backendprozess: vorhandener Pepper gültig, Produktiv-Authquellen identisch mit 502d539, ID/MAC und alle P3-Records frei; Device 1/2 samt MAC, ACTIVE Credential Version 1 und je einer aktiven Händler-/verifizierten Displaybindung bestätigt. Keine Modell-/Indexinitialisierung.
+- Genau ein neues zufälliges 32-Byte-Credential lokal unter bestehender geschützter P3-Header-DACL sicher vorgemerkt, fsync/rückgelesen und über echo-freies STDIN übergeben. Pepper blieb ausschließlich in Runtime-ENV. Erste Console-Verbindung erreichte kein Bereitschaftssignal: ohne Tokenerzeugung/DB-Schreibaufruf beendet; anschließend eindeutiger SUCCESS im vollständigen Lauf. Kein unklarer Commitausgang, keine Wiederholungsregistrierung.
+- Im Registrierungsklienten exakt zwei beobachtete Inserts, ausschließlich die neue ID in managed_devices/device_credentials. Keine anderen Mutationen. Snapshot-/Majority-Transaktion bestätigt; danach passende Verifierauthentifizierung im Backendprozess ohne Device-Config-Aufruf und damit ohne künstlichen Heartbeat.
+- Vorher-/Nachhervergleich über 13 Collections im Backend: bestehende Daten vollständig hashgleich, P3 aus den beiden Zielcollections ausgenommen. Unabhängiger nativer Mongo-Folgeabgleich bestätigt 12 Collections weiterhin identisch; managed_devices änderte sich zwischenzeitlich. Änderungsstrom seit 30 Sekunden vor Registrierung zeigt ausschließlich P3-Insert und reguläre Device-1/2-Heartbeatupdates (lastSeenAt/updatedAt), keine weiteren Devicefelder. Credentials, Bindings, Produkte, Offers, Bestände, Orders und übrige erfasste Geschäftsdaten unverändert. Keine bestehende Device-Config abgefragt; lokale P1/P2-Header hashgleich.
+- Geschützter lokaler secrets.device3.h enthält jetzt das registrierte eigene Credential Version 1; DACL unverändert nur aktueller Nutzer, SYSTEM, Administratoren. Keine Secrets außerhalb dieser vorgesehenen Credentialdatei gespeichert oder ausgegeben. WLAN bleibt Platzhalter. Frühere Buildartefakte enthalten den alten unprovisionierten Buildtoken: **nicht hochladen**.
+
+**Nächster Schritt:** eigene WLAN-Konfiguration sicher im P3-Header ergänzen, Merchant-Build neu erstellen, Port und MAC erneut prüfen. Merchant-Flash weiterhin nur nach gesonderter ausdrücklicher Freigabe. Keine Händler-/Standort-/Produktbindung und keine Offers/Bestände/Stripe geändert. Kein Push, Merge, Flash oder Backend-/Frontenddeployment.
+
+## Historie: Provisioning-Helfer und Zugriff vor Registrierung geprüft
 
 Dieser Nachtrag ersetzt die untenstehenden historischen Aussagen „Helfer nicht gebaut“, „Pepperzugang nicht geprüft“ und „Konfliktfreiheit nicht geprüft“. Keine produktive Registrierung erfolgt.
 
