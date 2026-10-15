@@ -1,5 +1,15 @@
 # P0.1 – sichere Erstzuordnung nach Reviewfix, 15. Oktober 2026
 
+## CURRENT - Release und .13-Rollback remote bereitgestellt (15. Oktober 2026)
+
+Schritt 1 gemaess ausdruecklicher Pushfreigabe abgeschlossen. Sauberer Ausgangsbranch wip/p3-merchant-integration, funktionaler Release **902106e29ee2f268600054e31ba7666608cb5439**; Rollback **687d0855c93aacbf616b93b6b7d8b3c0bfe9bf06** auf rollback/p01-firmware-0313. Beide Branches gemeinsam per normalem atomarem Push auf origin veroeffentlicht, keine Force-Option. ls-remote bestaetigt exakte Hashes; Rollback-Commit anschliessend explizit von origin abrufbar. Nachfolgender reiner Dokumentationscommit wird ausschliesslich auf dem freigegebenen Arbeitsbranch synchronisiert; Funktionscode bleibt 902106e.
+
+Integritaet: kein echter Device-Credentialwert in beiden Git-Baeumen oder neu veroeffentlichten Releasecommit-Diffs; keine lokalen Credentialheader, .env-Dateien oder Buildartefakte in den geprueften Baeumen, keine GitHub-Workflows. Release ist Fast-Forward zum bisherigen Remote c4e4018. Rollback-Rekonstruktion, Manifest, alle Dateihashes und Patch-SHA256 **89246b3b344fea4e838f1dfd73e96746a3ef444b1e94cb14ce0592d03fd0cfde** erneut PASS; Rollbacktests .12/.13 **2/2 PASS**. Keine Firmware oder Credentials geaendert.
+
+DigitalOcean vor und nach Branchpush rein lesend geprueft: weiterhin ACTIVE **9073d75d-2251-4ce0-a124-44d3cdaf7a52**, Backend und Frontend **c9aefac5abba6487ed07c5d47d77ee95335ec8a2**, kein Pending-Deployment und kein neuer Deploymentdatensatz. Beide Auto-Deploys aus; false wird in der API-Antwort als optionales Boolean ausgelassen (offizielles [godo-Schema](https://github.com/digitalocean/godo/blob/main/apps.gen.go), deploy_on_push bool/omitempty). Keine App-Spec-/ENV-Aenderung und kein Deploymentaufruf. origin/main unveraendert **502d5391d61b306f34c242d2b372c173dfc7bb2d**.
+
+Damit sind die bisherigen Remote-Bereitstellungsblocker erledigt. **GO fuer die separat freizugebende produktive Datenbankvorbereitung**, nicht fuer deren automatische Ausfuehrung: unmittelbar vorher Preflight wiederholen, dann ausschliesslich Freigabe-/Auditcollections und erforderlichen Unique-Index nach eigener Freigabe anlegen. Keine produktive Datenbankabfrage/-aenderung in diesem Schritt, kein Flash, Claim, Binding oder Eingriff an Device 1/2/3. Produktiver Firmwarestand aus vorherigem Nachweis bleibt P1/P2 .11, P3 .12; hier nicht erneut an Hardware oder DB geprueft.
+
 ## CURRENT - Strikte Claim-Deadline lokal abgesichert (15. Oktober 2026)
 
 Gezielter Folgeauftrag auf Basis 0eb6c3f, wip/p3-merchant-integration. P2 aus dem lesenden Sicherheitsreview behoben: confirm und start verwendeten einen vor mehreren asynchronen Datenbankoperationen erfassten Zeitpunkt. Dadurch war eine neue Bestaetigung trotz inzwischen abgelaufener Freigabe moeglich; bisherige Tests wechselten die Uhr nur zwischen Anfragen.
