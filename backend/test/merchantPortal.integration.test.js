@@ -28,6 +28,7 @@ test('merchant portal: real Mongo sessions, registration, CRUD, scope and physic
     await mongoose.connect(uri);
     await Promise.all([...Object.values(m).filter(x => x?.modelName), MerchantAccount].map(async Model => { await Model.createCollection(); await Model.createIndexes(); }));
     store = MongoStore.create({ mongoUrl: uri, collectionName: 'merchant_sessions' });
+    await store.collectionP; // Finish the session TTL index before a fast test can close its client.
     const binding = createBindingService({ now: () => bindingTime || new Date(), pepper: () => pepper });
     const app = express(); app.use(express.json());
     app.use('/api', createMerchantPortal({ secret: 'test-only-session-secret-'+ 'x'.repeat(32), origin, production: false, store, binding }));

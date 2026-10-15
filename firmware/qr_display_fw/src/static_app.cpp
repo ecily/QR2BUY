@@ -116,6 +116,7 @@ struct ConfigPayload {
   bool notifyAvailable = false;
   bool bindingPreview = false;
   bool claimPreview = false;
+  bool claimSetup = false;
   String claimMerchant, claimLocation;
   String previewCode;
   int64_t previewExpiresAt = 0;
@@ -456,6 +457,7 @@ static bool knownStatus(const String& status) {
 }
 
 static const char* diagnosticDisplayMode(const ConfigPayload& config) {
+  if (config.claimSetup) return "CLAIM_SETUP";
   if (config.claimPreview) return "CLAIM_PREVIEW";
   if (config.bindingPreview) return "BINDING_PREVIEW";
   if (!config.bound) return "UNBOUND";
@@ -471,6 +473,7 @@ static const char* diagnosticDisplayMode(const ConfigPayload& config) {
 }
 
 static const char* diagnosticRenderTarget(const ConfigPayload& config) {
+  if (config.claimSetup) return "claimSetup";
   if (config.claimPreview) return "claimPreview";
   if (config.bindingPreview) return "bindingPreview";
   if (!config.bound) return "drawMessageScreen";
@@ -726,6 +729,17 @@ static void drawUnavailableOffer(const ConfigPayload& config) {
 
 static void renderConfig(const ConfigPayload& config) {
   bootstrapScreenKey = "";
+  if (config.claimSetup) {
+    footerIndicatorVisible = false;
+    tft.fillScreen(COLOR_PAPER);
+    drawStatusText("SCHILD EINRICHTEN", 8, 28, 2, COLOR_PINE_DARK);
+    drawStatusText(QR2BUY_DEVICE_ID, 42, 28, 2, COLOR_INK);
+    drawStatusText("Setupcode im Haendlerportal eingeben", 80, 40, 2, COLOR_MUTED);
+    drawStatusText(config.previewCode.substring(0, 16).c_str(), 130, 28, 2, COLOR_PINE_DARK);
+    drawStatusText(config.previewCode.substring(16).c_str(), 165, 28, 2, COLOR_PINE_DARK);
+    drawStatusText("Nur fuer die Erstzuordnung", 210, 24, 2, COLOR_MUTED);
+    return;
+  }
   if (config.claimPreview) {
     footerIndicatorVisible = false;
     tft.fillScreen(COLOR_PAPER);
@@ -770,6 +784,7 @@ static void renderConfig(const ConfigPayload& config) {
 
 static bool sameVisibleConfig(const ConfigPayload& left, const ConfigPayload& right) {
   return left.notifyAvailable == right.notifyAvailable
+    && left.claimSetup == right.claimSetup
     && left.claimPreview == right.claimPreview
     && left.claimMerchant == right.claimMerchant
     && left.claimLocation == right.claimLocation
@@ -966,6 +981,7 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
   config.notifyAvailable = merchant.notifyAvailable;
   config.bindingPreview = merchant.preview;
   config.claimPreview = merchant.claim;
+  config.claimSetup = merchant.setup;
   config.claimMerchant = merchant.claimMerchant.c_str();
   config.claimLocation = merchant.claimLocation.c_str();
   config.previewCode = merchant.previewCode.c_str();
@@ -1167,7 +1183,7 @@ void loop() {
   serviceClock();
   applyPendingConfig();
   // Expire locally even when WiFi/API is unavailable; never leave a code on screen.
-  if (hasRenderedConfig && (renderedConfig.bindingPreview || renderedConfig.claimPreview)
+  if (hasRenderedConfig && (renderedConfig.bindingPreview || renderedConfig.claimPreview || renderedConfig.claimSetup)
       && (time(nullptr) >= renderedConfig.previewExpiresAt
           || renderedConfig.previewExpiresAt - time(nullptr) > 120)) {
     renderedConfig = ConfigPayload{};

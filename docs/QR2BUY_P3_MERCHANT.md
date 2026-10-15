@@ -2,7 +2,20 @@
 
 Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktiv registriert, Merchant-Firmware 0.3.11 geflasht, neutraler UNBOUND-Zustand technisch und vom Nutzer physisch abgenommen. Noch keine Händler-/Produktbindung.**
 
-## P0.1 Erstzuordnung lokal umgesetzt – keine produktive P3-Zuordnung
+## P0.1 Reviewfix – lokal umgesetzt, weiterhin keine produktive P3-Zuordnung
+
+Ausgangscommit `472a11a`, Branch `wip/p3-merchant-integration`. Alle vier Reviewbefunde lokal bearbeitet; maßgeblich ist der aktualisierte [Erstzuordnungsvertrag](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md), nicht der erste Entwurf darunter.
+
+- Start nur mit 128-Bit-Setupcode direkt vom TFT, maximal 120 Sekunden gültig. Geräte-ID und fremdes Händlerkonto allein können keine Challenge mehr anlegen. Separater Händler-/Standortvergleich mit sechsstelliger Bestätigung bleibt erforderlich. Fehlversuche je Gerät/Händler; B sperrt A nicht mehr. Drei Angriffszyklen und Legacy-/Replayfälle getestet.
+- Browser nach Ablehnung wieder editierbar; unklare Antwort/20-Sekunden-Timeout behält denselben requestKey. Ergebnisprüfung, verlorene Bestätigung, Ablauf und Neustart ohne Reload getestet. Keine Bestätigung simuliert.
+- Zielnamen server-/firmwareseitig exakt auf ASCII plus ÄÖÜäöü und 64 UTF-8-Byte begrenzt, keine Ersetzung; Sonderzeichen-/Grenztests vorhanden. Neue 0.3.12-Setupanzeige mit ID und 32 Zeichen in zwei Zeilen; noch nicht physisch abgenommen.
+- Konkreter lokaler Rollbackbranch `rollback/p01-firmware-0312` / `6d13148e08b3c63c3e4668b559c9f466eaa4cce8`, kein Claim, aber 0.3.11/0.3.12-kompatible normale Backendverträge. Exakte Rekonstruktion aus geprüftem Patch/Manifest sowie Zustände/Notify/Auth automatisiert getestet. Kein Rückfall auf unverändertes 502d539 empfohlen.
+- Drei explizite Unique-Indizes verpflichtend; rein lesender Prüf-CLI vorbereitet und gegen Loopback ausgeführt. Fehlende Indizes blockieren Deployment und Claimservice. Keine produktive Indexprüfung/-anlage erfolgt; neue Modelle legen sie nicht automatisch an.
+- Finale Regression: Backend **284/284**, Frontend **65/65**, Browser/E2E **91/91**, Firmware/C++-Host **32/32**; alle drei Merchant-Builds SUCCESS, Frontend-Lint/Produktionsbuild und gezielte Claim-/Rollback-Nachtests PASS, keine Skips. Header aller drei Geräte hashgleich. Kein Gerät geöffnet/geflasht, keine produktive Mutation oder Credentials/Bindings geändert. Produktiv laut letztem Checkpoint weiterhin P3 PROVISIONED/ungebunden, v1 ACTIVE, 0.3.11 und neutral physisch abgenommen.
+
+**GO nur für erneutes finales Review.** Keine Deployment-, Flash- oder Erstzuordnungsfreigabe. Später erst freigegebene ENV-/Indexprüfung/Rollout, danach ausdrücklich autorisierter P3-Flash mit aktuellem MAC-/Port-/Buildnachweis und realer neuer Setup-/Claim-/TTL-Abnahme. Ältere 0.3.12-Binaries aus 472a11a nicht verwenden. P1/P2 unverändert; keine Produktbindung/Transferumsetzung.
+
+## Historie: erster P0.1-Entwurf vor Reviewfix – keine produktive P3-Zuordnung
 
 15. Oktober 2026, Branch `wip/p3-merchant-integration`, Ausgangscommit `8cf1455`. Dieser Abschnitt ersetzt ausschließlich die ältere Aussage, dass noch kein Erstzuordnungsflow implementiert sei. **P3 bleibt laut letztem Produktivcheckpoint PROVISIONED/ungebunden, Credential v1 ACTIVE, physisch abgenommene neutrale Firmware 0.3.11. Kein erneuter Produktivzugriff in diesem Auftrag.**
 

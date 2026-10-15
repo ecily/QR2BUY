@@ -1,0 +1,21 @@
+diff --git a/backend/src/merchant/binding.js b/backend/src/merchant/binding.js
+index 97ef26e..206a07d 100644
+--- a/backend/src/merchant/binding.js
++++ b/backend/src/merchant/binding.js
+@@ -8 +8 @@ export const PREVIEW_TTL_MS = 120_000;
+-const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11'];
++const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11', '0.3.12'];
+diff --git a/backend/src/merchant/deviceService.js b/backend/src/merchant/deviceService.js
+index b871252..bcfb353 100644
+--- a/backend/src/merchant/deviceService.js
++++ b/backend/src/merchant/deviceService.js
+@@ -70 +70 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
+-        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11'].includes(firmwareVersion);
++        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion);
+@@ -86,3 +86,3 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
+-          display: { status: ['0.3.10', '0.3.11'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
+-            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
+-            ...(['0.3.10', '0.3.11'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }
++          display: { status: ['0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
++            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
++            ...(['0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }

@@ -8,6 +8,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MerchantAppContractTest(unittest.TestCase):
+    def test_physical_setup_code_is_separate_and_never_logged(self):
+        source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
+        screen = source.split('if (config.claimSetup) {', 1)[1].split('if (config.claimPreview)', 1)[0]
+        self.assertIn('QR2BUY_DEVICE_ID', screen)
+        self.assertIn('config.previewCode.substring(0, 16)', screen)
+        self.assertIn('config.previewCode.substring(16)', screen)
+        self.assertNotIn('Serial.', screen)
+        self.assertNotIn('drawQrCode', screen)
+        self.assertIn('renderedConfig.claimSetup)', source)
+
     def test_initial_claim_is_separate_neutral_and_expires_offline(self):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
         screen = source.split('if (config.claimPreview) {', 1)[1].split('if (config.bindingPreview)', 1)[0]
@@ -15,7 +25,7 @@ class MerchantAppContractTest(unittest.TestCase):
             self.assertIn(field, screen)
         for forbidden in ['drawQrCode', 'Serial.', 'config.priceText']:
             self.assertNotIn(forbidden, screen)
-        self.assertIn('(renderedConfig.bindingPreview || renderedConfig.claimPreview)', source)
+        self.assertIn('(renderedConfig.bindingPreview || renderedConfig.claimPreview || renderedConfig.claimSetup)', source)
         self.assertIn('left.claimMerchant == right.claimMerchant', source)
         self.assertIn('left.claimLocation == right.claimLocation', source)
 

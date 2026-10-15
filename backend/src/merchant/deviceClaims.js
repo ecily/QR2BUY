@@ -4,14 +4,23 @@ import { DeviceApiError, validDeviceId } from './deviceCredentials.js';
 import { bindingTransaction } from './binding.js';
 import { createMerchantDomainService } from './service.js';
 import { MerchantAccount } from './accounts.js';
-import { ManagedDevice, DeviceCredential, DeviceMerchantAssignment, DisplayAssignment, BindingPreview, DeviceClaim, Merchant, Location } from './models.js';
+import { ManagedDevice, DeviceCredential, DeviceMerchantAssignment, DisplayAssignment, BindingPreview, DeviceClaim, DeviceClaimAttempt, Merchant, Location } from './models.js';
+import { verifyClaimIndexes } from './claimIndexes.js';
 
 export const CLAIM_TTL_MS = 120_000;
 export const claimCapable = version => version === '0.3.12';
 const hex = z.string().regex(/^[a-f0-9]{32}$/);
-export const claimStartSchema = z.object({ deviceId: z.string().refine(validDeviceId), locationId: z.string().min(1).max(128), requestKey: hex }).strict();
+export const claimStartSchema = z.object({ deviceId: z.string().refine(validDeviceId), locationId: z.string().min(1).max(128), requestKey: hex, setupCode: hex }).strict();
 export const claimConfirmSchema = z.object({ code: z.string().regex(/^\d{6}$/) }).strict();
 const fail = (status, code) => { throw new DeviceApiError(status, code); };
+export const claimNameSupported = name => typeof name === 'string' && name.length > 0 && name.trim() === name
+  && Buffer.byteLength(name) <= 64 && /^[\x20-\x7e\u00c4\u00d6\u00dc\u00e4\u00f6\u00fc]+$/u.test(name);
+export function claimSetup(deviceId, credentialVersion, at, pepper = process.env.DEVICE_CREDENTIAL_PEPPER) {
+  if (!/^[a-f0-9]{64}$/i.test(pepper || '')) fail(503, 'claim_unavailable');
+  const bucket = Math.floor(+at / CLAIM_TTL_MS);
+  return { code: createHmac('sha256', Buffer.from(pepper, 'hex')).update(`qr2buy-claim-setup-v1\0${deviceId}\0${credentialVersion}\0${bucket}`).digest('hex').slice(0, 32),
+    expiresAt: Math.floor((bucket + 1) * CLAIM_TTL_MS / 1000) };
+}
 export function claimCode(claim, pepper = process.env.DEVICE_CREDENTIAL_PEPPER) {
   if (!/^[a-f0-9]{64}$/i.test(pepper || '')) fail(503, 'claim_unavailable');
   const digest = createHmac('sha256', Buffer.from(pepper, 'hex')).update(
@@ -26,7 +35,7 @@ async function scope(merchantId, accountId, locationId, session) {
   const location = await Location.findOne({ locationId, merchantId, status: 'ACTIVE' }).session(session).lean();
   if (!account || !merchant || !location) fail(403, 'claim_forbidden');
   for (const name of [merchant.displayName, location.name])
-    if (!name || Buffer.byteLength(name) > 64 || /[\x00-\x1f\x7f]/.test(name)) fail(409, 'claim_unavailable');
+    if (!claimNameSupported(name)) fail(409, 'claim_name_unsupported');
   return { merchant, location };
 }
 async function ready(deviceId, at, session) {
@@ -44,12 +53,15 @@ async function ready(deviceId, at, session) {
 async function lock(deviceId, session) {
   await ManagedDevice.updateOne({ deviceId }, { $inc: { bindingRevision: 1 } }, { session });
 }
-function blocked(c, at) { return c && c.failedUntil > at && c.failedAttempts >= 5; }
+export function claimBlocked(budget, at) { return !!budget && budget.until > at && budget.attempts >= 5; }
 
-export function createDeviceClaimService({ now = () => new Date(), pepper = () => process.env.DEVICE_CREDENTIAL_PEPPER, transaction = bindingTransaction } = {}) {
+export function createDeviceClaimService({ now = () => new Date(), pepper = () => process.env.DEVICE_CREDENTIAL_PEPPER, transaction = bindingTransaction,
+  checkIndexes = verifyClaimIndexes } = {}) {
+  async function indexesReady() { if (!(await checkIndexes()).ok) fail(503, 'claim_indexes_unavailable'); }
   return {
     async start(merchantId, accountId, input) {
-      const { deviceId, locationId, requestKey } = claimStartSchema.parse(input);
+      const { deviceId, locationId, requestKey, setupCode } = claimStartSchema.parse(input);
+      await indexesReady();
       return transaction(async session => {
         const at = now();
         const target = await scope(merchantId, accountId, locationId, session);
@@ -62,22 +74,24 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
           return phone(previous);
         }
         const credential = await ready(deviceId, at, session);
-        if (blocked(previous, at)) fail(429, 'claim_locked');
+        const budget = await DeviceClaimAttempt.findOne({ deviceId, merchantId }).session(session).lean();
+        if (claimBlocked(budget, at)) fail(429, 'claim_locked');
         if (previous?.requestKey === requestKey) {
           if (previous.accountId !== accountId || previous.merchantId !== merchantId || previous.locationId !== locationId) fail(409, 'claim_unavailable');
-          if (previous.status !== 'PENDING' || previous.expiresAt <= at || previous.credentialVersion !== credential.credentialVersion
+          if (previous.proofVersion !== 2 || previous.status !== 'PENDING' || previous.expiresAt <= at || previous.credentialVersion !== credential.credentialVersion
               || previous.merchantName !== target.merchant.displayName || previous.locationName !== target.location.name) fail(409, 'claim_expired');
           claimCode(previous, pepper());
           return phone(previous); // No extension, no new code on network retry.
         }
-        if (previous?.status === 'PENDING' && previous.expiresAt > at) fail(409, 'claim_in_progress');
-        const claim = { deviceId, merchantId, accountId, locationId, requestKey,
+        if (!timingSafeEqual(Buffer.from(setupCode), Buffer.from(claimSetup(deviceId, credential.credentialVersion, at, pepper()).code))) fail(403, 'invalid_setup_code');
+        const previousBudget = previous && await DeviceClaimAttempt.findOne({ deviceId, merchantId: previous.merchantId }).session(session).lean();
+        if (previous?.proofVersion === 2 && previous.status === 'PENDING' && previous.expiresAt > at && !claimBlocked(previousBudget, at)) fail(409, 'claim_in_progress');
+        const claim = { deviceId, merchantId, accountId, locationId, requestKey, proofVersion: 2,
           merchantName: target.merchant.displayName, locationName: target.location.name,
           claimId: randomBytes(16).toString('hex'), nonce: randomBytes(32).toString('hex'),
           credentialVersion: credential.credentialVersion, expiresAt: new Date(+at + CLAIM_TTL_MS), status: 'PENDING',
           confirmedAt: null, assignmentId: null,
-          failedAttempts: previous?.failedUntil > at ? previous.failedAttempts : 0,
-          failedUntil: previous?.failedUntil > at ? previous.failedUntil : null };
+          failedAttempts: 0, failedUntil: null }; // Legacy fields no longer impose a device-wide lock.
         claimCode(claim, pepper()); // Fail closed before storing the challenge.
         await DeviceClaim.findOneAndUpdate({ deviceId }, { $set: claim }, { upsert: true, session, runValidators: true });
         return phone(claim);
@@ -86,6 +100,7 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
     async confirm(merchantId, accountId, claimId, input) {
       hex.parse(claimId);
       const { code } = claimConfirmSchema.parse(input);
+      await indexesReady();
       const result = await transaction(async session => {
         const at = now();
         const claim = await DeviceClaim.findOne({ claimId, merchantId, accountId }).select('+nonce').session(session).lean();
@@ -97,17 +112,18 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
           if (!current) fail(409, 'claim_finished');
           return phone(claim); // Lost response: return prior result, never reassign.
         }
-        if (blocked(claim, at)) fail(429, 'claim_locked');
-        if (claim.expiresAt <= at) fail(409, 'claim_expired');
+        const budget = await DeviceClaimAttempt.findOne({ deviceId: claim.deviceId, merchantId }).session(session).lean();
+        if (claimBlocked(budget, at)) fail(429, 'claim_locked');
+        if (claim.proofVersion !== 2 || claim.expiresAt <= at) fail(409, 'claim_expired');
         const credential = await ready(claim.deviceId, at, session);
         if (claim.credentialVersion !== credential.credentialVersion || claim.merchantName !== target.merchant.displayName
             || claim.locationName !== target.location.name) fail(409, 'claim_expired');
         if (!timingSafeEqual(Buffer.from(code), Buffer.from(claimCode(claim, pepper())))) {
-          const fresh = !claim.failedUntil || claim.failedUntil <= at;
-          await DeviceClaim.updateOne({ _id: claim._id }, { $set: {
-            failedAttempts: fresh ? 1 : claim.failedAttempts + 1,
-            failedUntil: fresh ? new Date(+at + 600_000) : claim.failedUntil
-          } }, { session });
+          const fresh = !budget || budget.until <= at;
+          await DeviceClaimAttempt.findOneAndUpdate({ deviceId: claim.deviceId, merchantId }, { $set: {
+            attempts: fresh ? 1 : budget.attempts + 1,
+            until: fresh ? new Date(+at + 600_000) : budget.until
+          } }, { session, upsert: true, runValidators: true });
           return { error: 'invalid_claim_code' }; // Commit attempt budget, then report failure.
         }
         const service = createMerchantDomainService({ runTransaction: work => work(session), now: () => at });

@@ -194,6 +194,7 @@ const DeviceClaimSchema = new mongoose.Schema({
   deviceId: { type: String, required: true, unique: true },
   claimId: { type: String, required: true, unique: true },
   requestKey: { type: String, required: true, select: false },
+  proofVersion: { type: Number, default: 1 },
   merchantId: { type: String, required: true },
   accountId: { type: String, required: true },
   locationId: { type: String, required: true },
@@ -207,8 +208,17 @@ const DeviceClaimSchema = new mongoose.Schema({
   failedUntil: { type: Date, default: null },
   confirmedAt: { type: Date, default: null },
   assignmentId: { type: mongoose.Schema.Types.ObjectId, default: null }
-}, { timestamps: true, collection: 'device_claims' });
+}, { timestamps: true, collection: 'device_claims', autoIndex: false, autoCreate: false });
 export const DeviceClaim = mongoose.models.DeviceClaim || mongoose.model('DeviceClaim', DeviceClaimSchema);
+
+const DeviceClaimAttemptSchema = new mongoose.Schema({
+  deviceId: { type: String, required: true },
+  merchantId: { type: String, required: true },
+  attempts: { type: Number, required: true, default: 0 },
+  until: { type: Date, required: true }
+}, { timestamps: true, collection: 'device_claim_attempts', autoIndex: false, autoCreate: false });
+DeviceClaimAttemptSchema.index({ deviceId: 1, merchantId: 1 }, { unique: true });
+export const DeviceClaimAttempt = mongoose.models.DeviceClaimAttempt || mongoose.model('DeviceClaimAttempt', DeviceClaimAttemptSchema);
 
 const ReservationSchema = new mongoose.Schema({
   reservationId: { type: String, required: true, unique: true },

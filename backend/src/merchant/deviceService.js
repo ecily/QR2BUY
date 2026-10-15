@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { DeviceApiError, verifyCredential } from './deviceCredentials.js';
 import { createDeviceRepository } from './deviceRepository.js';
 import { bindingCode } from './binding.js';
-import { claimCode, claimCapable } from './deviceClaims.js';
+import { claimCode, claimCapable, claimSetup, claimBlocked, claimNameSupported } from './deviceClaims.js';
 import { checkoutConfigured } from './purchases.js';
 
 export const deviceOnline = (device, at = new Date()) => !!device.lastSeenAt
@@ -49,15 +49,18 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         const assignment = await read.assignment(device.deviceId);
         if (!assignment && device.status === 'PROVISIONED' && claimCapable(firmwareVersion)) {
           const claim = await read.claim?.(device.deviceId);
-          if (claim && claim.expiresAt > at && claim.credentialVersion === auth.version
-              && !(claim.failedUntil > at && claim.failedAttempts >= 5)) {
+          const budget = claim && await read.claimBudget?.(device.deviceId, claim.merchantId);
+          if (claim?.proofVersion === 2 && claim.expiresAt > at && claim.credentialVersion === auth.version
+              && !claimBlocked(budget, at)) {
             const merchant = await read.merchant(claim.merchantId), location = await read.location(claim.locationId);
             if (merchant?.status === 'ACTIVE' && location?.status === 'ACTIVE' && location.merchantId === claim.merchantId
-                && merchant.displayName === claim.merchantName && location.name === claim.locationName)
+                && merchant.displayName === claim.merchantName && location.name === claim.locationName
+                && claimNameSupported(claim.merchantName) && claimNameSupported(claim.locationName))
               return { device, config: { ...unassigned, claimPreview: { claimId: claim.claimId,
                 merchantName: claim.merchantName, locationName: claim.locationName,
                 expiresAt: Math.floor(+new Date(claim.expiresAt) / 1000), code: claimCode(claim, pepper()) } } };
           }
+          return { device, config: { ...unassigned, claimSetup: claimSetup(device.deviceId, auth.version, at, pepper()) } };
         }
         if (!assignment || new Date(assignment.validFrom) > at || (assignment.validUntil && new Date(assignment.validUntil) <= at)) return { config: unassigned, device };
         const display = await read.display(device.deviceId);

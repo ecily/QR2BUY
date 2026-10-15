@@ -12,7 +12,7 @@ for (const lang of ['de','en']) for(const width of [320,430]) test(`initial clai
     else if(path==='/api/merchant/device-claims'){
       const body=r.postDataJSON();writes.push(body);expect(r.headers()['x-csrf-token']).toBe('test-only-csrf');
       expect(body.deviceId).toBe('QR2B-000003');expect(body.locationId).toBe('LA');expect(body.requestKey).toMatch(/^[a-f0-9]{32}$/);
-      expect(Object.keys(body).sort()).toEqual(['deviceId','locationId','requestKey']);
+      expect(Object.keys(body).sort()).toEqual(['deviceId','locationId','requestKey','setupCode']);
       if(fail){fail=false;await route.abort();return;}
       json={ok:true,deviceId:body.deviceId,locationId:body.locationId,claimId:'a'.repeat(32),status:'PENDING',expiresAt:new Date(Date.now()+120000).toISOString()};
     }else if(path==='/api/merchant/device-claims/'+'a'.repeat(32)+'/confirm'){
@@ -26,6 +26,7 @@ for (const lang of ['de','en']) for(const width of [320,430]) test(`initial clai
   await expect(start).toBeDisabled();
   await form.getByLabel(lang==='de'?'Geräte-ID':'Device ID',{exact:true}).fill('QR2B-000003');
   await form.getByLabel(lang==='de'?'Standort':'Location',{exact:true}).selectOption('LA');
+  await form.getByLabel(lang==='de'?'Setupcode auf dem Schild (32 Zeichen)':'Setup code on the display (32 characters)',{exact:true}).fill('b'.repeat(32));
   expect(writes).toHaveLength(0);await start.click();await expect(form.getByRole('alert')).toBeVisible();await start.click();
   expect(writes).toHaveLength(2);expect(writes[0]).toEqual(writes[1]);
   const confirm=form.getByRole('button',{name:lang==='de'?'Schild diesem Standort zuordnen':'Assign display to this location'});

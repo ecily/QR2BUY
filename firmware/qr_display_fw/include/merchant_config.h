@@ -9,6 +9,7 @@ struct MerchantConfig {
   bool assigned = false;
   bool preview = false;
   bool claim = false;
+  bool setup = false;
   std::string claimMerchant, claimLocation;
   std::string previewCode;
   int64_t previewExpiresAt = 0;
@@ -23,6 +24,17 @@ inline bool merchantStatus(const std::string& s) {
 }
 inline bool lowerHex(const std::string& s, size_t length) {
   return s.size() == length && s.find_first_not_of("0123456789abcdef") == std::string::npos;
+}
+inline bool claimDisplayName(const std::string& text) {
+  if (text.empty() || text.size() > 64 || text.front() == ' ' || text.back() == ' ') return false;
+  for (size_t i = 0; i < text.size(); ++i) {
+    const unsigned char c = text[i];
+    if (c >= 32 && c <= 126) continue;
+    if (c != 0xc3 || ++i >= text.size()) return false;
+    const unsigned char next = text[i];
+    if (next != 0x84 && next != 0x96 && next != 0x9c && next != 0xa4 && next != 0xb6 && next != 0xbc) return false;
+  }
+  return true;
 }
 inline bool merchantPrice(int64_t minor, const std::string& currency, std::string& text) {
   if (minor < 0 || minor > 999999999) return false;
@@ -46,6 +58,16 @@ inline bool parseMerchantConfig(const std::string& body, const std::string& devi
       || !doc["deviceId"].is<const char*>() || doc["deviceId"].as<std::string>() != deviceId) return false;
   MerchantConfig result;
   result.assigned = doc["assigned"].as<bool>();
+  if (!doc["claimSetup"].isNull()) {
+    auto setup = doc["claimSetup"].as<JsonObjectConst>();
+    if (result.assigned || !doc["bindingPreview"].isNull() || !doc["claimPreview"].isNull()
+        || !doc["product"].isNull() || !doc["offer"].isNull() || !doc["display"].isNull()
+        || !setup["code"].is<const char*>() || !setup["expiresAt"].is<int64_t>()) return false;
+    result.previewCode = setup["code"].as<std::string>();
+    result.previewExpiresAt = setup["expiresAt"].as<int64_t>();
+    if (!lowerHex(result.previewCode, 32) || result.previewExpiresAt < 1700000000LL || result.previewExpiresAt > 4102444800LL) return false;
+    result.setup = true; result.status = "CLAIM_SETUP"; output = result; return true;
+  }
   if (!doc["claimPreview"].isNull()) {
     auto claim = doc["claimPreview"].as<JsonObjectConst>();
     if (result.assigned || !doc["bindingPreview"].isNull() || !doc["product"].isNull()
@@ -58,8 +80,7 @@ inline bool parseMerchantConfig(const std::string& body, const std::string& devi
     result.claimLocation = claim["locationName"].as<std::string>();
     result.previewCode = claim["code"].as<std::string>();
     result.previewExpiresAt = claim["expiresAt"].as<int64_t>();
-    if (!lowerHex(result.eventVersion, 32) || result.claimMerchant.empty() || result.claimMerchant.size() > 256
-        || result.claimLocation.empty() || result.claimLocation.size() > 256
+    if (!lowerHex(result.eventVersion, 32) || !claimDisplayName(result.claimMerchant) || !claimDisplayName(result.claimLocation)
         || result.previewCode.size() != 6 || result.previewCode.find_first_not_of("0123456789") != std::string::npos
         || result.previewExpiresAt < 1700000000LL || result.previewExpiresAt > 4102444800LL) return false;
     result.claim = true;

@@ -18,6 +18,20 @@ bool parse(const std::string& body, MerchantConfig& c) {
   return parseMerchantConfig(body, "QR2B-000001", "https://qr2buy.com", c);
 }
 int main() {
+  assert(claimDisplayName("ecily.com"));assert(claimDisplayName(u8"\u00c4\u00d6\u00dc \u00e4\u00f6\u00fc"));
+  assert(claimDisplayName(std::string(64,'x')));assert(!claimDisplayName(std::string(65,'x')));
+  for(const auto name : {"", " A", "A ", "A\nB", u8"Caf\u00e9", u8"\u00df", u8"\u5546\u5e97", u8"a\u0308", u8"a\u202eB"}) assert(!claimDisplayName(name));
+  {
+    const std::string valid=R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimSetup":{"code":"abcdef0123456789abcdef0123456789","expiresAt":1900000000}})";
+    MerchantConfig setup;assert(parse(valid,setup));assert(setup.setup && !setup.claim && !setup.assigned && setup.qr.empty());
+    for(const auto key : {"code", "expiresAt", "assigned", "claimPreview"}) {
+      JsonDocument d;deserializeJson(d,valid);
+      if(std::string(key)=="assigned")d[key]=true;
+      else if(std::string(key)=="claimPreview")d[key]["claimId"]="bad";
+      else d["claimSetup"][key]="bad";
+      std::string body;serializeJson(d,body);assert(!parse(body,setup));
+    }
+  }
   {
     const std::string valid = R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimPreview":{"claimId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","merchantName":"Merchant A","locationName":"Window A","code":"123456","expiresAt":1900000000}})";
     MerchantConfig claim;
