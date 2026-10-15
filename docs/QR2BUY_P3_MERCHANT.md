@@ -1,5 +1,15 @@
 # Prototyp 3 – Merchant-Vorbereitung, 15. Oktober 2026
 
+## CURRENT - Achtstelliger Setupcode: Sicherheits-Gate BLOCKED (15. Oktober 2026)
+
+Validierung dieses lokalen Checkpoints: Backend **286/286**, Frontend **65/65**, gezielte Claim-/Recovery-Browsertests **10/10**, Firmware-/C++-Hosttests **32/32** PASS; Logging und reproduzierbarer Rollback in den Backendtests enthalten. Nur Test und Dokumentation geaendert. Wegen Sicherheits-STOP keine neue Firmware, keine drei Merchant-Neubauten und keine vollstaendige Browser-/Produktionsbuild-Freigabe fuer einen achtstelligen Vertrag; dieser existiert nicht.
+
+Globale Anforderung fuer alle Schilder aufgenommen, aber gemaess ausdruecklicher Sicherheits-STOP-Regel nicht implementiert: frei registrierbare Haendler erlauben unbegrenzt vervielfachte Ratekontingente. Ein geraeteweites Fehlversuchslimit wuerde dagegen Fremd-Lockout ermoeglichen. Der 32-Hex-/128-Bit-Vertrag, Firmware 0.3.12 und Rollback 3d9cb86 bleiben unveraendert; achtstellige Eingaben scheitern geschlossen. Separater sechsstelliger Bestaetigungsschritt bleibt unveraendert.
+
+Verbindliche Analyse, quantitative Angriffsannahmen, neuer isolierter Mehrhaendler-Test, vorgeschlagene unabhaengige Operator-Freigabe pro Haendler/Geraet und notwendige Protokoll-/Rollbackgrenzen: siehe [QR2BUY_DEVICE_FIRST_ASSIGNMENT.md](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md), oberster CURRENT-Abschnitt. Alternative benoetigt eine explizite Produkt-/Sicherheitsentscheidung und ist nicht implementiert. NO-GO fuer die Codeverkuerzung ohne diesen Nachweis; keine Deployment-/Flashfreigabe.
+
+Rein lesend bestaetigt: Deployment 9073d75d ACTIVE, beide Komponenten c9aefac, Health 200, Indizes 3/3; P1/P2 0.3.11/ACTIVE/READY, P3 0.3.12/PROVISIONED/ungebunden und Credential v1 ACTIVE. Audit ohne mutierende Mongo-Befehle. Aelterer Flash-Baselinevergleich meldet externe Unterschiede in merchant_accounts, merchant_products und merchant_sessions; deren Ursache ist nicht geprueft, kein behaupteter vollstaendiger Bestandsgleichstand. Keine Geraete, Credentials oder produktiven Daten durch diesen Auftrag geaendert.
+
 ## CURRENT - P3 Firmware 0.3.12 geflasht und Grundanzeige abgenommen (15. Oktober 2026)
 
 Ausdrueckliche Flashfreigabe ausschliesslich fuer Device 3 umgesetzt. Ausgangsbranch wip/p3-merchant-integration, Buildquellcommit **caf4bffe8bcab09d4fc06f02c84403981e56e125**. P3 **QR2B-000003**, ESP32-D0WD-V3 Rev.3.1, MAC **f4:2d:c9:6b:c2:90**, jetzt produktiv Firmware **0.3.12**, Status weiterhin **PROVISIONED/ungebunden**, unveraendertes eigenes Credential **v1 ACTIVE**. Keine Claim-Challenge, Haendler-/Standort-/Produktzuordnung oder Transaktion ausgefuehrt.

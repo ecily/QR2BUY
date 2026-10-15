@@ -49,6 +49,32 @@ test('initial device claims: isolated replica set, authenticated portal and phys
     const start = (key='1', merchant='A') => claims.start(merchant,merchant,{deviceId:id,locationId:'L'+merchant,setupCode:setup(),requestKey:key.repeat(32)});
     const shown = async (version='0.3.12') => (await devices.config(auth[3],version)).claimPreview;
     const finish = (p,code,merchant='A') => claims.confirm(merchant,merchant,p.claimId,{code});
+    await t.test('short-code migration gate: eight digits fail closed; distributed invalid proofs cannot suppress the owner', async () => {
+      for (const setupCode of ['00000000', '12345678']) {
+        await assert.rejects(claims.start('A', 'A', { deviceId: id, locationId: 'LA', requestKey: 'e'.repeat(32), setupCode }),
+          error => error.name === 'ZodError');
+      }
+      const invalidProof = (setup()[0] === '0' ? '1' : '0') + setup().slice(1);
+      // Synthetic independent merchants, not extra sessions of a single merchant.
+      for (let i = 0; i < 4; i++) {
+        const merchantId = `attack-${i}`;
+        await m.Merchant.create({ merchantId, displayName: 'Synthetic attacker', contactEmail: `${merchantId}@example.invalid` });
+        await m.Location.create({ merchantId, locationId: merchantId, name: 'Synthetic location' });
+        await MerchantAccount.create({ merchantId, accountId: merchantId, email: `${merchantId}@example.invalid`, passwordHash: 'test-only-unused' });
+        for (let cycle = 0; cycle < 2; cycle++) {
+          for (let attempt = 0; attempt < 3; attempt++) {
+            await reject(claims.start(merchantId, merchantId, { deviceId: id, locationId: merchantId,
+              requestKey: (i * 6 + cycle * 3 + attempt).toString(16).padStart(32, '0'), setupCode: invalidProof }), 'invalid_setup_code');
+          }
+        }
+      }
+      assert.equal(await m.DeviceClaim.countDocuments({ deviceId: id }), 0);
+      assert.equal(await m.DeviceMerchantAssignment.countDocuments({ deviceId: id }), 0);
+      const pending = await start('e');
+      assert.equal(pending.status, 'PENDING');
+      await m.DeviceClaim.deleteOne({ deviceId: id }); // Isolated fixture only.
+      assert.equal(await snapshot(), before);
+    });
     await t.test('foreign location, role, assigned devices, old firmware and missing pepper fail closed',async()=>{
       await reject(claims.start('A','A',{deviceId:id,locationId:'LB',setupCode:setup(),requestKey:'a'.repeat(32)}),'claim_forbidden');
       await reject(claims.start('A','B',{deviceId:id,locationId:'LA',setupCode:setup(),requestKey:'a'.repeat(32)}),'claim_forbidden');
