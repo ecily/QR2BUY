@@ -1,5 +1,19 @@
 # qr2buy.com – operativer Projektkontext
 
+## CURRENT - Rollback mit Loggingfix verifiziert (15. Oktober 2026)
+
+Aktueller lokaler Rollbackbranch rollback/p01-firmware-0312: **3d9cb86be9e9e57c58f5a62d6a2b14e9b71afb4a**. Ersetzt fuer jeden kuenftigen Rueckzug das historische Ziel 6d13148; unveraendertes 502d539 bleibt ungeeignet fuer 0.3.12. Basis weiterhin 502d5391d61b306f34c242d2b372c173dfc7bb2d. Arbeitsbranch wip/p3-merchant-integration, Ausgangsstand c5519b3. Nur lokale Aenderungen und isolierte Tests; keine produktiven Zugriffe/Datenaenderungen, kein Push/Merge/Deployment/Flash.
+
+- Uebernommen aus 8054116: zentrale sichere URL-Redaktion, keine Querystrings/dynamischen Werte in Logs, sichere HTTP-/Checkout-Fehlerlogs, synthetische Loggingregression. Keine Claim-/Setupfunktion im Rollback. Gegen 6d13148 ausschliesslich index.js, routes/checkout.js und zwei Testdateien geaendert; Auth, Credentialmodell, Bindings und 0.3.11/0.3.12-Freigaben unveraendert.
+- Isoliertes Mongo mit exakt den drei produktiven Claim-Unique-Indizes: alte Geraeteoperationen sowie 0.3.11/0.3.12-Polling funktionieren; synthetische bestehende Claim-Audits, Haendlersperrzaehler und Indexdefinitionen bleiben unveraendert. Keine produktiven Testdokumente oder DDL.
+- Reproduzierbarer kompletter Git-Baum: 3a5852e141b3146f76c96cefc8acae2ac5f9caf6. Patch-SHA256: 04950cff2621c769475c4509098346939a76c4604a8eeb5990d71035367b7961. Patch/Manifest unter backend/rollback/p01-firmware-0312.* aktualisiert, kanonisches LF. Manifest enthaelt zusaetzlich SHA256 fuer alle sechs gegen Basis geaenderten Dateien. Test rekonstruiert exakten Baum mit separatem Git-Index, prueft Dateiumfang/Hashes, bytegleiche Loggingquellen und unveraenderte Auth-/Repository-/Modellquellen gegen Basis. Keine Dependency-/Lockfileaenderung.
+- Kompatibilitaetsmatrix: CS5/NOCS, Firmware 0.3.11/0.3.12, READY/RESERVED/OUT_OF_STOCK/SOLD/PAUSED/CHECKOUT_STARTED/PAID, Notify an/aus, Authfehler und neutral PROVISIONED ohne Produkt. Echte Rollback-Servicequelle gegen aktuellen Service geprueft; 0.3.12-neutral faellt bei Rueckzug bewusst auf assigned=false statt Setup zurueck.
+- Tests: vollstaendige Backendtestsuite direkt auf Rollbackbranch PASS (Exit 0); Mongo-Indexerhaltung 7/7; gezielte Logging-/Device-/Mongo-/Rollbacktests auf Arbeitsbranch 29/29 PASS. Vollstaendige Backendregression des Arbeitsbranches ebenfalls PASS (npm test -- --test-reporter=dot, Exit 0). Keine Skips im gezielten Lauf.
+
+Die drei produktiven Claim-Unique-Indizes sind laut bestaetigtem Indexanlagecheckpoint c5519b3 vorhanden; kein erneuter Livezugriff in diesem Auftrag. Indizes/Audits/Credentials/Assignments bleiben beim Rollback erhalten, keine Datenbankruecksetzung. Rueckzugsreihenfolge: Claim-UI zuerst zuruecknehmen, laufende/unklare Requests kontrolliert auswerten und gegebenenfalls Challenge-TTL abwarten, dann Backend auf obigen neuen Rollbackcommit. Kein automatischer Firmware-Downgrade oder Credentialwechsel.
+
+**GO nur fuer abschliessendes Deployment-Review**, keine Deployment-/Flash-/Erstzuordnungsfreigabe. Neue 0.3.12-Screens und physischer Claimablauf bleiben offen; globale Transfer-/Release-/Commerce-Isolation ist weiterhin gesonderter Scope. Aeltere Zeitpunkte und Commitangaben unten sind Historie; dieser Checkpoint ist fuer das Rollbackziel verbindlich.
+
 Stand: 15. Oktober 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
 
 ## Globale verbindliche Produktanforderung: vollständige Wiederverwendbarkeit aller Schilder

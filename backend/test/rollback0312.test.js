@@ -23,7 +23,23 @@ test('exact reproducible rollback tree preserves 0.3.11/0.3.12 device contracts 
     git(['read-tree',metadata.base]);
     execFileSync('git',['apply','--cached','--unidiff-zero','--whitespace=error','-'],{cwd:root,env,input:patch});
     const tree=git(['write-tree']).trim();assert.equal(tree,metadata.tree);
-    assert.deepEqual(git(['diff','--name-only',metadata.base,tree]).trim().split('\n'),['backend/src/merchant/binding.js','backend/src/merchant/deviceService.js']);
+    assert.deepEqual(git(['diff','--name-only',metadata.base,tree]).trim().split('\n'),[
+      'backend/src/index.js', 'backend/src/merchant/binding.js', 'backend/src/merchant/deviceService.js',
+      'backend/src/routes/checkout.js', 'backend/test/deviceLogging.test.js', 'backend/test/merchantMongo.integration.test.js'
+    ]);
+    assert.deepEqual(Object.keys(metadata.filesSha256).sort(), git(['diff','--name-only',metadata.base,tree]).trim().split('\n').sort());
+    for (const [path, expected] of Object.entries(metadata.filesSha256)) {
+      assert.equal(createHash('sha256').update(git(['show',tree+':'+path])).digest('hex'), expected);
+    }
+    // Logging is byte-identical to the reviewed fix; no claim route or auth change enters rollback.
+    for (const path of ['src/index.js', 'src/routes/checkout.js', 'test/deviceLogging.test.js']) {
+      assert.equal(git(['show',tree+':backend/'+path]), readFileSync(new URL('../'+path,import.meta.url),'utf8').replaceAll('\r\n','\n'));
+    }
+    for (const path of ['deviceCredentials.js', 'deviceRepository.js', 'models.js']) {
+      assert.equal(git(['show',tree+':backend/src/merchant/'+path]),git(['show',metadata.base+':backend/src/merchant/'+path]));
+    }
+    const indexedMongoTest=git(['show',tree+':backend/test/merchantMongo.integration.test.js']);
+    assert(indexedMongoTest.includes('existing claim Unique indexes and audit/budget documents survive legacy device operations'));
     assert(!git(['show',tree+':backend/src/routes/merchantPortal.js']).includes('/device-claims'));
     const binding=git(['show',tree+':backend/src/merchant/binding.js']);
     assert.equal(binding,readFileSync(new URL('../src/merchant/binding.js',import.meta.url),'utf8').replaceAll('\r\n','\n'));
