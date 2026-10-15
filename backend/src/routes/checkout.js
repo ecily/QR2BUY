@@ -179,7 +179,7 @@ router.get('/verify', async (req, res) => {
 
     return res.json({ ok: true, mode: 'verify', productId: result.productId, deviceId: result.deviceId });
   } catch (err) {
-    console.error('[verify] error', err);
+    console.error('[verify] request failed');
     return res.status(500).json({ ok: false, error: 'verify failed' });
   }
 });

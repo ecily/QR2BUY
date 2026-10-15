@@ -26,6 +26,18 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
     await mongoose.connect(uri, { monitorCommands: true });
     assert.equal(mongoose.connection.name, dbName);
     await Promise.all([ManagedDevice, DeviceCredential, Merchant, Location, MerchantProduct, Offer, DeviceMerchantAssignment, DisplayAssignment].map(Model => Model.init()));
+    // Rollback must preserve post-P0.1 collections and exact production index definitions.
+    const claimCollections = ['device_claims', 'device_claim_attempts'];
+    await mongoose.connection.db.collection('device_claims').createIndex({ deviceId: 1 }, { name: 'deviceId_1', unique: true, collation: { locale: 'simple' } });
+    await mongoose.connection.db.collection('device_claims').createIndex({ claimId: 1 }, { name: 'claimId_1', unique: true, collation: { locale: 'simple' } });
+    await mongoose.connection.db.collection('device_claim_attempts').createIndex({ deviceId: 1, merchantId: 1 }, { name: 'deviceId_1_merchantId_1', unique: true, collation: { locale: 'simple' } });
+    await mongoose.connection.db.collection('device_claims').insertOne({ deviceId: 'QR2B-999999', claimId: 'synthetic-audit', status: 'CONFIRMED' });
+    await mongoose.connection.db.collection('device_claim_attempts').insertOne({ deviceId: 'QR2B-999999', merchantId: 'TEST-OLD', attempts: 5 });
+    const claimSnapshot = async () => Promise.all(claimCollections.map(async name => ({
+      documents: await mongoose.connection.db.collection(name).find({}).sort({ _id: 1 }).toArray(),
+      indexes: await mongoose.connection.db.collection(name).listIndexes().toArray()
+    })));
+    const claimsBefore = await claimSnapshot();
     let at = new Date();
     const now = () => at;
     const pepper = randomBytes(32).toString('hex');
@@ -173,6 +185,13 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
       await DisplayAssignment.updateOne({ deviceId: ids[0], status: 'ACTIVE' }, { $set: { status: 'ENDED', endedAt: at } });
       assert.equal((await service.config(auth[0])).assigned, false);
       assert.equal((await service.config(auth[1])).assigned, true);
+    });
+    await t.test('existing claim Unique indexes and audit/budget documents survive legacy device operations', async () => {
+      assert.deepEqual(await claimSnapshot(), claimsBefore);
+      for (const firmware of ['0.3.11', '0.3.12']) for (const credential of auth) {
+        assert.equal((await getConfig(credential, firmware)).status, 200);
+      }
+      assert.deepEqual(await claimSnapshot(), claimsBefore);
     });
   } finally {
     if (server) await new Promise(resolve => server.close(resolve));

@@ -65,15 +65,28 @@ const logger = pino({
   }
 });
 
+// Fail closed: log known static routes, never query strings or arbitrary path values.
 function sanitizeRequestUrl(url = '') {
-  if (String(url).startsWith('/api/purchases') || String(url).startsWith('/buy/')) return '/api/purchases/[REDACTED]';
-  if (String(url).startsWith('/api/notify') || String(url).startsWith('/notify/')) return '/notify/[REDACTED]';
-  if (String(url).startsWith('/api/reservations')) return '/api/reservations/[REDACTED]';
-  if (String(url).startsWith('/api/merchant/reservations')) return '/api/merchant/reservations/[REDACTED]';
-  if (String(url).startsWith('/api/device/') || String(url).startsWith('/api/binding/')) return String(url).split('?')[0];
-  return String(url)
-    .replace(/(\/api\/demo\/sessions\/)[^/?#]+/g, '$1[SESSION]')
-    .replace(/([?&]session=)[^&#]+/g, '$1[SESSION]');
+  let pathname = String(url).split(/[?#]/, 1)[0];
+  try {
+    for (let i = 0; i < 4 && pathname.includes('%'); i++) pathname = decodeURIComponent(pathname);
+  } catch { return '/[REDACTED]'; }
+  if (pathname.includes('%') || /[\\\x00-\x20\x7f]/.test(pathname) || !pathname.startsWith('/') || pathname.startsWith('//'))
+    return '/[REDACTED]';
+  pathname = pathname.toLowerCase().replace(/\/+/g, '/').replace(/\/$/, '') || '/';
+  if (pathname.split('/').some(part => part === '.' || part === '..')) return '/[REDACTED]';
+  for (const [prefix, label] of [
+    ['/api/merchant/device-claims', '/api/merchant/device-claims'],
+    ['/api/merchant/reservations', '/api/merchant/reservations'],
+    ['/api/purchases', '/api/purchases'], ['/buy', '/api/purchases'],
+    ['/api/notify', '/notify'], ['/notify', '/notify'],
+    ['/api/reservations', '/api/reservations'],
+    ['/api/demo/sessions', '/api/demo/sessions'], ['/api/binding', '/api/binding']
+  ]) if (pathname === prefix || pathname.startsWith(prefix + '/')) return label + '/[REDACTED]';
+  if (['/', '/health', '/healthz', '/api/health', '/api/device/config', '/api/config',
+    '/api/merchant-auth/login', '/api/merchant-auth/logout', '/api/merchant-auth/me',
+    '/api/merchant/devices', '/api/merchant/products', '/api/merchant/locations'].includes(pathname)) return pathname;
+  return '/[REDACTED]';
 }
 
 /* ───────────────── App & Middleware ───────────────── */
@@ -92,7 +105,8 @@ app.use(
         host: req.headers?.host,
         remoteAddress: req.socket?.remoteAddress
       }),
-      res: (res) => ({ statusCode: res.statusCode })
+      res: (res) => ({ statusCode: res.statusCode }),
+      err: () => ({ type: 'HttpError', message: 'request failed' })
     },
     customLogLevel: (_req, res, err) => {
       if (err || res.statusCode >= 500) return 'error';
@@ -193,7 +207,7 @@ app.use((_req, res) => res.status(404).json({ ok: false, error: 'Not Found' }));
 
 /* Error Handler */
 app.use((err, _req, res, _next) => {
-  logger.error({ msg: '[http] unhandled', err: err.message, stack: err.stack });
+  logger.error({ msg: '[http] unhandled', statusCode: 500 });
   res.status(500).json({ ok: false, error: 'Internal Server Error' });
 });
 
