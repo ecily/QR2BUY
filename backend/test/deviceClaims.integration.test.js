@@ -14,6 +14,7 @@ import { createDeviceService } from '../src/merchant/deviceService.js';
 import { createCredentialService } from '../src/merchant/deviceCredentials.js';
 import { verifyClaimIndexes } from '../src/merchant/claimIndexes.js';
 import { createClaimAuthorizationRouter } from '../src/routes/claimAuthorizations.js';
+import { readClaimAuthorizationOptions } from '../src/merchant/claimAuthorizationRead.js';
 
 const key = () => randomBytes(16).toString('hex');
 test('authorized first assignment: isolated replica set, short proof and unchanged identities', { timeout: 180000 }, async t => {
@@ -59,7 +60,7 @@ test('authorized first assignment: isolated replica set, short proof and unchang
     await t.test('operator auth, CSRF, JSON, origin and query gates cannot be bypassed by merchant role',async()=>{
       process.env.ADMIN_USER='synthetic-admin'; process.env.ADMIN_PASS='synthetic-password';process.env.PUBLIC_BASE_URL='https://example.invalid';
       let calls=0;
-      const app=express();app.use(express.json());app.use('/admin',createClaimAuthorizationRouter({issue:async actor=>{calls++;assert.equal(actor,'synthetic-admin');return {ok:true};},revoke:async()=>({ok:true})}));
+      const app=express();app.use(express.json());app.use('/admin',createClaimAuthorizationRouter({issue:async actor=>{calls++;assert.equal(actor,'synthetic-admin');return {ok:true};},revoke:async()=>({ok:true})},async()=>({ok:true,devices:[]})));
       server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
       const url='http://127.0.0.1:'+server.address().port+'/admin';
       const good={authorization:'Basic '+Buffer.from('synthetic-admin:synthetic-password').toString('base64'),'content-type':'application/json','x-qr2buy-admin-action':'claim-authorization'};
@@ -67,7 +68,31 @@ test('authorized first assignment: isolated replica set, short proof and unchang
         assert.equal((await fetch(url+path,{method:'POST',headers,body:'{}'})).status,status);
       }
       assert.equal(calls,0);assert.equal((await fetch(url,{method:'POST',headers:good,body:'{}'})).status,200);assert.equal(calls,1);
+      for (const [headers,status,path] of [[{},401,''],[{...good,authorization:'Bearer merchant-session'},401,''],[{...good,origin:'https://evil.invalid'},403,''],[{...good,'x-qr2buy-admin-action':''},400,''],[good,400,'?deviceId=QR2B-000003'],[good,200,'']]) {
+        assert.equal((await fetch(url+'/options'+path,{headers})).status,status);
+      }
+      assert.equal(calls,1); // Reads can never issue a grant.
       await new Promise(r=>server.close(r));server=null;
+    });
+    await t.test('admin selection is read-only, excludes all binding history and exposes only safe metadata',async()=>{
+      const fresh=await fixture(), old=await fixture('0.3.12'), offline=await fixture(), historic=await fixture(), noCredential=await fixture();
+      await m.ManagedDevice.updateOne({deviceId:offline.deviceId},{$set:{lastSeenAt:new Date(Date.now()-180000)}});
+      await m.DeviceCredential.updateOne({deviceId:noCredential.deviceId},{$set:{credentialStatus:'REVOKED'}});
+      await m.DeviceMerchantAssignment.create({deviceId:historic.deviceId,merchantId:'A',locationId:'LA',status:'ENDED',usageType:'PILOT',validFrom:at});
+      const grant=await issue(fresh), auditCount=await m.DeviceClaimAudit.countDocuments();
+      const readBefore=await snapshot(), first=await readClaimAuthorizationOptions();
+      assert.equal(await snapshot(),readBefore);assert.equal(await m.DeviceClaimAudit.countDocuments(),auditCount);
+      assert.ok(first.serverNow);assert.equal(first.devices.find(d=>d.deviceId===fresh.deviceId).canAuthorize,true);
+      assert.equal(first.devices.find(d=>d.deviceId===fresh.deviceId).authorization.authorizationId,grant.authorizationId);
+      for(const f of [old,offline,noCredential])assert.equal(first.devices.find(d=>d.deviceId===f.deviceId).canAuthorize,false);
+      for(const deviceId of [...protectedDevices,historic.deviceId])assert.equal(first.devices.some(d=>d.deviceId===deviceId),false);
+      assert.deepEqual(Object.keys(first.merchants[0]).sort(),['displayName','legalName','merchantId']);
+      assert.ok(!JSON.stringify(first).includes(fresh.auth.secret));
+      for(const key of ['verifier','nonce','setupCode','requestKey','actor','credentialVersion'])assert.ok(!JSON.stringify(first).includes('"'+key+'"'));
+      await grants.revoke('operator',{deviceId:fresh.deviceId,authorizationId:grant.authorizationId});
+      assert.equal((await readClaimAuthorizationOptions()).devices.find(d=>d.deviceId===fresh.deviceId).authorization.status,'REVOKED');
+      await m.DeviceClaimAuthorization.updateOne({deviceId:fresh.deviceId},{$set:{expiresAt:new Date(Date.now()-1)}});
+      assert.ok(new Date((await readClaimAuthorizationOptions()).devices.find(d=>d.deviceId===fresh.deviceId).authorization.expiresAt)<new Date());
     });
     await t.test('no authorization, legacy proof and unsupported firmware fail closed',async()=>{
       const f=await fixture();assert.equal((await config(f)).claimSetup,undefined);

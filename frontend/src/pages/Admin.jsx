@@ -1,5 +1,6 @@
 // C:\QR\frontend\src\pages\Admin.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import AdminClaimAuthorization from './AdminClaimAuthorization.jsx';
 import {
   setAdminAuth,
   adminListProducts,
@@ -17,10 +18,15 @@ function clsx(...parts) { return parts.filter(Boolean).join(" "); }
 export default function Admin() {
   /* ───────── Auth ───────── */
   const [auth, setAuth] = useState({
-    user: sessionStorage.getItem("adm_user") || "",
-    pass: sessionStorage.getItem("adm_pass") || ""
+    user: "",
+    pass: ""
   });
   const [authed, setAuthed] = useState(false);
+  useEffect(() => {
+    // Remove credentials persisted by the legacy admin page; never restore them.
+    sessionStorage.removeItem('adm_user'); sessionStorage.removeItem('adm_pass');
+    return () => setAdminAuth(null);
+  }, []);
 
   /* ───────── Data ───────── */
   const [products, setProducts] = useState([]);
@@ -54,9 +60,8 @@ export default function Admin() {
   function onAuthSave(e) {
     e?.preventDefault?.();
     setAdminAuth(auth.user, auth.pass);
-    sessionStorage.setItem("adm_user", auth.user);
-    sessionStorage.setItem("adm_pass", auth.pass);
-    setAuthed(true);
+    setAuth({ user: auth.user, pass: '' });
+    setAuthed(value => Number(value) + 1);
   }
 
   /* ───────── Handlers: Product ───────── */
@@ -254,20 +259,22 @@ export default function Admin() {
         <form onSubmit={onAuthSave} style={styles.formWide}>
           <div>
             <label style={styles.label}>Benutzer</label>
-            <input style={styles.input} value={auth.user} onChange={(e) => setAuth((s) => ({ ...s, user: e.target.value }))} />
+            <input aria-label="Adminbenutzer" autoComplete="off" style={styles.input} value={auth.user} onChange={(e) => setAuth((s) => ({ ...s, user: e.target.value }))} />
           </div>
             <div>
             <label style={styles.label}>Passwort</label>
-            <input style={styles.input} type="password" value={auth.pass}
+            <input aria-label="Adminpasswort" autoComplete="off" style={styles.input} type="password" value={auth.pass}
                    onChange={(e) => setAuth((s) => ({ ...s, pass: e.target.value }))} />
           </div>
           <div>
             <button style={styles.btn} type="submit">Login setzen</button>
+            {authed && <button type="button" style={styles.btnGhost} onClick={() => { setAdminAuth(null); setAuth({ user: '', pass: '' }); setAuthed(false); }}>Admin abmelden</button>}
             {authed && <span style={{ marginLeft: 10, color: "#16a34a", fontWeight: 600 }}>✓ aktiv</span>}
           </div>
         </form>
       </section>
 
+      {!!authed && <AdminClaimAuthorization key={authed} />}
       {/* 2-Spalten-Bereich */}
       <div style={{ ...(isWide ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } : { display: "grid", gridTemplateColumns: "1fr", gap: 16 }) }}>
         {/* Create Product */}

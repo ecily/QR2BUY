@@ -5,7 +5,24 @@ let adminAuthHeader = null;
 
 /** Optional: set Basic-Auth for /api/admin routes. */
 export function setAdminAuth(user, pass) {
-  adminAuthHeader = 'Basic ' + btoa(`${String(user)}:${String(pass)}`);
+  adminAuthHeader = user == null ? null : 'Basic ' + btoa(`${String(user)}:${String(pass)}`);
+}
+
+// Explicit operator requests only; no automatic mutation retries or credential storage.
+export async function adminClaimRequest(path = '/options', body) {
+  try {
+    return await api('binding/admin/claim-authorizations' + path, {
+      method: body ? 'POST' : 'GET', json: body, retry: 0,
+      headers: { ...(adminAuthHeader ? { Authorization: adminAuthHeader } : {}),
+        'x-qr2buy-admin-action': 'claim-authorization' }
+    }).json();
+  } catch (error) {
+    let code = 'request_uncertain';
+    if (error.response) {
+      try { code = (await error.response.json()).error || 'authorization_unavailable'; } catch { /* No raw response in UI/logs. */ }
+    }
+    throw Object.assign(new Error(code), { status: error.response?.status });
+  }
 }
 
 /** Base API client */
