@@ -42,20 +42,22 @@ export function createClaimAuthorizationService({ now = () => new Date(), transa
       if (!actor) fail(403, 'claim_forbidden');
       if (!(await checkIndexes()).ok) fail(503, 'claim_indexes_unavailable');
       return transaction(async session => {
-        const at = now(); await lock(deviceId, session);
+        await lock(deviceId, session);
         const previous = await DeviceClaimAuthorization.findOne({ deviceId }).session(session).lean();
         if (previous?.authorizationId === requestKey) {
           if (previous.merchantId !== merchantId || previous.actor !== actor) fail(409, 'authorization_conflict');
           return { ok: true, authorizationId: requestKey, status: previous.status, expiresAt: previous.expiresAt };
         }
         if (await DeviceClaimAudit.exists({ deviceId, authorizationId: requestKey, event: 'AUTHORIZED' }).session(session)) fail(409, 'authorization_replay');
-        if (previous?.nextIssueAt > at) fail(429, 'authorization_cooldown');
-        const credential = await ready(deviceId, at, session);
+        if (previous?.nextIssueAt > now()) fail(429, 'authorization_cooldown');
+        const credential = await ready(deviceId, now, session);
         if (!await Merchant.exists({ merchantId, status: 'ACTIVE' }).session(session)) fail(403, 'claim_forbidden');
+        const at = now(); // Issue the lifetime only after asynchronous eligibility checks.
         const grant = { deviceId, merchantId, authorizationId: requestKey, actor, credentialVersion: credential.credentialVersion,
           expiresAt: new Date(+at + CLAIM_TTL_MS), nextIssueAt: new Date(+at + 600_000), status: 'AUTHORIZED', attempts: 0, claimId: null };
         await DeviceClaimAuthorization.findOneAndUpdate({ deviceId }, { $set: grant }, { upsert: true, session, runValidators: true });
         await audit(grant, 'AUTHORIZED', actor, at, session);
+        deadlineOpen(grant, now);
         return { ok: true, authorizationId: requestKey, status: grant.status, expiresAt: grant.expiresAt };
       });
     },
@@ -94,22 +96,41 @@ async function scope(merchantId, accountId, locationId, session) {
     if (!claimNameSupported(name)) fail(409, 'claim_name_unsupported');
   return { merchant, location };
 }
-async function ready(deviceId, at, session) {
+async function ready(deviceId, now, session) {
   const device = await ManagedDevice.findOne({ deviceId }).session(session).lean();
   if (!device || device.status !== 'PROVISIONED'
       || await DeviceMerchantAssignment.exists({ deviceId }).session(session)
       || await DisplayAssignment.exists({ deviceId }).session(session)
       || await BindingPreview.exists({ deviceId }).session(session)) fail(409, 'device_unavailable');
-  if (!device.lastSeenAt || at - device.lastSeenAt > CLAIM_TTL_MS || device.lastSeenAt > at
-      || !claimCapable(device.firmwareVersion)) fail(409, 'device_update_required');
   const credential = await DeviceCredential.findOne({ deviceId, credentialStatus: 'ACTIVE' }).session(session).lean();
   if (!credential) fail(409, 'device_unavailable');
+  const at = now();
+  if (!device.lastSeenAt || at - device.lastSeenAt > CLAIM_TTL_MS || device.lastSeenAt > at
+      || !claimCapable(device.firmwareVersion)) fail(409, 'device_update_required');
   return credential;
 }
 async function lock(deviceId, session) {
   await ManagedDevice.updateOne({ deviceId }, { $inc: { bindingRevision: 1 } }, { session });
 }
 export function claimBlocked(budget, at) { return !!budget && budget.until > at && budget.attempts >= 5; }
+
+function deadlineOpen(grant, now, claim = grant) {
+  const at = now();
+  if (!(grant.expiresAt > at) || !(claim.expiresAt > at)) fail(409, 'claim_expired');
+  return at;
+}
+// Last write of the transaction: Mongo evaluates $$NOW when executing this statement,
+// not when the HTTP request/callback began. A late write rolls back all staged effects.
+async function timedGrantWrite(grant, status, update, session, now, claim = grant) {
+  const at = deadlineOpen(grant, now, claim);
+  const result = await DeviceClaimAuthorization.updateOne({ deviceId: grant.deviceId,
+    authorizationId: grant.authorizationId, merchantId: grant.merchantId, status,
+    expiresAt: { $gt: at },
+    $expr: { $and: [{ $gt: ['$expiresAt', '$$NOW'] }, { $lt: ['$$NOW', { $literal: claim.expiresAt }] }] }
+  }, update, { session });
+  if (result.matchedCount !== 1) fail(409, 'claim_expired');
+  deadlineOpen(grant, now, claim); // Also reject time spent awaiting the write response.
+}
 
 export function createDeviceClaimService({ now = () => new Date(), pepper = () => process.env.DEVICE_CREDENTIAL_PEPPER, transaction = bindingTransaction,
   checkIndexes = verifyClaimIndexes } = {}) {
@@ -119,7 +140,6 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
       const { deviceId, locationId, requestKey, setupCode } = claimStartSchema.parse(input);
       await indexesReady();
       const result = await transaction(async session => {
-        const at = now();
         const target = await scope(merchantId, accountId, locationId, session);
         await lock(deviceId, session);
         const previous = await DeviceClaim.findOne({ deviceId }).select('+nonce +requestKey').session(session).lean();
@@ -129,10 +149,11 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
           if (!current) fail(409, 'claim_finished');
           return phone(previous);
         }
-        const credential = await ready(deviceId, at, session);
+        const credential = await ready(deviceId, now, session);
         const grant = await DeviceClaimAuthorization.findOne({ deviceId }).session(session).lean();
-        if (!authorizationLive(grant, at) || grant.merchantId !== merchantId || grant.credentialVersion !== credential.credentialVersion) fail(403, 'claim_not_authorized');
         const budget = await DeviceClaimAttempt.findOne({ deviceId, merchantId }).session(session).lean();
+        const at = now();
+        if (!authorizationLive(grant, at) || grant.merchantId !== merchantId || grant.credentialVersion !== credential.credentialVersion) fail(403, 'claim_not_authorized');
         if (claimBlocked(budget, at)) fail(429, 'claim_locked');
         if (previous?.requestKey === requestKey) {
           if (previous.accountId !== accountId || previous.merchantId !== merchantId || previous.locationId !== locationId) fail(409, 'claim_unavailable');
@@ -145,11 +166,12 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
         if (grant.attempts >= 5) fail(429, 'claim_locked');
         const expected = claimSetup(deviceId, credential.credentialVersion, at, pepper(), grant);
         if (!expected || !timingSafeEqual(Buffer.from(setupCode), Buffer.from(expected.code))) {
-          await DeviceClaimAuthorization.updateOne({ deviceId, authorizationId: grant.authorizationId }, { $inc: { attempts: 1 } }, { session });
           await audit(grant, 'SETUP_REJECTED', accountId, at, session);
+          await timedGrantWrite(grant, 'AUTHORIZED', { $inc: { attempts: 1 } }, session, now);
           return { error: 'invalid_setup_code' };
         }
         const previousBudget = previous && await DeviceClaimAttempt.findOne({ deviceId, merchantId: previous.merchantId }).session(session).lean();
+        deadlineOpen(grant, now);
         if (previous?.proofVersion === 3 && previous.status === 'PENDING' && previous.expiresAt > at && !claimBlocked(previousBudget, at)) fail(409, 'claim_in_progress');
         const claim = { deviceId, merchantId, accountId, locationId, requestKey, proofVersion: 3, authorizationId: grant.authorizationId,
           merchantName: target.merchant.displayName, locationName: target.location.name,
@@ -159,8 +181,8 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
           failedAttempts: 0, failedUntil: null }; // Legacy fields no longer impose a device-wide lock.
         claimCode(claim, pepper()); // Fail closed before storing the challenge.
         await DeviceClaim.findOneAndUpdate({ deviceId }, { $set: claim }, { upsert: true, session, runValidators: true });
-        await DeviceClaimAuthorization.updateOne({ deviceId, authorizationId: grant.authorizationId }, { $set: { status: 'CLAIMED', claimId: claim.claimId } }, { session });
         await audit(grant, 'CLAIMED', accountId, at, session);
+        await timedGrantWrite(grant, 'AUTHORIZED', { $set: { status: 'CLAIMED', claimId: claim.claimId } }, session, now, claim);
         return phone(claim);
       });
       if (result.error) fail(403, result.error);
@@ -171,7 +193,6 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
       const { code } = claimConfirmSchema.parse(input);
       await indexesReady();
       const result = await transaction(async session => {
-        const at = now();
         const claim = await DeviceClaim.findOne({ claimId, merchantId, accountId }).select('+nonce').session(session).lean();
         if (!claim) fail(404, 'claim_not_found');
         const target = await scope(merchantId, accountId, claim.locationId, session);
@@ -182,12 +203,14 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
           return phone(claim); // Lost response: return prior result, never reassign.
         }
         const budget = await DeviceClaimAttempt.findOne({ deviceId: claim.deviceId, merchantId }).session(session).lean();
-        if (claimBlocked(budget, at)) fail(429, 'claim_locked');
         const grant = await DeviceClaimAuthorization.findOne({ deviceId: claim.deviceId }).session(session).lean();
+        const at = now();
+        if (claimBlocked(budget, at)) fail(429, 'claim_locked');
         if (claim.proofVersion !== 3 || claim.expiresAt <= at || !authorizationLive(grant, at)
           || grant.status !== 'CLAIMED' || grant.authorizationId !== claim.authorizationId || grant.claimId !== claim.claimId
           || grant.merchantId !== merchantId) fail(409, 'claim_expired');
-        const credential = await ready(claim.deviceId, at, session);
+        const credential = await ready(claim.deviceId, now, session);
+        deadlineOpen(grant, now, claim);
         if (claim.credentialVersion !== credential.credentialVersion || claim.merchantName !== target.merchant.displayName
             || claim.locationName !== target.location.name) fail(409, 'claim_expired');
         if (!timingSafeEqual(Buffer.from(code), Buffer.from(claimCode(claim, pepper())))) {
@@ -196,14 +219,15 @@ export function createDeviceClaimService({ now = () => new Date(), pepper = () =
             attempts: fresh ? 1 : budget.attempts + 1,
             until: fresh ? new Date(+at + 600_000) : budget.until
           } }, { session, upsert: true, runValidators: true });
+          await timedGrantWrite(grant, 'CLAIMED', { $set: { status: 'CLAIMED' } }, session, now, claim);
           return { error: 'invalid_claim_code' }; // Commit attempt budget, then report failure.
         }
-        const service = createMerchantDomainService({ runTransaction: work => work(session), now: () => at });
+        const service = createMerchantDomainService({ runTransaction: work => work(session), now });
         const assignment = await service.assignDeviceToMerchant({ deviceId: claim.deviceId, merchantId, locationId: claim.locationId, usageType: 'INTERNAL' });
         await ManagedDevice.updateOne({ deviceId: claim.deviceId }, { $set: { status: 'ACTIVE', activatedAt: at } }, { session });
-        await DeviceClaimAuthorization.updateOne({ deviceId: claim.deviceId, authorizationId: grant.authorizationId }, { $set: { status: 'CONSUMED' } }, { session });
         await audit(grant, 'CONSUMED', accountId, at, session);
         await DeviceClaim.updateOne({ _id: claim._id }, { $set: { status: 'CONFIRMED', assignmentId: assignment._id, confirmedAt: at } }, { session });
+        await timedGrantWrite(grant, 'CLAIMED', { $set: { status: 'CONSUMED' } }, session, now, claim);
         return phone({ ...claim, status: 'CONFIRMED' });
       });
       if (result.error) fail(400, result.error);

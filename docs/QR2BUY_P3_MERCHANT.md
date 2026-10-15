@@ -1,5 +1,13 @@
 # Prototyp 3 – Merchant-Vorbereitung, 15. Oktober 2026
 
+## CURRENT - Strikte Claim-Deadline lokal abgesichert (15. Oktober 2026)
+
+P2-Ablauffehler aus dem Sicherheitsreview auf Basis 0eb6c3f lokal behoben: keine neue Bestaetigung allein mit einem vor asynchronen Zugriffen erfassten Zeitwert. Letzter transaktionaler Freigabeuebergang prueft die Deadline strikt mit MongoDB-$$NOW und aktueller Anwendungszeit. Verspaetete Operationen rollen Assignment, Geraete-/Claimstatus und Audit vollstaendig zurueck; Gleichheit zur Deadline wird abgelehnt. Rechtzeitig abgeschlossene Vorgange bleiben nach Antwortverlust idempotent abrufbar.
+
+Schutz auch fuer Setupstart/Fehlversuche; Erteilung beginnt ihre Frist nach Eligibilitychecks. Spaete Configantworten enthalten keine bereits abgelaufenen TFT-Codes. Protokoll 3/Firmware .13, .11/.12-Verkaufsfunktionen, Credentials und Rollbackziele unveraendert. Deterministische Grenz-/Async-/Parallel-/Retry-/Antwortverlusttests auf isoliertem Mongo; Security/Logging/Rollback 32/32, Claim-/Recovery-Browser 11/11, Lint und Produktionsbuild PASS. Backend-Gesamtsuite **305/305 PASS**, Syntaxpruefungen PASS; lokaler Abschlusscommit im Ergebnisbericht.
+
+Details und Semantik des rechtzeitigen Datenbankschritts gegenueber spaeterer Netzwerk-/Commitbestaetigung: [QR2BUY_DEVICE_FIRST_ASSIGNMENT.md](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md), oberster CURRENT-Abschnitt. Releaseblocker aus dem Review (neue Collections/Index, Remotebereitstellung insbesondere .13-Rollback 687d085, physische Abnahme) bleiben offen; kein neuer produktiver Preflight in diesem Auftrag. Keine produktiven Daten-/Geraeteaenderungen, Pushes, Deployments oder Flashs. GO nur fuer erneutes Sicherheitsreview.
+
 ## CURRENT - Autorisierte Erstzuordnung mit acht Ziffern lokal implementiert (15. Oktober 2026)
 
 Lokale Abschlussvalidierung: Backend-Gesamtsuite 289/289 und gezielte Security-/Logging-/Rollbackpruefung 16/16 PASS; Frontend 65/65, volle Browserregression 91/91 plus aktualisierte Claim-/Recoveryfaelle 11/11, Firmware/C++-Hosttests 32/32, alle drei Merchant-Builds SUCCESS, Lint und Produktionsbuild PASS. Credentialheader 1/2/3 hashgleich und ignoriert; jedes .13-Binary enthaelt nur sein eigenes Device-Credential, keine Fremdcredentials. Keine echten Credentialliterale in versionierten/neuen Dateien oder Frontendassets. Neue .13-Anzeigen sind noch nicht physisch abgenommen.

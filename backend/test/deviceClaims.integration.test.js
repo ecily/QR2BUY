@@ -232,6 +232,114 @@ test('authorized first assignment: isolated replica set, short proof and unchang
       assert(['CONSUMED','REVOKED'].includes(grant.status));
       assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),grant.status==='CONSUMED'?1:0);
     });
+    async function deadlineFixture() {
+      const f=await fixture();await issue(f);const body=await input(f);
+      const pending=await claims.start('A','A',body),code=(await config(f)).claimPreview.code;
+      const grant=await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId}).lean();
+      return {...f,body,pending,code,expiresAt:grant.expiresAt};
+    }
+    async function untouched(f) {
+      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),0);
+      assert.equal((await m.ManagedDevice.findOne({deviceId:f.deviceId})).status,'PROVISIONED');
+      assert.equal((await m.DeviceClaim.findOne({deviceId:f.deviceId})).status,'PENDING');
+      assert.equal((await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).status,'CLAIMED');
+      assert.equal(await m.DeviceClaimAudit.countDocuments({deviceId:f.deviceId,event:'CONSUMED'}),0);
+    }
+    for(const offset of [-1,0,1]) await t.test(`confirmation deadline boundary ${offset}ms`,async()=>{
+      const saved=at,f=await deadlineFixture();
+      try {
+        at=new Date(+f.expiresAt+offset);
+        if(offset<0) assert.equal((await claims.confirm('A','A',f.pending.claimId,{code:f.code})).status,'CONFIRMED');
+        else {await reject(claims.confirm('A','A',f.pending.claimId,{code:f.code}),'claim_expired');await untouched(f);}
+      } finally {at=saved;}
+    });
+    for(const point of ['lock','assignment','audit','consume-response']) await t.test(`expiry during asynchronous ${point} rolls back all effects`,async()=>{
+      const saved=at,f=await deadlineFixture();at=new Date(+f.expiresAt-1);
+      const Model=point==='lock'?m.ManagedDevice:point==='assignment'?m.DeviceMerchantAssignment:point==='audit'?m.DeviceClaimAudit:m.DeviceClaimAuthorization;
+      const method=point==='assignment'||point==='audit'?'create':'updateOne',original=Model[method];let crossed=false;
+      Model[method]=async function(...args) {
+        const value=await original.apply(this,args);
+        const hit=point==='lock'?args[0].deviceId===f.deviceId&&args[1].$inc?.bindingRevision
+          :point==='assignment'?args[0][0]?.deviceId===f.deviceId
+          :point==='audit'?args[0][0]?.deviceId===f.deviceId&&args[0][0]?.event==='CONSUMED'
+          :args[0].deviceId===f.deviceId&&args[1].$set?.status==='CONSUMED';
+        if(hit){crossed=true;at=new Date(+f.expiresAt+1);}
+        return value;
+      };
+      try {await reject(claims.confirm('A','A',f.pending.claimId,{code:f.code}),'claim_expired');assert(crossed);await untouched(f);}
+      finally {Model[method]=original;at=saved;}
+    });
+    await t.test('Mongo server deadline rejects consumption even if the application clock is behind',async()=>{
+      const saved=at,f=await deadlineFixture();
+      try {
+        const expiry=new Date(1000);at=new Date(999);
+        await m.DeviceClaimAuthorization.updateOne({deviceId:f.deviceId},{$set:{expiresAt:expiry}});
+        await m.DeviceClaim.updateOne({deviceId:f.deviceId},{$set:{expiresAt:expiry}});
+        await m.ManagedDevice.updateOne({deviceId:f.deviceId},{$set:{lastSeenAt:new Date(0)}});
+        await reject(claims.confirm('A','A',f.pending.claimId,{code:f.code}),'claim_expired');await untouched(f);
+      } finally {at=saved;}
+    });
+    for(const offset of [-1,0]) await t.test(`parallel confirmations at deadline ${offset}ms`,async()=>{
+      const saved=at,f=await deadlineFixture();
+      try {
+        at=new Date(+f.expiresAt+offset);
+        const results=await Promise.allSettled(Array.from({length:4},()=>claims.confirm('A','A',f.pending.claimId,{code:f.code})));
+        if(offset<0){assert(results.every(r=>r.status==='fulfilled'&&r.value.status==='CONFIRMED'));assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),1);}
+        else {assert(results.every(r=>r.status==='rejected'&&r.reason.code==='claim_expired'));await untouched(f);}
+      } finally {at=saved;}
+    });
+    await t.test('lost response after timely commit resumes after expiry without a second consumption',async()=>{
+      const saved=at,f=await deadlineFixture();at=new Date(+f.expiresAt-1);
+      const uncertain=createDeviceClaimService({now,pepper,transaction:async work=>{
+        await bindingTransaction(work);at=new Date(+f.expiresAt+1000);throw Error('synthetic lost confirmation response');
+      }});
+      try {
+        await assert.rejects(uncertain.confirm('A','A',f.pending.claimId,{code:f.code}),/synthetic lost confirmation response/);
+        assert.equal((await claims.confirm('A','A',f.pending.claimId,{code:f.code})).status,'CONFIRMED');
+        assert.equal((await claims.start('A','A',f.body)).status,'CONFIRMED');
+        assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),1);
+        assert.equal(await m.DeviceClaimAudit.countDocuments({deviceId:f.deviceId,event:'CONSUMED'}),1);
+      } finally {at=saved;}
+    });
+    await t.test('a transient transaction retry rechecks the deadline and cannot retain staged success',async()=>{
+      const saved=at,f=await deadlineFixture();at=new Date(+f.expiresAt-1);let attempts=0;
+      const retrying=createDeviceClaimService({now,pepper,transaction:work=>bindingTransaction(async session=>{
+        attempts++;
+        const value=await work(session);
+        if(attempts===1) {
+          at=new Date(+f.expiresAt);
+          const error=new mongoose.mongo.MongoServerError({message:'synthetic transaction retry',code:112});
+          error.addErrorLabel('TransientTransactionError');throw error;
+        }
+        return value;
+      })});
+      try {await reject(retrying.confirm('A','A',f.pending.claimId,{code:f.code}),'claim_expired');assert.equal(attempts,2);await untouched(f);}
+      finally {at=saved;}
+    });
+    for(const event of ['AUTHORIZED','CLAIMED','SETUP_REJECTED']) await t.test(`expiry during ${event} audit cannot publish an expired grant or start`,async()=>{
+      const saved=at,f=await fixture();let body,expiry;
+      if(event!=='AUTHORIZED'){await issue(f);body=await input(f);expiry=(await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).expiresAt;}
+      const original=m.DeviceClaimAudit.create;
+      m.DeviceClaimAudit.create=async function(rows,...args){const value=await original.call(this,rows,...args);if(rows[0]?.deviceId===f.deviceId&&rows[0].event===event)at=new Date(event==='AUTHORIZED'?+at+120001:+expiry+1);return value;};
+      try {
+        const operation=event==='AUTHORIZED'?issue(f):claims.start('A','A',event==='SETUP_REJECTED'?{...body,setupCode:wrong(body.setupCode)}:body);
+        await reject(operation,'claim_expired');
+        assert.equal(await m.DeviceClaim.countDocuments({deviceId:f.deviceId}),0);
+        assert.equal(await m.DeviceClaimAudit.countDocuments({deviceId:f.deviceId,event}),0);
+        const grant=await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId});
+        if(event==='AUTHORIZED')assert.equal(grant,null);else {assert.equal(grant.status,'AUTHORIZED');assert.equal(grant.attempts,0);}
+      } finally {m.DeviceClaimAudit.create=original;at=saved;}
+    });
+    await t.test('late config response omits an expired TFT proof',async()=>{
+      const saved=at,f=await deadlineFixture();
+      // Use the real snapshot read, but let its response cross the local deadline.
+      const {createDeviceRepository}=await import('../src/merchant/deviceRepository.js');
+      const repository=createDeviceRepository(),snapshot=repository.snapshot;
+      repository.snapshot=async work=>{const value=await snapshot(work);at=new Date(+f.expiresAt+1);return value;};
+      try {assert.deepEqual(await createDeviceService({now,pepper,repository}).config(f.auth,'0.3.13'),{ok:true,deviceId:f.deviceId,assigned:false});}
+      finally {at=saved;}
+    });
+    assert.equal(await snapshot(),before); // Include all deadline/race probes in Device-1/2 isolation.
   } finally {
     if(server)await new Promise(r=>server.close(r));
     if(store)await store.close();

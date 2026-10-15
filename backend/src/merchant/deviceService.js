@@ -114,6 +114,10 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
       if (!result.device.lastSeenAt || at - new Date(result.device.lastSeenAt) >= 60_000
           || (firmwareVersion && firmwareVersion !== result.device.firmwareVersion))
         await repository.heartbeat(auth.deviceId, at, firmwareVersion);
+      // A snapshot/heartbeat response can arrive after the displayed proof expired.
+      const proof = result.config.claimSetup || result.config.claimPreview;
+      if (proof && proof.expiresAt * 1000 <= +now())
+        return { ok: true, deviceId: auth.deviceId, assigned: false };
       return result.config;
     },
     async publicOffer(publicOfferId) {
