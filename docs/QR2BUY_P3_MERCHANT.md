@@ -2,6 +2,58 @@
 
 Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktiv registriert, Merchant-Firmware 0.3.11 geflasht, neutraler UNBOUND-Zustand technisch und vom Nutzer physisch abgenommen. Noch keine Händler-/Produktbindung.**
 
+## Händlerzuordnung BLOCKED / globale Wiederverwendbarkeit – Audit 15. Oktober 2026
+
+**Die vollständige Wiederverwendbarkeit ist eine globale Produktanforderung für alle qr2buy-Schilder, einschließlich Device 1/2 und aller zukünftigen Modelle.** Verbindliche Anforderungen stehen im obersten globalen Abschnitt der Source of Truth. P3 ist der geplante nächste Nachweisträger, keine Sonderlösung. Keine produktiven Datenänderungen oder Händlerwechsel in diesem Audit.
+
+### Aktuelle P3-Händlerzuordnung
+
+Ausgangsbranch wip/p3-merchant-integration, HEAD 9cc8e28, sauber. Produktiv lesend: QR2B-000003, MAC f4:2d:c9:6b:c2:90, PROVISIONED, Firmware 0.3.11, Credential Version 1 ACTIVE, Heartbeat beim Lesen 31 Sekunden alt. MerchantAssignments, DisplayAssignments und BindingPreviews jeweils 0. Zielhändler ecily.com / abd5bc60-76bb-40a6-a3b9-19983254485b und dessen Standort ecily - webentwicklung / 19b9930f-41bd-4a69-bfed-56d1ccb0bfeb sind ACTIVE und korrekt verknüpft.
+
+**BLOCKED:** MerchantPortal.jsx und /api/merchant-Geräterouten bieten nur Lesen, Rename und bestehenden Produkt-Bindingflow. listDevices zeigt ausschließlich bereits aktuell zugeordnete Geräte; es gibt weder Claim-/Erstzuordnungsroute noch Geräteaktivierung, Release oder Transfer. bindingScope verlangt zudem ACTIVE und gültige aktuelle MerchantAssignment; publicDevice kennzeichnet PROVISIONED nicht als verfügbar. Die lokale Portal-/Domainquelle ist identisch mit dem dokumentierten produktiven 502d539-Stand. Interner assignDeviceToMerchant-Service ist kein Portalflow und wird nicht ersatzweise ausgeführt. Kein fehlender Nutzerklick, sondern fehlende Funktion. Die nachträgliche globale Ergänzung verbietet ausdrücklich produktive Änderungen.
+
+Tatsächliche Displayabnahme bleibt die zuletzt bestätigte neutrale Ansicht ohne QR; Backendzustand weiterhin neutral. Keine neue physische Sichtprüfung, kein COM-Zugriff, keine Preview/Codebestätigung und keine Produktbindung durchgeführt. Es kann keine erfolgreiche neue Händleranzeige behauptet werden.
+
+### Implementierung, Tests und reale Abnahme
+
+| Anforderung | Implementiert | Automatisiert belegt | Physisch abgenommen |
+| --- | --- | --- | --- |
+| Permanente Identität und Credential ohne Flash erhalten | Generische Backend-Assignments; Firmware pollt unter derselben ID | merchantMongo: Händlerneuzuordnung ohne Credentialänderung; Domain-Historie | Produkt-Rebinding innerhalb eines Händlers auf P1/P2; vollständiger unabhängiger A→B-Lebenszyklus offen |
+| Rotation/Widerruf bei Sicherheitsvorfällen | Separater Credentialservice | Echte Mongo-Rotation, alte Token/Version ungültig | Keine neue reale Rotationsabnahme in diesem Audit |
+| Produktbindung ersetzen | Portal-Session, Preview, TFT-Code, transaktional ACTIVE→REPLACED | Binding/Portal-Integration, TTL/Replay/Ownershipwechsel, Fremdscope | P1/P2 innerhalb ecily bestätigt; P3 noch kein Produkt |
+| Produktbindung eigenständig lösen | Kein dedizierter Unbindflow; interner Händlerwechsel beendet ACTIVE DisplayAssignment | Kein eigenständiger Portal-Unbindnachweis | Offen |
+| Händler-/Standortwechsel | Interner Domainservice beendet alte ACTIVE-Assignments und erzeugt neue, ohne Credentialwechsel | Domain- und echte Mongo-Neuzuordnung; vorherige physische Challenge nach Ownershipwechsel unbrauchbar | Historischer Operatorwechsel Demo→ecily, kein abgenommener unabhängiger Händler-A→B-Portalzyklus |
+| Release/Neutralisieren ohne unmittelbaren neuen Händler | Kein eigener Service-/Portal-Lifecycle; unassigned-Projektion bei fehlender gültiger Zuordnung vorhanden | UNBOUND-Parser/Auth und neutrale P3-Registrierung geprüft | P3 neutraler Ausgangszustand bestätigt; Rückgabe eines gebundenen Schilds offen |
+| Entzug aktueller A-Geräterechte / B-Isolation | Portal-/Binding-Scope aus aktueller MerchantAssignment; Händlerdaten merchant-scoped | Fremdscope-/Merchant-Isolation und Assignmentwechsel in Einzeltests | Vollständige reale Prüfung mit alten A-Sessions und unabhängigem B fehlt |
+| Alte Reservierungen/Käufe/Checkouts | Existierende offer-/merchant-scoped Modelle, Bestands-/Webhookschutz | Normale Commerce-/Isolationstests; kein durchgängiger Transfer mit laufendem Checkout/verspätetem Webhook nachgewiesen | Offen |
+| Alte Käufer-QRs | /o/:publicOfferId gehört zum Offer; bleibt nach Gerätewechsel lesbar, solange Offer verfügbar | merchantMongo prüft bewusst fortbestehende alte URL | Sichere Wechsel-/Invalidierungsstrategie nicht entschieden oder abgenommen |
+| Nachvollziehbarkeit | Assignmentstatus/Zeiten und Display-Verifikationsdaten erhalten | Historie/Unique-ACTIVE/Transaktionen geprüft | Vollständiges Transferaudit mit Akteur, Grund, Zustimmung und Abnahme offen |
+
+Belege im vorhandenen Code/Testbestand geprüft, **keine neue Testsuite ausgeführt**. Letzter vollständiger Lauf bleibt 273/273 Backend und 30/30 Firmware; dies ist keine neue Gesamtabnahme aller globalen Anforderungen.
+
+### Fehlende Funktionen und sicherheitsrelevante Grenzen
+
+1. Authentifizierter Portal-Lifecycle für Erstzuordnung/Aktivierung, Produkt-Unbind, Händler-Release, Standortwechsel und Übernahme fehlt. Ein geschützter interner Service allein autorisiert keine Händler-Selbstübernahme. Device-Credentials dürfen dem alten/neuen Händler nicht als Managementrecht dienen.
+2. assignDeviceToMerchant prüft Existenz/Relationen, aber keine ACTIVE-Zielstatus, keinen physischen Besitz-/Übergabenachweis und keine Transferberechtigung. Er beendet nur ACTIVE Display-/MerchantAssignments; PENDING-/Previewhistorie wird nicht vollständig bereinigt. Aktuelle Preview-Auflösung/-Bestätigung schützt bereits vor Verwendung einer alten MerchantAssignment, ersetzt aber keinen vollständigen Releasevertrag. Kein öffentlich erreichbarer Exploit aus diesem ungemounteten Service behauptet.
+3. Keine Transferorchestrierung für RESERVED, CHECKOUT_STARTED, PAID und verspätete Stripe-Webhooks. Bestehende Vorgänge müssen beim ursprünglichen Merchant/Offer bleiben; neues B-Produkt und B-Bestand dürfen niemals aus A-Vorgängen abgeleitet oder verändert werden. Zu entscheiden sind Übergabegates, laufende Transaktionen, Storno-/Expiry-Nachweise, Datenaufbewahrung und Anzeigepriorität. Historische A-Orders/Reservierungen dürfen A weiterhin gehören; Zugriff auf B bleibt verboten.
+4. Käufer-QRs sind offerbezogen und können von mehreren Schildern geteilt werden. Alte URLs werden durch Gerätewechsel bewusst nicht automatisch ungültig und dürfen niemals auf B umgebogen werden. Pauschales Deaktivieren eines A-Offers könnte andere Schilder stören. Sichere QR-Gültigkeit/Invalidierung und physischer neutraler Zwischenzustand müssen deshalb vor Umsetzung ausdrücklich spezifiziert werden.
+5. Firmware behält bei temporärem WLAN-/HTTP-Fehler eine bereits gültige normale Produktanzeige; nur LIVE-Frische erlischt, Preview hat eigene TTL. Bei Offline-Übergabe könnte deshalb alter Inhalt/QR sichtbar bleiben. Es fehlt ein durchgängig nachgewiesener Neutralisierungs-/Bestätigungsvertrag; keine sofortige physische Entkopplung allein aus einer DB-Transaktion behaupten.
+6. Assignmenthistorie enthält Status/Zeiten/Nutzungsart; expliziter Transferakteur/-grund und durchgehende Release-/Übernahmefreigabe fehlen. Gleicher Account ist aktuell genau einem Merchant zugeordnet; kein unterstützter Merchant-Scopewechsel durch Überschreiben dieses Accounts. A und B für die Abnahme müssen unabhängig authentifiziert werden.
+
+### Zukünftiger Testplan Händler A → neutral → Händler B
+
+Erst nach gesondertem Implementierungs-/Testauftrag, zunächst isolierte Testdatenbank, danach gesondert freigegebener realer Lauf. **Jetzt weder neuen Händler anlegen noch P1/P2 oder Produktdaten verändern.**
+
+1. Zwei unabhängige Accounts/Merchants mit eigenen Standorten/Produkten/Offers vorbereiten; Referenzgerät und unbeteiligtes Kontrollgerät. ID/MAC/Credential sowie Geschäfts-/Bestandssnapshots sichern, keine Secrets ausgeben.
+2. Authentifiziert unter A erst zuordnen, physische Produkt-A-Challenge regulär bestätigen und QR/Preis/Bestand prüfen. Falscher Merchant, fremder Standort/Produkt, Replay, fehlendes CSRF und parallele Übergabe müssen abgewiesen werden.
+3. Produktbindung lösen und Händler-/Standortfreigabe über den zukünftigen Flow ausführen. Neutralen Screen tatsächlich am Gerät bestätigen; Offline-/Netzausfallfälle, verzögerte Polls und alte QR-Fotos ausdrücklich prüfen. Alte Challenges nicht nutzbar; keine neue Übernahme, solange notwendige Übergabegates offen sind.
+4. Alten A-Login offenhalten und damit Geräte-Read/Rename/Preview/Confirm/Release sowie B-Produkt-/Bestands-/Orderzugriffe negativ testen. A darf eigene historische Vorgänge weiterhin sehen/behandeln, aber weder Gerät aktuell steuern noch B-Daten lesen/verändern.
+5. Unter B dasselbe Gerät übernehmen und B-Produkt mit eigener physischer Challenge binden, ohne Flash oder Identitäts-/Tokenwechsel. Buyer-QR, Produkt/Preis und Bestandsprojektion müssen ausschließlich B entsprechen. A-Daten/Bestände und Kontrollgerät bleiben unverändert.
+6. Varianten mit aktiver Reservierung, offenem Checkout, erfolgreicher/verspäteter Zahlung, Abbruch, Ablauf und gleichzeitigem Webhook prüfen. Kein doppelter Abzug, keine Übertragung der A-Order/-Reservierung auf B; alte QR-Policy erfüllt und keine Änderung gemeinsam genutzter A-Offers ohne entsprechende Freigabe.
+7. Gleichen Zyklus zurück B→neutral→A sowie andere Standorte/Produkte wiederholen. Audit/Unique-ACTIVE/Transaktionsrollback und verlorene Antworten prüfen. Sicherheitsrotation gesondert testen; normale Wiederverwendung erhält Credential. Vollständige physische Abnahme plus negative A/B-Portalprüfungen dokumentieren.
+
+**Nächster Schritt vor P3-Produktbindung:** sicheren Portal-/Lifecyclevertrag separat spezifizieren/implementieren und testen. Danach P3 ausschließlich über den freigegebenen authentifizierten Flow für ecily.com / ecily - webentwicklung aktivieren/zuordnen; ohne Produktbindung neutral abnehmen. Erst in einem weiteren Auftrag Produkt wählen und echten TFT-Code bestätigen. Keine direkte DB-Abkürzung oder simulierte Nutzerbestätigung.
+
 ## Merchant-Flash und neutrale Abnahme SUCCESS – 15. Oktober 2026
 
 Dieser Abschluss hat Vorrang vor allen historischen Aussagen darunter zu noch fehlendem Flash, Heartbeat oder physischer Merchant-Abnahme.
