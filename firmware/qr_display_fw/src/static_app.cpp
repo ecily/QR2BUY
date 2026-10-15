@@ -12,10 +12,14 @@
 #if defined(QR2BUY_MERCHANT_DEVICE)
 #include "merchant_config.h"
 #include "merchant_display_text.h"
-#if defined(QR2BUY_ENV_SPI_CS5_RST4)
+#if QR2BUY_DEVICE_PROFILE == 1
 #include "secrets.device1.h"
-#else
+#elif QR2BUY_DEVICE_PROFILE == 2
 #include "secrets.device2.h"
+#elif QR2BUY_DEVICE_PROFILE == 3
+#include "secrets.device3.h"
+#else
+#error "Select an explicit QR2BUY_DEVICE_PROFILE (1, 2 or 3)"
 #endif
 #elif __has_include("secrets.h")
 #include "secrets.h"
@@ -36,10 +40,12 @@ constexpr size_t WIFI_LIST_LEN = sizeof(WIFI_LIST) / sizeof(WifiCred);
 constexpr bool sameIdentity(const char* a, const char* b) {
   return *a == *b && (*a == '\0' || sameIdentity(a + 1, b + 1));
 }
-#if defined(QR2BUY_ENV_SPI_CS5_RST4)
-static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000001"), "CS5 requires Device 1 identity");
-#else
-static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000002"), "NOCS requires Device 2 identity");
+#if QR2BUY_DEVICE_PROFILE == 1
+static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000001"), "Profile 1 requires Device 1 identity");
+#elif QR2BUY_DEVICE_PROFILE == 2
+static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000002"), "Profile 2 requires Device 2 identity");
+#elif QR2BUY_DEVICE_PROFILE == 3
+static_assert(sameIdentity(QR2BUY_DEVICE_ID, "QR2B-000003"), "Profile 3 requires Device 3 identity");
 #endif
 static_assert(sizeof(QR2BUY_DEVICE_SECRET) == 65, "Merchant device requires a 32-byte hex credential");
 #endif

@@ -64,6 +64,18 @@ int main() {
   JsonDocument doc; deserializeJson(doc,fixture()); doc["deviceId"]="QR2B-000002";
   std::string second;serializeJson(doc,second);
   assert(parseMerchantConfig(second,"QR2B-000002","https://qr2buy.com",c));
+  // A third CS5 device must accept only its own projection, including UNBOUND.
+  assert(parseMerchantConfig(R"({"ok":true,"deviceId":"QR2B-000003","assigned":false})",
+                             "QR2B-000003","https://qr2buy.com",c));
+  assert(!c.assigned && c.qr.empty());
+  doc["deviceId"]="QR2B-000003";
+  std::string third;serializeJson(doc,third);
+  assert(parseMerchantConfig(third,"QR2B-000003","https://qr2buy.com",c));
+  for (auto other : {"QR2B-000001", "QR2B-000002"}) {
+    assert(!parseMerchantConfig(third,other,"https://qr2buy.com",c));
+  }
+  assert(!parseMerchantConfig(fixture(),"QR2B-000003","https://qr2buy.com",c));
+  assert(!parseMerchantConfig(second,"QR2B-000003","https://qr2buy.com",c));
   for (auto invalid : {"", "{}", "{", R"({"ok":true,"deviceId":"QR2B-000001","assigned":"false"})"}) assert(!parse(invalid,c));
   assert(!parse(std::string(4097,'x'),c));
   for (auto path : {"product", "offer", "display"}) {

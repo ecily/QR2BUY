@@ -2,6 +2,10 @@
 
 ## Current production prototype
 
+Current Merchant environments (functional basis 0.3.11): Device 1 `esp32dev_spi_cs5_rst4_merchant_app`, Device 2 `esp32dev_spi_nocs_rst4_merchant_app`; Device 3 `esp32dev_spi_cs5_rst4_device3_merchant_app` is locally prepared, not provisioned or Merchant-flashed. Explicit `QR2BUY_DEVICE_PROFILE` 1/2/3 selects the independent ignored credential header; hardware setup is configured separately. Device 3 has no usable default upload port. See [P3 prerequisites and stop boundary](../../docs/QR2BUY_P3_MERCHANT.md).
+
+The demo-app commands and diagnostics below are historical references, not the current Merchant integration workflow. The confirmed P3 LED→3V3 wiring does not establish Device 1/2's current physical backlight connection.
+
 The authoritative project and hardware state is documented in [`../../docs/QR2BUY_CONTEXT.md`](../../docs/QR2BUY_CONTEXT.md). The active physical prototype uses an ESP32 Dev Module with an ILI9341 over SPI (`CS=5`, `RST=4`, `DC=15`, `MOSI=23`, `MISO=19`, `SCLK=18`) and the PlatformIO environment `esp32dev_spi_cs5_rst4_app`.
 
 The active application is `src/static_app.cpp`. It connects through the local ignored `src/secrets.h`, tries every configured Wi-Fi network, verifies `https://qr2buy.com` with `GTS Root R4`, polls the bound `DemoSession` projection every three seconds and renders the accepted 320×240 landscape sales display. QR codes, product switching and the live freshness indicator have been verified on the physical prototype. `TFT_BL=-1`; software backlight control is not wired.

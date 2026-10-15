@@ -69,7 +69,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertIn('#define QR2BUY_DISPLAY_ROTATION 3', (ROOT / 'include/tft_setup_spi_nocs_rst4.h').read_text())
         self.assertNotIn('QR2BUY_DISPLAY_ROTATION', (ROOT / 'include/tft_setup_spi_cs5_rst4.h').read_text())
         source = (ROOT / 'src/static_app.cpp').read_text()
-        for device in (1, 2):
+        for device in (1, 2, 3):
             self.assertIn(f'#include "secrets.device{device}.h"', source)
             example = (ROOT / f'src/secrets.device{device}.example.h').read_text()
             self.assertIn(f'QR2B-00000{device}', example)
@@ -81,6 +81,55 @@ class MerchantAppContractTest(unittest.TestCase):
             self.assertIn(f'http.addHeader("{header}"', source)
         self.assertNotIn('setInsecure()', source)
         self.assertIn('client.setCACert(QR2BUY_ROOT_CA)', source)
+
+    def test_device3_has_explicit_identity_and_no_inherited_upload_target(self):
+        ini = configparser.ConfigParser(interpolation=None)
+        ini.read(ROOT / 'platformio.ini')
+        for environment, profile in [('esp32dev_spi_cs5_rst4_merchant_app', 1),
+                                     ('esp32dev_spi_nocs_rst4_merchant_app', 2),
+                                     ('esp32dev_spi_cs5_rst4_device3_merchant_app', 3)]:
+            self.assertIn(f'-D QR2BUY_DEVICE_PROFILE={profile}', ini['env:' + environment]['build_flags'])
+        p3 = ini['env:esp32dev_spi_cs5_rst4_device3_merchant_app']
+        self.assertEqual(p3['upload_port'], 'REQUIRE_EXPLICIT_DEVICE3_PORT')
+        self.assertEqual(p3['monitor_port'], 'REQUIRE_EXPLICIT_DEVICE3_PORT')
+        self.assertIn('${env:esp32dev_spi_cs5_rst4_app.build_flags}', p3['build_flags'])
+        # Real git ignore evaluation, including future device headers and public examples.
+        for device in (1, 2, 3, 4):
+            path = f'firmware/qr_display_fw/src/secrets.device{device}.h'
+            self.assertEqual(subprocess.run(['git', 'check-ignore', '-q', path], cwd=ROOT).returncode, 0)
+            example = path.replace('.h', '.example.h')
+            self.assertEqual(subprocess.run(['git', 'check-ignore', '-q', example], cwd=ROOT).returncode, 1)
+
+    def test_real_compiler_rejects_cross_device_identity_and_unknown_profile(self):
+        # Compile the actual identity-selection/assertion code with synthetic credentials.
+        # Never read or copy real device headers into this host fixture.
+        source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
+        selection = source[source.index('#if QR2BUY_DEVICE_PROFILE == 1'):source.index('#elif __has_include')]
+        selection = selection.rsplit('#endif', 1)[0] + '#endif\n'
+        checks = source[source.index('constexpr bool sameIdentity'):source.index('#ifndef QR2BUY_DEVICE_ID')]
+        checks = checks.rsplit('#endif', 1)[0]
+        build = ROOT / '.pio/identity-host'
+        build.mkdir(parents=True, exist_ok=True)
+        for device in (1, 2, 3):
+            (build / f'secrets.device{device}.h').write_text(
+                f'#define QR2BUY_DEVICE_ID "QR2B-00000{device}"\n'
+                '#define QR2BUY_DEVICE_SECRET "' + 'a' * 64 + '"\n')
+        fixture = build / 'identity.cpp'
+        vcvars = Path('C:/Program Files (x86)/Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat')
+        def compile_profile(profile, suffix=''):
+            fixture.write_text(f'#define QR2BUY_DEVICE_PROFILE {profile}\n' + selection + suffix + checks + '\nint main() {}\n')
+            if os.name == 'nt':
+                script = build / 'compile.cmd'
+                script.write_text(f'@echo off\ncall "{vcvars}" >nul\ncl /nologo /EHsc /std:c++14 /c identity.cpp\n')
+                result = subprocess.run(['cmd.exe', '/d', '/c', script.name], cwd=build, capture_output=True)
+                script.unlink()
+            else:
+                result = subprocess.run(['c++', '-std=c++14', '-c', 'identity.cpp'], cwd=build, capture_output=True)
+            return result.returncode
+        for profile in (1, 2, 3):
+            self.assertEqual(compile_profile(profile), 0)
+            self.assertNotEqual(compile_profile(profile, '#undef QR2BUY_DEVICE_ID\n#define QR2BUY_DEVICE_ID "QR2B-999999"\n'), 0)
+        self.assertNotEqual(compile_profile(0), 0)
 
     def test_real_cpp_parser_on_host(self):
         build = ROOT / '.pio/merchant-host'

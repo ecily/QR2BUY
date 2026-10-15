@@ -62,8 +62,9 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
     server = app.listen(0, '127.0.0.1');
     await new Promise(resolve => server.once('listening', resolve));
     const origin = `http://127.0.0.1:${server.address().port}`;
-    const getConfig = a => fetch(`${origin}/api/device/config`, { headers: {
-      'x-device-id': a.deviceId, 'x-device-secret': a.secret, 'x-device-credential-version': String(a.version)
+    const getConfig = (a, firmwareVersion) => fetch(`${origin}/api/device/config`, { headers: {
+      'x-device-id': a.deviceId, 'x-device-secret': a.secret, 'x-device-credential-version': String(a.version),
+      ...(firmwareVersion ? { 'x-firmware-version': firmwareVersion } : {})
     } });
     const buyer = id => fetch(`${origin}/api/public/merchant-offers/${id}`);
 
@@ -88,6 +89,36 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
       }
       assert.equal((await getConfig({ ...auth[0], deviceId: ids[1] })).status, 401);
       assert.equal((await getConfig({ ...auth[1], deviceId: ids[0] })).status, 401);
+    });
+    await t.test('Device 3: neutral 0.3.11 CS5 device, unique MAC, isolated credentials and no existing changes', async () => {
+      const id = 'QR2B-000003', mac = 'f4:2d:c9:6b:c2:90';
+      const snapshot = async () => Promise.all([ManagedDevice, DeviceCredential, Merchant, Location,
+        MerchantProduct, Offer, DeviceMerchantAssignment, DisplayAssignment].map(Model =>
+        Model.collection.find(Model === ManagedDevice || Model === DeviceCredential ? { deviceId: { $ne: id } } : {}).sort({ _id: 1 }).toArray()));
+      const before = await snapshot();
+      assert.equal((await getConfig({ ...auth[0], deviceId: id }, '0.3.11')).status, 401);
+      await ManagedDevice.create({ deviceId: id, displayName: 'Schild 3', hardwareUid: mac,
+        hardwareVariant: 'ESP32_ILI9341_CS5', status: 'PROVISIONED' });
+      const third = await credentials.rotate(id);
+      assert.ok(auth.every(a => a.secret !== third.secret));
+      assert.equal(third.version, 1);
+      for (const other of auth) {
+        assert.equal((await getConfig({ ...other, deviceId: id }, '0.3.11')).status, 401);
+        assert.equal((await getConfig({ ...third, deviceId: other.deviceId }, '0.3.11')).status, 401);
+      }
+      const response = await getConfig(third, '0.3.11');
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), { ok: true, deviceId: id, assigned: false });
+      const device = await ManagedDevice.findOne({ deviceId: id }).lean();
+      assert.equal(device.hardwareUid, mac); assert.equal(device.firmwareVersion, '0.3.11');
+      assert.ok(device.lastSeenAt); assert.equal(device.status, 'PROVISIONED');
+      assert.equal(await DeviceMerchantAssignment.countDocuments({ deviceId: id }), 0);
+      assert.equal(await DisplayAssignment.countDocuments({ deviceId: id }), 0);
+      const credential = await DeviceCredential.collection.findOne({ deviceId: id });
+      assert.ok(!JSON.stringify(credential).includes(third.secret));
+      await assert.rejects(ManagedDevice.create({ deviceId: 'QR2B-999998', displayName: 'Conflict',
+        hardwareUid: mac, hardwareVariant: 'ESP32_ILI9341_CS5' }), e => e.code === 11000);
+      assert.deepEqual(await snapshot(), before);
     });
     await t.test('credential rotation uses real persistence and rejects old token/version', async () => {
       assert.equal((await getConfig(auth[0])).status, 200);

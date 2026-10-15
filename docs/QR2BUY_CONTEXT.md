@@ -1,6 +1,16 @@
 # qr2buy.com – operativer Projektkontext
 
-Stand: 7. Oktober 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
+Stand: 15. Oktober 2026. Dieses Dokument ist die operative Source of Truth für den aktuellen qr2buy-Projektstand.
+
+## CURRENT / NEXT – P3 Merchant-Vorbereitung, 15. Oktober 2026
+
+Dieser Abschnitt ersetzt für Device 3 die älteren Angaben zu ausstehender Hardwarelieferung/-abnahme. Der produktive Stand von Device 1/2 bleibt der zuletzt am 7. Oktober belegte Checkpoint darunter; keine neue Live-/Online-Abnahme behauptet.
+
+- **Hardware P3 vom Nutzer physisch abgenommen:** ESP32-D0WD-V3 Rev. 3.1, MAC `f4:2d:c9:6b:c2:90`, Micro-USB; KMRTM28028-SPI / ILI9341 / 240×320. Acht Leitungen: VCC→3V3, GND→GND, LED→3V3, SCK→18, SDI/MOSI→23, D/C→15, RESET→4, CS→5. MISO/Touch unverbunden. Isolierter Test auf zuletzt COM3 erfolgreich einschließlich Flash-Hashverifikation; Hintergrundbeleuchtung, Rot/Grün/Blau und „QR2BUY – PROTOTYP 3“ ausdrücklich physisch bestätigt. LED→3V3 gilt als bestätigter P3-Aufbau, nicht als allgemeine Modulfreigabe. TFT_BL=-1, keine GPIO-/PWM-Steuerung.
+- **Lokal implementiert:** separater `esp32dev_spi_cs5_rst4_device3_merchant_app`, ID `QR2B-000003`, eigenes `secrets.device3.h`; explizites Device-Profil getrennt vom TFT-Setup. Device 1/2 behalten ihre bisherigen Header, Hardware-/Portkonfigurationen und Laufzeitlogik. Device 3 verlangt einen ausdrücklich angegebenen Uploadport. Funktionale Firmwarebasis und gemeldete Version bleiben **0.3.11**, Renderer/WLAN/TLS/NTP/Polling unverändert.
+- **Sicherheits-/Provisioninggrenze:** neuer lokaler zufälliger Device-3-Buildtoken ausschließlich im ignorierten Header, WLAN ausschließlich Platzhalter; **nicht provisioniert, nicht flashbereit**. Bestehende lokale Credentialdateien hashgleich. Keine produktive Registrierung, Credentialrotation, Merchant-/Standort-/Produktzuordnung oder Datenmutation. Keine produktive ID-/MAC-Konfliktprüfung behauptet. Der Demo-Seed ist ungeeignet und wurde nicht ausgeführt; vorhandener generischer Credentialservice/Device-Vertrag benötigen keinen Backenddeploy.
+- **Validierung:** alle drei Merchant-Builds SUCCESS, Firmware-Vertrag/Hosttests 30/30; vollständige Backend-Testsuite erfolgreich. Zusätzlicher echter Loopback-Mongo-/HTTP-Test: Device 3 PROVISIONED, eigenes Credential Version 1, Config 0.3.11 → HTTP 200/assigned=false, keine Assignments; vertauschte Credentials 401, doppelte MAC abgewiesen, bestehende Geräte/Credentials/Geschäftsdaten unverändert. Gezielte Mongo-Suite 7/7 inklusive Parent; isolierte Testdaten und Replica Set entfernt. Keine Live-/Stripe-/Mailaktion.
+- **NEXT / STOP vor Merchant-Flash:** [P3-Ablauf und Provisioningvoraussetzungen](QR2BUY_P3_MERCHANT.md). Zuerst Review/Freigabe der getrennten produktiven ID-/MAC-Prüfung und neutralen Registrierung, dann geschützte Device-3-WLAN-/Credentialkonfiguration, erneuter Build, aktuelle Port-/MAC-Zuordnung und ausdrückliche Flashfreigabe. Kein Merchant-Flash in dieser Vorbereitung, kein Push/Merge/main/Deploy. Device 4 und Multi-Merchant-Produktausbau bleiben offen.
 
 ## CURRENT / NEXT – verbindlicher Tagescheckpoint 7. Oktober 2026 / Pitch-UX produktiv
 
