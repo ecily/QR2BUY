@@ -5,6 +5,7 @@ import { createRateLimiter } from '../middleware/rateLimit.js';
 import { MerchantAccount, registerMerchant, publicAccount, loginSchema, verifyPassword, hashPassword } from '../merchant/accounts.js';
 import { createMerchantSession, authenticateMerchant, csrf, csrfToken, saveSession, SESSION_MS } from '../merchant/session.js';
 import { createBindingService } from '../merchant/binding.js';
+import { createDeviceClaimService } from '../merchant/deviceClaims.js';
 import { DeviceApiError } from '../merchant/deviceCredentials.js';
 import { createReservationService } from '../merchant/reservations.js';
 import { createPurchaseService } from '../merchant/purchases.js';
@@ -25,6 +26,7 @@ export function createMerchantPortal(options = {}) {
   const router = Router(), auth = Router(), portal = Router();
   const config = createMerchantSession(options);
   const binding = options.binding || createBindingService();
+  const claims = options.claims || createDeviceClaimService();
   const reservations = options.reservations || createReservationService();
   const purchases = options.purchases || createPurchaseService();
   router.use(['/merchant-auth','/merchant'], (req, res, next) => {
@@ -89,6 +91,9 @@ export function createMerchantPortal(options = {}) {
   portal.post('/offers', handle(async (req, res) => res.status(201).json({ ok: true, item: await saveOffer(req.merchantAuth.merchantId, null, req.body) })));
   portal.patch('/offers/:id', handle(async (req, res) => res.json({ ok: true, item: await saveOffer(req.merchantAuth.merchantId, req.params.id, req.body) })));
   portal.get('/devices', handle(async (req, res) => res.json({ ok: true, items: await listDevices(req.merchantAuth.merchantId) })));
+  const claimLimit = createRateLimiter({ windowMs: 60000, max: 15, key: req => req.merchantAuth.account.accountId });
+  portal.post('/device-claims', claimLimit, handle(async (req, res) => res.json(await claims.start(req.merchantAuth.merchantId, req.merchantAuth.account.accountId, req.body))));
+  portal.post('/device-claims/:claimId/confirm', claimLimit, handle(async (req, res) => res.json(await claims.confirm(req.merchantAuth.merchantId, req.merchantAuth.account.accountId, req.params.claimId, req.body))));
   portal.get('/devices/:id', handle(async (req, res) => {
     const device = (await listDevices(req.merchantAuth.merchantId)).find(d => d.deviceId === req.params.id);
     if (!device) throw new DeviceApiError(404, 'not_found'); res.json({ ok: true, item: device });

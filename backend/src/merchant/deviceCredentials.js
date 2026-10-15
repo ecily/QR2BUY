@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { DeviceCredential, ManagedDevice } from './models.js';
+import { bindingTransaction } from './binding.js';
 
 export class DeviceApiError extends Error {
   constructor(status, code) { super(code); this.status = status; this.code = code; }
@@ -28,29 +29,38 @@ export function verifyCredential(device, credential, { deviceId, secret, version
 // Operator service only. Returned plaintext goes directly to a protected local
 // provisioning file, never to an HTTP response or a logger. CAS prevents lost rotations.
 export function createCredentialService({ Credential = DeviceCredential, Device = ManagedDevice,
-  pepper = () => process.env.DEVICE_CREDENTIAL_PEPPER, now = () => new Date() } = {}) {
+  pepper = () => process.env.DEVICE_CREDENTIAL_PEPPER, now = () => new Date(), runTransaction = bindingTransaction } = {}) {
   return {
     async rotate(deviceId) {
-      if (!validDeviceId(deviceId) || !await Device.findOne({ deviceId })) throw new DeviceApiError(404, 'device_not_found');
-      const previous = await Credential.findOne({ deviceId });
-      const version = (previous?.credentialVersion || 0) + 1;
-      const secret = randomBytes(32).toString('hex');
-      const changedAt = now();
-      const values = { deviceId, verifier: credentialVerifier(deviceId, version, secret, pepper()),
-        credentialVersion: version, credentialCreatedAt: previous?.credentialCreatedAt || changedAt,
-        credentialRotatedAt: previous ? changedAt : null, credentialStatus: 'ACTIVE' };
-      if (previous) {
-        const updated = await Credential.findOneAndUpdate({ deviceId, credentialVersion: previous.credentialVersion },
-          { $set: values }, { new: true, runValidators: true });
-        if (!updated) throw new DeviceApiError(409, 'credential_rotation_conflict');
-      } else {
-        try { await Credential.create(values); }
-        catch (error) { if (error.code === 11000) throw new DeviceApiError(409, 'credential_rotation_conflict'); throw error; }
-      }
-      return { deviceId, secret, version };
+      if (!validDeviceId(deviceId)) throw new DeviceApiError(404, 'device_not_found');
+      return runTransaction(async session => {
+        const query = Device.findOne({ deviceId });
+        if (!await (session ? query.session(session) : query)) throw new DeviceApiError(404, 'device_not_found');
+        if (session) await Device.updateOne({ deviceId }, { $inc: { bindingRevision: 1 } }, { session });
+        const credentialQuery = Credential.findOne({ deviceId });
+        const previous = await (session ? credentialQuery.session(session) : credentialQuery);
+        const version = (previous?.credentialVersion || 0) + 1;
+        const secret = randomBytes(32).toString('hex');
+        const changedAt = now();
+        const values = { deviceId, verifier: credentialVerifier(deviceId, version, secret, pepper()),
+          credentialVersion: version, credentialCreatedAt: previous?.credentialCreatedAt || changedAt,
+          credentialRotatedAt: previous ? changedAt : null, credentialStatus: 'ACTIVE' };
+        if (previous) {
+          const updated = await Credential.findOneAndUpdate({ deviceId, credentialVersion: previous.credentialVersion },
+            { $set: values }, { new: true, runValidators: true, ...(session ? { session } : {}) });
+          if (!updated) throw new DeviceApiError(409, 'credential_rotation_conflict');
+        } else {
+          try { if (session) await Credential.create([values], { session }); else await Credential.create(values); }
+          catch (error) { if (error.code === 11000) throw new DeviceApiError(409, 'credential_rotation_conflict'); throw error; }
+        }
+        return { deviceId, secret, version };
+      });
     },
     async revoke(deviceId, version) {
-      return Credential.updateOne({ deviceId, credentialVersion: version }, { $set: { credentialStatus: 'REVOKED' } });
+      return runTransaction(async session => {
+        if (session) await Device.updateOne({ deviceId }, { $inc: { bindingRevision: 1 } }, { session });
+        return Credential.updateOne({ deviceId, credentialVersion: version }, { $set: { credentialStatus: 'REVOKED' } }, session ? { session } : {});
+      });
     }
   };
 }

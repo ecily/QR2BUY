@@ -8,6 +8,8 @@
 struct MerchantConfig {
   bool assigned = false;
   bool preview = false;
+  bool claim = false;
+  std::string claimMerchant, claimLocation;
   std::string previewCode;
   int64_t previewExpiresAt = 0;
   std::string productId, name, priceText, status, qr, eventVersion;
@@ -44,6 +46,27 @@ inline bool parseMerchantConfig(const std::string& body, const std::string& devi
       || !doc["deviceId"].is<const char*>() || doc["deviceId"].as<std::string>() != deviceId) return false;
   MerchantConfig result;
   result.assigned = doc["assigned"].as<bool>();
+  if (!doc["claimPreview"].isNull()) {
+    auto claim = doc["claimPreview"].as<JsonObjectConst>();
+    if (result.assigned || !doc["bindingPreview"].isNull() || !doc["product"].isNull()
+        || !doc["offer"].isNull() || !doc["display"].isNull()
+        || !claim["claimId"].is<const char*>() || !claim["merchantName"].is<const char*>()
+        || !claim["locationName"].is<const char*>() || !claim["code"].is<const char*>()
+        || !claim["expiresAt"].is<int64_t>()) return false;
+    result.eventVersion = claim["claimId"].as<std::string>();
+    result.claimMerchant = claim["merchantName"].as<std::string>();
+    result.claimLocation = claim["locationName"].as<std::string>();
+    result.previewCode = claim["code"].as<std::string>();
+    result.previewExpiresAt = claim["expiresAt"].as<int64_t>();
+    if (!lowerHex(result.eventVersion, 32) || result.claimMerchant.empty() || result.claimMerchant.size() > 256
+        || result.claimLocation.empty() || result.claimLocation.size() > 256
+        || result.previewCode.size() != 6 || result.previewCode.find_first_not_of("0123456789") != std::string::npos
+        || result.previewExpiresAt < 1700000000LL || result.previewExpiresAt > 4102444800LL) return false;
+    result.claim = true;
+    result.status = "CLAIM_PREVIEW";
+    output = result;
+    return true;
+  }
   if (!doc["bindingPreview"].isNull()) {
     auto preview = doc["bindingPreview"].as<JsonObjectConst>();
     if (result.assigned || !preview["previewId"].is<const char*>() || !preview["productName"].is<const char*>()

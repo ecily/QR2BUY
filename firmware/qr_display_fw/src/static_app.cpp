@@ -115,6 +115,8 @@ struct ConfigPayload {
   bool bound = false;
   bool notifyAvailable = false;
   bool bindingPreview = false;
+  bool claimPreview = false;
+  String claimMerchant, claimLocation;
   String previewCode;
   int64_t previewExpiresAt = 0;
   bool interactionFieldPresent = false;
@@ -454,6 +456,7 @@ static bool knownStatus(const String& status) {
 }
 
 static const char* diagnosticDisplayMode(const ConfigPayload& config) {
+  if (config.claimPreview) return "CLAIM_PREVIEW";
   if (config.bindingPreview) return "BINDING_PREVIEW";
   if (!config.bound) return "UNBOUND";
   if (scanInteractionVisible(config)) return "SCANNED";
@@ -468,6 +471,7 @@ static const char* diagnosticDisplayMode(const ConfigPayload& config) {
 }
 
 static const char* diagnosticRenderTarget(const ConfigPayload& config) {
+  if (config.claimPreview) return "claimPreview";
   if (config.bindingPreview) return "bindingPreview";
   if (!config.bound) return "drawMessageScreen";
   if (scanInteractionVisible(config)) return "drawScanStatus";
@@ -722,6 +726,17 @@ static void drawUnavailableOffer(const ConfigPayload& config) {
 
 static void renderConfig(const ConfigPayload& config) {
   bootstrapScreenKey = "";
+  if (config.claimPreview) {
+    footerIndicatorVisible = false;
+    tft.fillScreen(COLOR_PAPER);
+    drawStatusText("SCHILD ZUORDNEN", 8, 25, 2, COLOR_PINE_DARK);
+    drawStatusText(config.claimMerchant.c_str(), 38, 44, 2, COLOR_INK);
+    drawStatusText(config.claimLocation.c_str(), 86, 44, 2, COLOR_INK);
+    drawStatusText("Haendler und Standort pruefen", 136, 25, 2, COLOR_MUTED);
+    drawStatusText(config.previewCode.c_str(), 165, 38, 4, COLOR_PINE_DARK);
+    drawStatusText("Code nur bei Uebereinstimmung eingeben", 207, 30, 2, COLOR_MUTED);
+    return;
+  }
   if (config.bindingPreview) {
     footerIndicatorVisible = false;
     tft.fillScreen(COLOR_PAPER);
@@ -755,6 +770,9 @@ static void renderConfig(const ConfigPayload& config) {
 
 static bool sameVisibleConfig(const ConfigPayload& left, const ConfigPayload& right) {
   return left.notifyAvailable == right.notifyAvailable
+    && left.claimPreview == right.claimPreview
+    && left.claimMerchant == right.claimMerchant
+    && left.claimLocation == right.claimLocation
     && left.bindingPreview == right.bindingPreview
     && left.previewCode == right.previewCode
     && left.previewExpiresAt == right.previewExpiresAt
@@ -947,6 +965,9 @@ static bool parseConfig(HTTPClient& http, ConfigPayload& config) {
   config.bound = merchant.assigned;
   config.notifyAvailable = merchant.notifyAvailable;
   config.bindingPreview = merchant.preview;
+  config.claimPreview = merchant.claim;
+  config.claimMerchant = merchant.claimMerchant.c_str();
+  config.claimLocation = merchant.claimLocation.c_str();
   config.previewCode = merchant.previewCode.c_str();
   config.previewExpiresAt = merchant.previewExpiresAt;
   config.productKey = merchant.productId.c_str();
@@ -1016,7 +1037,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.11");
+  http.addHeader("x-firmware-version", "0.3.12");
 #endif
 
   const int statusCode = http.GET();
@@ -1146,7 +1167,7 @@ void loop() {
   serviceClock();
   applyPendingConfig();
   // Expire locally even when WiFi/API is unavailable; never leave a code on screen.
-  if (hasRenderedConfig && renderedConfig.bindingPreview
+  if (hasRenderedConfig && (renderedConfig.bindingPreview || renderedConfig.claimPreview)
       && (time(nullptr) >= renderedConfig.previewExpiresAt
           || renderedConfig.previewExpiresAt - time(nullptr) > 120)) {
     renderedConfig = ConfigPayload{};

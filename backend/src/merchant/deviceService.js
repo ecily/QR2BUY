@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { DeviceApiError, verifyCredential } from './deviceCredentials.js';
 import { createDeviceRepository } from './deviceRepository.js';
 import { bindingCode } from './binding.js';
+import { claimCode, claimCapable } from './deviceClaims.js';
 import { checkoutConfigured } from './purchases.js';
 
 export const deviceOnline = (device, at = new Date()) => !!device.lastSeenAt
@@ -46,6 +47,18 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         verifyCredential(device, await read.credential(auth.deviceId), auth, pepper());
         const unassigned = { ok: true, deviceId: device.deviceId, assigned: false };
         const assignment = await read.assignment(device.deviceId);
+        if (!assignment && device.status === 'PROVISIONED' && claimCapable(firmwareVersion)) {
+          const claim = await read.claim?.(device.deviceId);
+          if (claim && claim.expiresAt > at && claim.credentialVersion === auth.version
+              && !(claim.failedUntil > at && claim.failedAttempts >= 5)) {
+            const merchant = await read.merchant(claim.merchantId), location = await read.location(claim.locationId);
+            if (merchant?.status === 'ACTIVE' && location?.status === 'ACTIVE' && location.merchantId === claim.merchantId
+                && merchant.displayName === claim.merchantName && location.name === claim.locationName)
+              return { device, config: { ...unassigned, claimPreview: { claimId: claim.claimId,
+                merchantName: claim.merchantName, locationName: claim.locationName,
+                expiresAt: Math.floor(+new Date(claim.expiresAt) / 1000), code: claimCode(claim, pepper()) } } };
+          }
+        }
         if (!assignment || new Date(assignment.validFrom) > at || (assignment.validUntil && new Date(assignment.validUntil) <= at)) return { config: unassigned, device };
         const display = await read.display(device.deviceId);
         const preview = await read.preview?.(device.deviceId);
@@ -67,7 +80,7 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
         }
         if (!display || !display.verifiedAt || display.endedAt || display.merchantId !== assignment.merchantId || display.locationId !== assignment.locationId) return { config: unassigned, device };
         // PAUSED is a new wire status. Older firmware retains its safe unassigned fallback.
-        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11'].includes(firmwareVersion);
+        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion);
         const resolved = await resolveOffer(read, await read.offer(display.offerId), pausedCapable);
         if (!resolved || resolved.offer.merchantId !== assignment.merchantId || resolved.offer.locationId !== assignment.locationId || resolved.product.productId !== display.productId) return { config: unassigned, device };
         const { product, offer } = resolved;
@@ -83,9 +96,9 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
           offer: { offerId: offer.offerId, priceMinor: offer.priceMinor, currency: offer.currency, stockQuantity: available,
             purchasable: offer.purchasable, reservable: offer.reservable,
             reservationDuration: offer.reservationDuration ?? null, conditions: offer.conditions || null },
-          display: { status: ['0.3.10', '0.3.11'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
-            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
-            ...(['0.3.10', '0.3.11'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }
+          display: { status: ['0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
+            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
+            ...(['0.3.10', '0.3.11', '0.3.12'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }
         };
         // Opaque change fingerprint, not a chronological commerce event counter.
         projection.display.eventVersion = createHash('sha256').update(JSON.stringify(projection)).digest('hex').slice(0, 16);

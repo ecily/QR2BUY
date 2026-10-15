@@ -18,6 +18,20 @@ bool parse(const std::string& body, MerchantConfig& c) {
   return parseMerchantConfig(body, "QR2B-000001", "https://qr2buy.com", c);
 }
 int main() {
+  {
+    const std::string valid = R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimPreview":{"claimId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","merchantName":"Merchant A","locationName":"Window A","code":"123456","expiresAt":1900000000}})";
+    MerchantConfig claim;
+    assert(parse(valid,claim));assert(claim.claim && !claim.preview && !claim.assigned && claim.qr.empty());
+    assert(claim.claimMerchant == "Merchant A" && claim.claimLocation == "Window A");
+    assert(claim.previewCode == "123456" && claim.previewExpiresAt == 1900000000);
+    for (const auto invalid : {"assigned", "code", "claimId", "expiresAt", "merchantName", "locationName", "bindingPreview", "product"}) {
+      JsonDocument d;deserializeJson(d,valid);
+      if (std::string(invalid)=="assigned") d[invalid]=true;
+      else if (std::string(invalid)=="bindingPreview" || std::string(invalid)=="product") d[invalid]["bad"]=true;
+      else d["claimPreview"][invalid]="";
+      std::string body;serializeJson(d,body);assert(!parse(body,claim));
+    }
+  }
   testStatusLayout();
   for (const auto state : {"OUT_OF_STOCK", "RESERVED", "PAUSED", "SOLD", "READY"}) {
     JsonDocument d; deserializeJson(d,fixture(state));

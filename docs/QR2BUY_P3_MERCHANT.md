@@ -2,7 +2,17 @@
 
 Operative Source of Truth: [QR2BUY_CONTEXT.md](QR2BUY_CONTEXT.md). **Produktiv registriert, Merchant-Firmware 0.3.11 geflasht, neutraler UNBOUND-Zustand technisch und vom Nutzer physisch abgenommen. Noch keine Händler-/Produktbindung.**
 
-## Händlerzuordnung BLOCKED / globale Wiederverwendbarkeit – Audit 15. Oktober 2026
+## P0.1 Erstzuordnung lokal umgesetzt – keine produktive P3-Zuordnung
+
+15. Oktober 2026, Branch `wip/p3-merchant-integration`, Ausgangscommit `8cf1455`. Dieser Abschnitt ersetzt ausschließlich die ältere Aussage, dass noch kein Erstzuordnungsflow implementiert sei. **P3 bleibt laut letztem Produktivcheckpoint PROVISIONED/ungebunden, Credential v1 ACTIVE, physisch abgenommene neutrale Firmware 0.3.11. Kein erneuter Produktivzugriff in diesem Auftrag.**
+
+Neue globale Funktion: authentifiziertes Portal → Geräte-ID/eigener Standort → Händler-/Standort-Challenge auf tatsächlichem TFT → Code dort ablesen und bestätigen → atomare ACTIVE-Erstzuordnung ohne Produkt. Kein Code an Portalclient, keine Übernahme bereits verwendeter Geräte, keine Änderung von Identität/Credential oder Produkt/Offer/Bestand. Getrennt vom vorhandenen Produktflow; Ablauf, Replay, Race, Rollback, Wiederholungen und geräteweite Fehlversuchsgrenze berücksichtigt. Details: [P0.1 Sicherheitsvertrag und Abnahmeplan](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md).
+
+**Neue lokale Merchant-Firmware 0.3.12 erforderlich, kein Flash ausgeführt.** Die drei Merchant-Environments bauen; physische 0.3.11-Geräte bleiben unverändert und kompatibel, können den neuen Claim-Screen noch nicht anzeigen. Zuerst Backend/Frontend nach gesonderter Freigabe veröffentlichen und neue Claim-Indizes prüfen. Danach ausschließlich P3 per aktuell bestätigtem Port/MAC auf 0.3.12 bringen und neutral/Claim/Offline-TTL real abnehmen; eigene Flashfreigabe erforderlich. Anschließend Nutzer unter ecily.com / ecily - webentwicklung tatsächlichen TFT-Code eingeben lassen. Keine simulierte Bestätigung; Produktbindung erst separat.
+
+Finale Regression: Backend **280/280**, Frontend **65/65**, Browser/E2E **85/85**, Firmware/C++-Host **31/31**; alle drei Merchant-Builds SUCCESS, Frontend-Lint/Produktionsbuild und Backend-Syntax (11 Dateien) PASS, keine Skips. Ausschließlich isolierte Testdaten; P1/P2-Header hashgleich, keine bestehenden Geräte geöffnet. **NO-GO für sofortige reale Erstzuordnung mit dem aktuellen 0.3.11-Gerät.** Globaler Händlertransfer, Release, Produktfreigabe und Commerce-/Alt-QR-Übergang bleiben offen und sind hier nicht implementiert.
+
+## Historischer Befund: Händlerzuordnung BLOCKED / globale Wiederverwendbarkeit – Audit 15. Oktober 2026
 
 **Die vollständige Wiederverwendbarkeit ist eine globale Produktanforderung für alle qr2buy-Schilder, einschließlich Device 1/2 und aller zukünftigen Modelle.** Verbindliche Anforderungen stehen im obersten globalen Abschnitt der Source of Truth. P3 ist der geplante nächste Nachweisträger, keine Sonderlösung. Keine produktiven Datenänderungen oder Händlerwechsel in diesem Audit.
 

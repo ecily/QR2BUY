@@ -1,6 +1,12 @@
 # qr2buy ESP32 display firmware
 
-## Current production prototype
+## Local P0.1 candidate and physical device state
+
+Local Merchant source is now **0.3.12**, based on 0.3.11, with a separate initial merchant/location claim screen and offline challenge expiry. All three Merchant environments build. **No device has been flashed in this task.** Physical P1/P2/P3 remain on 0.3.11. P3 is already provisioned with its independent ACTIVE v1 credential and physically accepted neutral Merchant firmware; no merchant/product assignment has been performed. Older P3 statements below are historical and superseded by [the operative context](../../docs/QR2BUY_CONTEXT.md).
+
+Initial assignment requires an authenticated current 0.3.12 device poll and actual on-device merchant/location/code verification. Existing 0.3.11 product behavior remains supported. No change to pins, credential headers, Wi-Fi/TLS/NTP or upload targets. Never select a device using the historical upload commands below: identify its current port and MAC and obtain explicit flash authorization first. See [P0.1 security and rollout prerequisites](../../docs/QR2BUY_DEVICE_FIRST_ASSIGNMENT.md).
+
+## Historical production prototype reference
 
 Current Merchant environments (functional basis 0.3.11): Device 1 `esp32dev_spi_cs5_rst4_merchant_app`, Device 2 `esp32dev_spi_nocs_rst4_merchant_app`; Device 3 `esp32dev_spi_cs5_rst4_device3_merchant_app` is locally prepared, not provisioned or Merchant-flashed. Explicit `QR2BUY_DEVICE_PROFILE` 1/2/3 selects the independent ignored credential header; hardware setup is configured separately. Device 3 has no usable default upload port. See [P3 prerequisites and stop boundary](../../docs/QR2BUY_P3_MERCHANT.md).
 

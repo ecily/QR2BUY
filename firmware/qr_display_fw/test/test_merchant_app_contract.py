@@ -8,6 +8,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MerchantAppContractTest(unittest.TestCase):
+    def test_initial_claim_is_separate_neutral_and_expires_offline(self):
+        source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
+        screen = source.split('if (config.claimPreview) {', 1)[1].split('if (config.bindingPreview)', 1)[0]
+        for field in ['config.claimMerchant', 'config.claimLocation', 'config.previewCode']:
+            self.assertIn(field, screen)
+        for forbidden in ['drawQrCode', 'Serial.', 'config.priceText']:
+            self.assertNotIn(forbidden, screen)
+        self.assertIn('(renderedConfig.bindingPreview || renderedConfig.claimPreview)', source)
+        self.assertIn('left.claimMerchant == right.claimMerchant', source)
+        self.assertIn('left.claimLocation == right.claimLocation', source)
+
     def test_shared_status_screen_has_no_qr_or_system_copy(self):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
         screen = source.split('static void drawStatusText(const char* text, int top, int height, uint8_t largest, uint16_t color, int left =', 1)[1].split('static void renderConfig', 1)[0]
@@ -27,7 +38,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertIn('config.bound && (config.status == "OUT_OF_STOCK" || config.status == "PAUSED")', source)
         screen = source.split('static void drawSoldOutOffer', 1)[1].split('static void drawUnavailableOffer', 1)[0]
         self.assertIn('status_screen::Kind::OutOfStock', screen)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.11")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.12")', source)
 
     def test_binding_paid_and_qr_renderers_remain_unchanged(self):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
@@ -52,7 +63,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertNotIn('drawQrCode', preview)
         self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
         self.assertIn('left.previewCode == right.previewCode', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.11")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.12")', source)
         self.assertNotIn('Serial.println(config.previewCode', source)
 
     def test_shared_app_and_separate_hardware_and_secret_configs(self):

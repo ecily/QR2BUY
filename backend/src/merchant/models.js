@@ -189,6 +189,27 @@ const BindingPreviewSchema = new mongoose.Schema({
 }, { timestamps: true, collection: 'binding_previews' });
 export const BindingPreview = mongoose.models.BindingPreview || mongoose.model('BindingPreview', BindingPreviewSchema);
 
+// Initial possession proof only. No TTL deletion: confirmed actor/scope/time is audit history.
+const DeviceClaimSchema = new mongoose.Schema({
+  deviceId: { type: String, required: true, unique: true },
+  claimId: { type: String, required: true, unique: true },
+  requestKey: { type: String, required: true, select: false },
+  merchantId: { type: String, required: true },
+  accountId: { type: String, required: true },
+  locationId: { type: String, required: true },
+  merchantName: { type: String, required: true },
+  locationName: { type: String, required: true },
+  nonce: { type: String, required: true, select: false },
+  credentialVersion: { type: Number, required: true },
+  expiresAt: { type: Date, required: true },
+  status: { type: String, enum: ['PENDING', 'CONFIRMED'], required: true },
+  failedAttempts: { type: Number, default: 0 },
+  failedUntil: { type: Date, default: null },
+  confirmedAt: { type: Date, default: null },
+  assignmentId: { type: mongoose.Schema.Types.ObjectId, default: null }
+}, { timestamps: true, collection: 'device_claims' });
+export const DeviceClaim = mongoose.models.DeviceClaim || mongoose.model('DeviceClaim', DeviceClaimSchema);
+
 const ReservationSchema = new mongoose.Schema({
   reservationId: { type: String, required: true, unique: true },
   publicReservationId: { type: String, required: true, unique: true },

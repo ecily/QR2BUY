@@ -66,6 +66,7 @@ const logger = pino({
 });
 
 function sanitizeRequestUrl(url = '') {
+  if (String(url).startsWith('/api/merchant/device-claims')) return '/api/merchant/device-claims/[REDACTED]';
   if (String(url).startsWith('/api/purchases') || String(url).startsWith('/buy/')) return '/api/purchases/[REDACTED]';
   if (String(url).startsWith('/api/notify') || String(url).startsWith('/notify/')) return '/notify/[REDACTED]';
   if (String(url).startsWith('/api/reservations')) return '/api/reservations/[REDACTED]';

@@ -41,7 +41,7 @@ test('0.3.10 notify QR contract and public eligibility preserve older firmware a
   const f=fixture(()=>true);
   for(const [active,stock,held,state] of [[true,0,0,'OUT_OF_STOCK'],[false,2,0,'PAUSED'],[true,2,2,'RESERVED'],[true,2,0,'READY']]) {
     Object.assign(f.offers[0],{active,stockQuantity:stock}); f.read.reserved=async()=>held;
-    for (const fw of ['0.3.10','0.3.11']) {
+    for (const fw of ['0.3.10','0.3.11','0.3.12']) {
     const current=await f.service.config(f.auth(0),fw);
     assert.equal(current.assigned,true);assert.equal(current.display.status,state);
     assert.equal(current.display.notifyAvailable,state!=='READY');assert(current.display.qr.includes('/o/'));
@@ -167,7 +167,7 @@ test('rotation generates strong distinct credentials, increments version and inv
   const Credential={findOne:async({deviceId})=>f.credentials.find(c=>c.deviceId===deviceId),
     findOneAndUpdate:async(filter,update)=>{const c=f.credentials.find(c=>c.deviceId===filter.deviceId&&c.credentialVersion===filter.credentialVersion); if(!c)return null;Object.assign(c,update.$set);return c;},
     create:async value=>f.credentials.push(value)};
-  const service=createCredentialService({Credential,Device:{findOne:({deviceId})=>f.read.device(deviceId)},pepper:()=>pepper});
+  const service=createCredentialService({Credential,Device:{findOne:({deviceId})=>f.read.device(deviceId)},pepper:()=>pepper,runTransaction:work=>work(null)});
   const old=f.auth(0); const next=await service.rotate(ids[0]);
   assert.equal(next.version,2);assert.match(next.secret,/^[a-f0-9]{64}$/);assert.notEqual(next.secret,old.secret);
   assert.ok(f.credentials[0].credentialRotatedAt);assert.ok(!JSON.stringify(f.credentials).includes(next.secret));
