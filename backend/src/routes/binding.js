@@ -3,6 +3,7 @@ import { merchantDomainAuth } from './merchant.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 import { createBindingService } from '../merchant/binding.js';
 import { DeviceApiError } from '../merchant/deviceCredentials.js';
+import { createClaimAuthorizationRouter } from './claimAuthorizations.js';
 
 // Permanent sticker entrypoint. Route /device to the backend in hosting ingress
 // so an unknown physical ID has an actual HTTP 404, not a successful SPA shell.
@@ -24,6 +25,7 @@ export function createDeviceEntryRouter(service = createBindingService()) {
 
 export function createBindingRouter(service = createBindingService()) {
   const router = Router();
+  router.use('/admin/claim-authorizations', createClaimAuthorizationRouter());
   router.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
   router.use(createRateLimiter({ windowMs: 60_000, max: 40 }));
   const handle = fn => async (req, res) => {

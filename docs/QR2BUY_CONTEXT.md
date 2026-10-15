@@ -1,5 +1,17 @@
 # qr2buy.com – operativer Projektkontext
 
+## CURRENT - Autorisierte Erstzuordnung mit acht Ziffern lokal implementiert (15. Oktober 2026)
+
+Lokale Abschlussvalidierung: Backend-Gesamtsuite 289/289 und gezielte Security-/Logging-/Rollbackpruefung 16/16 PASS; Frontend 65/65, volle Browserregression 91/91 plus aktualisierte Claim-/Recoveryfaelle 11/11, Firmware/C++-Hosttests 32/32, alle drei Merchant-Builds SUCCESS, Lint und Produktionsbuild PASS. Credentialheader 1/2/3 hashgleich und ignoriert; jedes .13-Binary enthaelt nur sein eigenes Device-Credential, keine Fremdcredentials. Keine echten Credentialliterale in versionierten/neuen Dateien oder Frontendassets. Neue .13-Anzeigen sind noch nicht physisch abgenommen.
+
+Verbindliche vorlaeufige MVP-Produktentscheidung gilt global fuer alle Schilder: qr2buy muss ein ungebundenes Geraet zuerst administrativ fuer genau einen Haendler freigeben. Der vorherige Sicherheits-STOP wird durch diesen scoped Freigabeprozess abgeloest, nicht durch frei zugaengliche kurze Codes. Spaetere Option einer Haendler-App mit QR-Scan des vollen 128-Bit-Nachweises nur dokumentiert.
+
+Lokal implementiert: vorhandene Adminauth, Erteilung/Widerruf mit transaktionalem Akteur-/Zeit-/Zielhaendler-Audit, 120 Sekunden Gesamtlaufzeit, fuenf persistente Setupversuche je Freigabe, mindestens zehn Minuten zwischen Freigaben desselben Geraets. Fremde Haendler koennen keinen Code pruefen oder Versuchssperren ausloesen. Acht numerische Ziffern mit fuehrenden Nullen und unverzerrter PRF-/Rejection-Sampling-Ableitung, unveraenderter sechsstelliger Bestaetigungsschritt, Portal-Wiederaufnahme. Neue lokale Firmware **0.3.13 / Claim-Protokoll 3**, TFT-Countdown und getrennte 8-/6-Ziffern-Anzeigen; .11/.12-Verkaufsfunktionen bleiben kompatibel. P1/P2 physisch unveraendert .11, P3 unveraendert .12, keine Credentials/Bindings geaendert.
+
+Verbindlicher Vertrag, Angriffsrechnung, Adminprozess, Wiederverwendungsgrenzen und Releaseplan: [QR2BUY_DEVICE_FIRST_ASSIGNMENT.md](QR2BUY_DEVICE_FIRST_ASSIGNMENT.md), oberster CURRENT-Abschnitt. Vollstaendiger Haendlertransfer bleibt unimplementiert; erneuerbare Freigaben sind von permanenter Identitaet/Credential getrennt.
+
+Neue Releaseblocker: rein lesend zu pruefende und separat freizugebende Freigabe-/Auditcollections plus Unique-Index device_claim_authorizations.deviceId_1; keine produktive Anlage erfolgt. Neues .13-kompatibles Rollback **687d085** auf lokalem rollback/p01-firmware-0313, reproduzierbarer Patch/Manifest vorhanden, noch nicht remote bereitgestellt. Bisheriges .12-Rollback 3d9cb86 bleibt erhalten und ist nach .13-Flash kein pauschal geeignetes Ziel. Keine produktiven Abfragen/Aenderungen, Deployments, Flashs, Claims, Zuordnungen, Pushes oder main-Merges aus diesem Auftrag. GO nur fuer Sicherheitsreview nach lokalen Tests, keine operative Freigabe.
+
 ## CURRENT - Achtstelliger Setupcode: Sicherheits-Gate BLOCKED (15. Oktober 2026)
 
 Validierung dieses lokalen Checkpoints: Backend **286/286**, Frontend **65/65**, gezielte Claim-/Recovery-Browsertests **10/10**, Firmware-/C++-Hosttests **32/32** PASS; Logging und reproduzierbarer Rollback in den Backendtests enthalten. Nur Test und Dokumentation geaendert. Wegen Sicherheits-STOP keine neue Firmware, keine drei Merchant-Neubauten und keine vollstaendige Browser-/Produktionsbuild-Freigabe fuer einen achtstelligen Vertrag; dieser existiert nicht.

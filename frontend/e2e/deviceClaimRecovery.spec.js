@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-for(const scenario of ['rejected','lost-expired','timeout','lost-confirmation','expired','unknown-restart'])
+for(const scenario of ['unauthorized','rejected','lost-expired','timeout','lost-confirmation','expired','unknown-restart'])
 test('claim recovery without reload: '+scenario,async({page})=>{
   await page.clock.install();
   const starts=[];let phase='NEW',confirmations=0,first=true,expiry;
@@ -14,6 +14,7 @@ test('claim recovery without reload: '+scenario,async({page})=>{
       const body=r.postDataJSON();starts.push(body);
       if(first){
         first=false;expiry=await page.evaluate(()=>Date.now()+120000);
+        if(scenario==='unauthorized'){await route.fulfill({status:403,json:{ok:false,error:'claim_not_authorized'}});return;}
         if(scenario==='rejected'){await route.fulfill({status:409,json:{ok:false,error:'device_update_required'}});return;}
         phase='PENDING';
         if(scenario==='lost-expired'||scenario==='unknown-restart'){await route.abort();return;}
@@ -29,14 +30,15 @@ test('claim recovery without reload: '+scenario,async({page})=>{
   });
   await page.goto('/merchant/devices?lang=en');
   const form=page.locator('.merchant-device-claim'),start=form.getByRole('button',{name:'Show possession confirmation',exact:true});
-  const setup=form.getByLabel('Setup code on the display (32 characters)',{exact:true});
+  const setup=form.getByLabel('Setup code on the display (8 digits)',{exact:true});
   await form.getByLabel('Device ID',{exact:true}).fill('QR2B-000003');await form.getByLabel('Location',{exact:true}).selectOption('LA');
-  await setup.fill('b'.repeat(32));await start.click();
+  await setup.fill('00123456');await start.click();
   if(scenario==='timeout')await page.clock.fastForward(21000);
   if(['rejected','lost-expired','timeout','unknown-restart'].includes(scenario))await expect(form.getByRole('alert')).toBeVisible();
-  if(scenario==='rejected'){
+  if(scenario==='rejected'||scenario==='unauthorized'){
+    if(scenario==='unauthorized')await expect(form.getByRole('alert')).toContainText('No active authorization');
     await expect(form.getByLabel('Device ID',{exact:true})).toBeEnabled();await expect(setup).toHaveValue('');
-    await setup.fill('c'.repeat(32));await start.click();await expect(form.getByLabel('Code on the display',{exact:true})).toBeVisible();
+    await setup.fill('00000001');await start.click();await expect(form.getByLabel('Code on the display',{exact:true})).toBeVisible();
     expect(starts[0].requestKey).not.toBe(starts[1].requestKey);
   }else if(scenario==='timeout'){
     await form.getByRole('button',{name:'Check result again'}).click();await expect(form.getByLabel('Code on the display',{exact:true})).toBeVisible();expect(starts[0]).toEqual(starts[1]);
@@ -46,7 +48,7 @@ test('claim recovery without reload: '+scenario,async({page})=>{
     await form.getByRole('button',{name:'Check result again'}).click();await expect(form.getByRole('status')).toContainText('Display assigned');expect(confirmations).toBe(1);expect(starts[0]).toEqual(starts[1]);
   }else if(scenario==='unknown-restart'){
     await page.clock.fastForward(141000);await form.getByRole('button',{name:'Prepare a new confirmation'}).click();
-    await expect(setup).toBeEnabled();await setup.fill('c'.repeat(32));await start.click();await expect(form.getByLabel('Code on the display',{exact:true})).toBeVisible();expect(starts[0].requestKey).not.toBe(starts[1].requestKey);
+    await expect(setup).toBeEnabled();await setup.fill('00000001');await start.click();await expect(form.getByLabel('Code on the display',{exact:true})).toBeVisible();expect(starts[0].requestKey).not.toBe(starts[1].requestKey);
   }else{
     await page.clock.fastForward(121000);
     if(scenario==='lost-expired')await form.getByRole('button',{name:'Check result again'}).click();

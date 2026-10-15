@@ -1,0 +1,131 @@
+diff --git a/backend/src/index.js b/backend/src/index.js
+index 2f283d9..060fcd2 100644
+--- a/backend/src/index.js
++++ b/backend/src/index.js
+@@ -67,0 +68 @@ const logger = pino({
++// Fail closed: log known static routes, never query strings or arbitrary path values.
+@@ -69,8 +70,20 @@ function sanitizeRequestUrl(url = '') {
+-  if (String(url).startsWith('/api/purchases') || String(url).startsWith('/buy/')) return '/api/purchases/[REDACTED]';
+-  if (String(url).startsWith('/api/notify') || String(url).startsWith('/notify/')) return '/notify/[REDACTED]';
+-  if (String(url).startsWith('/api/reservations')) return '/api/reservations/[REDACTED]';
+-  if (String(url).startsWith('/api/merchant/reservations')) return '/api/merchant/reservations/[REDACTED]';
+-  if (String(url).startsWith('/api/device/') || String(url).startsWith('/api/binding/')) return String(url).split('?')[0];
+-  return String(url)
+-    .replace(/(\/api\/demo\/sessions\/)[^/?#]+/g, '$1[SESSION]')
+-    .replace(/([?&]session=)[^&#]+/g, '$1[SESSION]');
++  let pathname = String(url).split(/[?#]/, 1)[0];
++  try {
++    for (let i = 0; i < 4 && pathname.includes('%'); i++) pathname = decodeURIComponent(pathname);
++  } catch { return '/[REDACTED]'; }
++  if (pathname.includes('%') || /[\\\x00-\x20\x7f]/.test(pathname) || !pathname.startsWith('/') || pathname.startsWith('//'))
++    return '/[REDACTED]';
++  pathname = pathname.toLowerCase().replace(/\/+/g, '/').replace(/\/$/, '') || '/';
++  if (pathname.split('/').some(part => part === '.' || part === '..')) return '/[REDACTED]';
++  for (const [prefix, label] of [
++    ['/api/merchant/device-claims', '/api/merchant/device-claims'],
++    ['/api/merchant/reservations', '/api/merchant/reservations'],
++    ['/api/purchases', '/api/purchases'], ['/buy', '/api/purchases'],
++    ['/api/notify', '/notify'], ['/notify', '/notify'],
++    ['/api/reservations', '/api/reservations'],
++    ['/api/demo/sessions', '/api/demo/sessions'], ['/api/binding', '/api/binding']
++  ]) if (pathname === prefix || pathname.startsWith(prefix + '/')) return label + '/[REDACTED]';
++  if (['/', '/health', '/healthz', '/api/health', '/api/device/config', '/api/config',
++    '/api/merchant-auth/login', '/api/merchant-auth/logout', '/api/merchant-auth/me',
++    '/api/merchant/devices', '/api/merchant/products', '/api/merchant/locations'].includes(pathname)) return pathname;
++  return '/[REDACTED]';
+@@ -95 +108,2 @@ app.use(
+-      res: (res) => ({ statusCode: res.statusCode })
++      res: (res) => ({ statusCode: res.statusCode }),
++      err: () => ({ type: 'HttpError', message: 'request failed' })
+@@ -196 +210 @@ app.use((err, _req, res, _next) => {
+-  logger.error({ msg: '[http] unhandled', err: err.message, stack: err.stack });
++  logger.error({ msg: '[http] unhandled', statusCode: 500 });
+diff --git a/backend/src/merchant/binding.js b/backend/src/merchant/binding.js
+index 97ef26e..0655656 100644
+--- a/backend/src/merchant/binding.js
++++ b/backend/src/merchant/binding.js
+@@ -8 +8 @@ export const PREVIEW_TTL_MS = 120_000;
+-const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11'];
++const PREVIEW_FIRMWARE_VERSIONS = ['0.3.4', '0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11', '0.3.12', '0.3.13'];
+diff --git a/backend/src/merchant/deviceService.js b/backend/src/merchant/deviceService.js
+index b871252..731fd1f 100644
+--- a/backend/src/merchant/deviceService.js
++++ b/backend/src/merchant/deviceService.js
+@@ -70 +70 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
+-        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11'].includes(firmwareVersion);
++        const pausedCapable = ['0.3.6', '0.3.7', '0.3.8', '0.3.9', '0.3.10', '0.3.11', '0.3.12', '0.3.13'].includes(firmwareVersion);
+@@ -86,3 +86,3 @@ export function createDeviceService({ repository = createDeviceRepository(), pep
+-          display: { status: ['0.3.10', '0.3.11'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
+-            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
+-            ...(['0.3.10', '0.3.11'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }
++          display: { status: ['0.3.10', '0.3.11', '0.3.12', '0.3.13'].includes(firmwareVersion) ? state : state === 'OUT_OF_STOCK' ? 'SOLD' : state,
++            qr: ['READY', 'CHECKOUT_STARTED'].includes(state) || (['0.3.10', '0.3.11', '0.3.12', '0.3.13'].includes(firmwareVersion) && notify) ? `${origin(publicOrigin())}/o/${offer.publicOfferId}` : '',
++            ...(['0.3.10', '0.3.11', '0.3.12', '0.3.13'].includes(firmwareVersion) ? { notifyAvailable: notify } : {}) }
+diff --git a/backend/src/routes/checkout.js b/backend/src/routes/checkout.js
+index c36b689..5716290 100644
+--- a/backend/src/routes/checkout.js
++++ b/backend/src/routes/checkout.js
+@@ -182 +182 @@ router.get('/verify', async (req, res) => {
+-    console.error('[verify] error', err);
++    console.error('[verify] request failed');
+diff --git a/backend/test/deviceLogging.test.js b/backend/test/deviceLogging.test.js
+index 454623b..a72e987 100644
+--- a/backend/test/deviceLogging.test.js
++++ b/backend/test/deviceLogging.test.js
+@@ -28,0 +29 @@ test('actual production logger omits credential headers and device query strings
++  app.get('/synthetic-error', (_req, _res, next) => next(new Error(secret)));
+@@ -29,0 +31,3 @@ test('actual production logger omits credential headers and device query strings
++  const errorHandlerStart = source.indexOf('app.use((err, _req, res, _next) => {');
++  const errorHandlerEnd = source.indexOf('\n});', errorHandlerStart) + 4;
++  new Function('app', 'logger', source.slice(errorHandlerStart, errorHandlerEnd))(app, logger);
+@@ -39,0 +44,2 @@ test('actual production logger omits credential headers and device query strings
++  const syntheticError = await fetch(origin + '/synthetic-error?token=' + secret);
++  assert.equal(syntheticError.status, 500); await syntheticError.text();
+@@ -44 +50 @@ test('actual production logger omits credential headers and device query strings
+-  for (const path of ['/api/notify/offers/'+secret, '/notify/unsubscribe/'+secret, '/api/reservations/'+secret, '/api/merchant/reservations/'+secret+'/cancel']) {
++  for (const path of ['/api/notify/offers/'+secret, '/notify/unsubscribe/'+secret, '/api/reservations/'+secret, '/api/merchant/reservations/'+secret+'/cancel', '/api/merchant/device-claims/'+secret+'/confirm']) {
+@@ -48,0 +55,17 @@ test('actual production logger omits credential headers and device query strings
++  for (const path of [
++    '/api/MERCHANT/DEVICE-CLAIMS', '/API/merchant/device-claims/' + secret + '/confirm',
++    '/%61pi/merchant/%64evice-claims/' + secret, '/%2561pi/merchant/device-claims/' + secret,
++    '/api//merchant///device-claims/' + secret, '/api/binding/' + secret,
++    '/api/device/' + secret, '/unknown/' + secret, '/api/merchant/device-claims%2f' + secret,
++    '/api/merchant/device-claims%ZZ/' + secret, '/api/../' + secret,
++    '//foreign.example/' + secret, '/api/demo/sessions/' + secret,
++    '/api/notify/' + secret, '/health', '/unknown/' + [...secret].map(c => '%' + c.charCodeAt(0).toString(16)).join(''),
++    '/api/merchant/device-claims%25252f' + secret, '/api\\merchant\\device-claims/' + secret
++  ]) {
++    const url = path + '?setupCode=' + secret + '&code=' + secret + '&token=' + secret;
++    assert.ok(!sanitizeRequestUrl(url).includes(secret));
++    assert.ok(!sanitizeRequestUrl(url).includes('?'));
++    const response = await fetch(origin + url); await response.text();
++  }
++  assert.equal(sanitizeRequestUrl('/api/device/config?unexpected=' + secret), '/api/device/config');
++  assert.equal(sanitizeRequestUrl('/health?token=' + secret), '/health');
+@@ -51,0 +75 @@ test('actual production logger omits credential headers and device query strings
++  assert.ok(!decodeURIComponent(captured).includes(secret));
+diff --git a/backend/test/merchantMongo.integration.test.js b/backend/test/merchantMongo.integration.test.js
+index 344b875..6e9dd13 100644
+--- a/backend/test/merchantMongo.integration.test.js
++++ b/backend/test/merchantMongo.integration.test.js
+@@ -28,0 +29,12 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
++    // Rollback must preserve post-P0.1 collections and exact production index definitions.
++    const claimCollections = ['device_claims', 'device_claim_attempts'];
++    await mongoose.connection.db.collection('device_claims').createIndex({ deviceId: 1 }, { name: 'deviceId_1', unique: true, collation: { locale: 'simple' } });
++    await mongoose.connection.db.collection('device_claims').createIndex({ claimId: 1 }, { name: 'claimId_1', unique: true, collation: { locale: 'simple' } });
++    await mongoose.connection.db.collection('device_claim_attempts').createIndex({ deviceId: 1, merchantId: 1 }, { name: 'deviceId_1_merchantId_1', unique: true, collation: { locale: 'simple' } });
++    await mongoose.connection.db.collection('device_claims').insertOne({ deviceId: 'QR2B-999999', claimId: 'synthetic-audit', status: 'CONFIRMED' });
++    await mongoose.connection.db.collection('device_claim_attempts').insertOne({ deviceId: 'QR2B-999999', merchantId: 'TEST-OLD', attempts: 5 });
++    const claimSnapshot = async () => Promise.all(claimCollections.map(async name => ({
++      documents: await mongoose.connection.db.collection(name).find({}).sort({ _id: 1 }).toArray(),
++      indexes: await mongoose.connection.db.collection(name).listIndexes().toArray()
++    })));
++    const claimsBefore = await claimSnapshot();
+@@ -176,0 +189,7 @@ test('real Mongo: merchant devices, rotation, isolation, heartbeat and public of
++    await t.test('existing claim Unique indexes and audit/budget documents survive legacy device operations', async () => {
++      assert.deepEqual(await claimSnapshot(), claimsBefore);
++      for (const firmware of ['0.3.11', '0.3.12']) for (const credential of auth) {
++        assert.equal((await getConfig(credential, firmware)).status, 200);
++      }
++      assert.deepEqual(await claimSnapshot(), claimsBefore);
++    });

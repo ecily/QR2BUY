@@ -22,18 +22,23 @@ int main() {
   assert(claimDisplayName(std::string(64,'x')));assert(!claimDisplayName(std::string(65,'x')));
   for(const auto name : {"", " A", "A ", "A\nB", u8"Caf\u00e9", u8"\u00df", u8"\u5546\u5e97", u8"a\u0308", u8"a\u202eB"}) assert(!claimDisplayName(name));
   {
-    const std::string valid=R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimSetup":{"code":"abcdef0123456789abcdef0123456789","expiresAt":1900000000}})";
+    const std::string valid=R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimSetup":{"protocol":3,"code":"00123456","expiresAt":1900000000}})";
     MerchantConfig setup;assert(parse(valid,setup));assert(setup.setup && !setup.claim && !setup.assigned && setup.qr.empty());
-    for(const auto key : {"code", "expiresAt", "assigned", "claimPreview"}) {
+    assert(setup.previewCode == "00123456");
+    for(const auto key : {"code", "expiresAt", "assigned", "claimPreview", "protocol"}) {
       JsonDocument d;deserializeJson(d,valid);
       if(std::string(key)=="assigned")d[key]=true;
       else if(std::string(key)=="claimPreview")d[key]["claimId"]="bad";
       else d["claimSetup"][key]="bad";
       std::string body;serializeJson(d,body);assert(!parse(body,setup));
     }
+    for(const auto code : {"1234567", "123456789", "12e34567", " 1234567", "abcdef0123456789abcdef0123456789"}) {
+      JsonDocument d;deserializeJson(d,valid);d["claimSetup"]["code"]=code;
+      std::string body;serializeJson(d,body);assert(!parse(body,setup));
+    }
   }
   {
-    const std::string valid = R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimPreview":{"claimId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","merchantName":"Merchant A","locationName":"Window A","code":"123456","expiresAt":1900000000}})";
+    const std::string valid = R"({"ok":true,"deviceId":"QR2B-000001","assigned":false,"claimPreview":{"protocol":3,"claimId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","merchantName":"Merchant A","locationName":"Window A","code":"123456","expiresAt":1900000000}})";
     MerchantConfig claim;
     assert(parse(valid,claim));assert(claim.claim && !claim.preview && !claim.assigned && claim.qr.empty());
     assert(claim.claimMerchant == "Merchant A" && claim.claimLocation == "Window A");

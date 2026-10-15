@@ -12,8 +12,8 @@ class MerchantAppContractTest(unittest.TestCase):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
         screen = source.split('if (config.claimSetup) {', 1)[1].split('if (config.claimPreview)', 1)[0]
         self.assertIn('QR2BUY_DEVICE_ID', screen)
-        self.assertIn('config.previewCode.substring(0, 16)', screen)
-        self.assertIn('config.previewCode.substring(16)', screen)
+        self.assertIn('config.previewCode.c_str()', screen)
+        self.assertIn('Noch %lld Sekunden', source)
         self.assertNotIn('Serial.', screen)
         self.assertNotIn('drawQrCode', screen)
         self.assertIn('renderedConfig.claimSetup)', source)
@@ -48,7 +48,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertIn('config.bound && (config.status == "OUT_OF_STOCK" || config.status == "PAUSED")', source)
         screen = source.split('static void drawSoldOutOffer', 1)[1].split('static void drawUnavailableOffer', 1)[0]
         self.assertIn('status_screen::Kind::OutOfStock', screen)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.12")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.13")', source)
 
     def test_binding_paid_and_qr_renderers_remain_unchanged(self):
         source = (ROOT / 'src/static_app.cpp').read_text(encoding='utf-8')
@@ -73,7 +73,7 @@ class MerchantAppContractTest(unittest.TestCase):
         self.assertNotIn('drawQrCode', preview)
         self.assertIn('time(nullptr) >= renderedConfig.previewExpiresAt', source)
         self.assertIn('left.previewCode == right.previewCode', source)
-        self.assertIn('http.addHeader("x-firmware-version", "0.3.12")', source)
+        self.assertIn('http.addHeader("x-firmware-version", "0.3.13")', source)
         self.assertNotIn('Serial.println(config.previewCode', source)
 
     def test_shared_app_and_separate_hardware_and_secret_configs(self):

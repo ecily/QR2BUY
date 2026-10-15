@@ -42,7 +42,7 @@ test('exact reproducible rollback tree preserves 0.3.11/0.3.12 device contracts 
     assert(indexedMongoTest.includes('existing claim Unique indexes and audit/budget documents survive legacy device operations'));
     assert(!git(['show',tree+':backend/src/routes/merchantPortal.js']).includes('/device-claims'));
     const binding=git(['show',tree+':backend/src/merchant/binding.js']);
-    assert.equal(binding,readFileSync(new URL('../src/merchant/binding.js',import.meta.url),'utf8').replaceAll('\r\n','\n'));
+    assert.equal(binding,readFileSync(new URL('../src/merchant/binding.js',import.meta.url),'utf8').replaceAll('\r\n','\n').replaceAll(", '0.3.13'", ''));
     const source=git(['show',tree+':backend/src/merchant/deviceService.js']).replace(/^import .*;\r?$/gm,'').replace(/^export /gm,'');
     const rollback=new Function('deps',`const {availabilityState,notifyStateAllowed,createHash,DeviceApiError,verifyCredential,bindingCode,notifyConfigured,createDeviceRepository,checkoutConfigured}=deps;${source};return createDeviceService;`)({availabilityState,notifyStateAllowed,createHash,DeviceApiError,verifyCredential,bindingCode,notifyConfigured:()=>false,checkoutConfigured:()=>false,createDeviceRepository:()=>{throw Error('no production database');}});
     const at=new Date(),secret='fa'.repeat(32),pepper='bc'.repeat(32),deviceId='QR2B-000001';

@@ -2,268 +2,240 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
 import express from 'express';
-import MongoStore from 'connect-mongo';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHmac } from 'node:crypto';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import * as m from '../src/merchant/models.js';
 import { MerchantAccount, hashPassword } from '../src/merchant/accounts.js';
+import MongoStore from 'connect-mongo';
 import { createMerchantPortal } from '../src/routes/merchantPortal.js';
-import { createDeviceClaimService, CLAIM_TTL_MS, claimSetup, claimNameSupported } from '../src/merchant/deviceClaims.js';
 import { bindingTransaction } from '../src/merchant/binding.js';
+import { createDeviceClaimService, createClaimAuthorizationService, claimSetup, claimNameSupported } from '../src/merchant/deviceClaims.js';
 import { createDeviceService } from '../src/merchant/deviceService.js';
 import { createCredentialService } from '../src/merchant/deviceCredentials.js';
 import { verifyClaimIndexes } from '../src/merchant/claimIndexes.js';
-import { main as verifyIndexCommand } from '../src/scripts/verifyDeviceClaimIndexes.js';
+import { createClaimAuthorizationRouter } from '../src/routes/claimAuthorizations.js';
 
-test('initial device claims: isolated replica set, authenticated portal and physical proof', { timeout: 180000 }, async t => {
+const key = () => randomBytes(16).toString('hex');
+test('authorized first assignment: isolated replica set, short proof and unchanged identities', { timeout: 180000 }, async t => {
   const repl = await MongoMemoryReplSet.create({ binary: { version: '8.2.6' }, replSet: { count: 1, ip: '127.0.0.1' } });
   let server, store;
+  const savedEnv = Object.fromEntries(['ADMIN_USER','ADMIN_PASS','PUBLIC_BASE_URL'].map(k => [k,process.env[k]]));
   try {
-    const uri = repl.getUri('qr2buy_claim_test_'+randomBytes(8).toString('hex'));
-    await mongoose.connect(uri);
+    await mongoose.connect(repl.getUri('qr2buy_claim_test_'+key()));
     await Promise.all([...Object.values(m).filter(x => x?.modelName), MerchantAccount].map(Model => Model.init()));
-    for(const Model of [m.DeviceClaim,m.DeviceClaimAttempt]) {await Model.createCollection();await Model.createIndexes();}
-    let at = new Date(Date.now()-3600000); const now = () => at, pepper = () => 'ef'.repeat(32);
-    const claims = createDeviceClaimService({ now, pepper }), devices = createDeviceService({ now, pepper });
-    const credentials = createCredentialService({ now, pepper });
-    const reject = (promise, code) => assert.rejects(promise, e => e.code === code);
+    for (const Model of [m.DeviceClaim,m.DeviceClaimAttempt,m.DeviceClaimAuthorization,m.DeviceClaimAudit]) {
+      await Model.createCollection(); await Model.createIndexes();
+    }
+    let at = new Date(); const now = () => at, pepper = () => 'ef'.repeat(32);
+    const claims = createDeviceClaimService({now,pepper}), grants = createClaimAuthorizationService({now});
+    const devices = createDeviceService({now,pepper}), credentials = createCredentialService({now,pepper});
+    const reject = (promise,code) => assert.rejects(promise,e => e.code === code);
     for (const id of ['A','B']) {
-      await m.Merchant.create({ merchantId: id, displayName: 'Merchant '+id, contactEmail: id+'@example.invalid' });
-      await m.Location.create({ merchantId: id, locationId: 'L'+id, name: 'Location '+id });
-      await MerchantAccount.create({ merchantId: id, accountId: id, email: id+'@example.invalid', passwordHash: 'test-only-unused' });
+      await m.Merchant.create({merchantId:id,displayName:'Merchant '+id,contactEmail:id+'@example.invalid'});
+      await m.Location.create({merchantId:id,locationId:'L'+id,name:'Location '+id});
+      for (const accountId of [id,id+'2']) await MerchantAccount.create({merchantId:id,accountId,email:accountId+'@example.invalid',passwordHash:'synthetic-unused',role:accountId===id?'OWNER':'ADMIN'});
     }
-    const auth = {};
-    for (let i=1;i<=3;i++) {
-      const id = 'QR2B-00000'+i;
-      await m.ManagedDevice.create({ deviceId: id, displayName: id, hardwareUid: 'test-mac-'+i,
-        hardwareVariant: 'ESP32_ILI9341_CS5', status: i===3 ? 'PROVISIONED' : 'ACTIVE', firmwareVersion: '0.3.12', lastSeenAt: at });
-      auth[i] = await credentials.rotate(id);
-      if (i<3) await m.DeviceMerchantAssignment.create({ deviceId: id, merchantId: 'A', locationId: 'LA', status: 'ACTIVE', usageType: 'PILOT', validFrom: at });
+    let sequence=100;
+    async function fixture(version='0.3.13') {
+      const deviceId='QR2B-'+String(sequence++).padStart(6,'0');
+      await m.ManagedDevice.create({deviceId,displayName:'Synthetic device',hardwareUid:'test-'+deviceId,hardwareVariant:'ESP32_ILI9341_CS5',status:'PROVISIONED',firmwareVersion:version,lastSeenAt:at});
+      const auth=await credentials.rotate(deviceId);
+      return {deviceId,auth};
     }
-    const id='QR2B-000003', snapshot = async () => JSON.stringify(await Promise.all([
-      m.ManagedDevice.find({deviceId:{$ne:id}}).sort({deviceId:1}).lean(), m.DeviceCredential.find({deviceId:{$ne:id}}).select('+verifier').sort({deviceId:1}).lean(),
-      m.DeviceMerchantAssignment.find({deviceId:{$ne:id}}).sort({deviceId:1}).lean()
-    ]));
-    const before = await snapshot();
-    const setup = (deviceId=id,version=auth[3].version) => claimSetup(deviceId,version,at,pepper()).code;
-    const start = (key='1', merchant='A') => claims.start(merchant,merchant,{deviceId:id,locationId:'L'+merchant,setupCode:setup(),requestKey:key.repeat(32)});
-    const shown = async (version='0.3.12') => (await devices.config(auth[3],version)).claimPreview;
-    const finish = (p,code,merchant='A') => claims.confirm(merchant,merchant,p.claimId,{code});
-    await t.test('short-code migration gate: eight digits fail closed; distributed invalid proofs cannot suppress the owner', async () => {
-      for (const setupCode of ['00000000', '12345678']) {
-        await assert.rejects(claims.start('A', 'A', { deviceId: id, locationId: 'LA', requestKey: 'e'.repeat(32), setupCode }),
-          error => error.name === 'ZodError');
-      }
-      const invalidProof = (setup()[0] === '0' ? '1' : '0') + setup().slice(1);
-      // Synthetic independent merchants, not extra sessions of a single merchant.
-      for (let i = 0; i < 4; i++) {
-        const merchantId = `attack-${i}`;
-        await m.Merchant.create({ merchantId, displayName: 'Synthetic attacker', contactEmail: `${merchantId}@example.invalid` });
-        await m.Location.create({ merchantId, locationId: merchantId, name: 'Synthetic location' });
-        await MerchantAccount.create({ merchantId, accountId: merchantId, email: `${merchantId}@example.invalid`, passwordHash: 'test-only-unused' });
-        for (let cycle = 0; cycle < 2; cycle++) {
-          for (let attempt = 0; attempt < 3; attempt++) {
-            await reject(claims.start(merchantId, merchantId, { deviceId: id, locationId: merchantId,
-              requestKey: (i * 6 + cycle * 3 + attempt).toString(16).padStart(32, '0'), setupCode: invalidProof }), 'invalid_setup_code');
-          }
-        }
-      }
-      assert.equal(await m.DeviceClaim.countDocuments({ deviceId: id }), 0);
-      assert.equal(await m.DeviceMerchantAssignment.countDocuments({ deviceId: id }), 0);
-      const pending = await start('e');
-      assert.equal(pending.status, 'PENDING');
-      await m.DeviceClaim.deleteOne({ deviceId: id }); // Isolated fixture only.
-      assert.equal(await snapshot(), before);
-    });
-    await t.test('foreign location, role, assigned devices, old firmware and missing pepper fail closed',async()=>{
-      await reject(claims.start('A','A',{deviceId:id,locationId:'LB',setupCode:setup(),requestKey:'a'.repeat(32)}),'claim_forbidden');
-      await reject(claims.start('A','B',{deviceId:id,locationId:'LA',setupCode:setup(),requestKey:'a'.repeat(32)}),'claim_forbidden');
-      await MerchantAccount.updateOne({accountId:'A'},{$set:{role:'STAFF'}});await reject(start(),'claim_forbidden');
-      await MerchantAccount.updateOne({accountId:'A'},{$set:{role:'OWNER'}});
-      await m.Location.updateOne({locationId:'LA'},{$set:{status:'INACTIVE'}});await reject(start(),'claim_forbidden');
-      await m.Location.updateOne({locationId:'LA'},{$set:{status:'ACTIVE'}});
-      await m.ManagedDevice.updateOne({deviceId:id},{$set:{lastSeenAt:new Date(+at-120001)}});await reject(start(),'device_update_required');
-      await m.ManagedDevice.updateOne({deviceId:id},{$set:{lastSeenAt:at}});
-      for(const i of [1,2]) await reject(claims.start('B','B',{deviceId:'QR2B-00000'+i,locationId:'LB',setupCode:setup(),requestKey:'a'.repeat(32)}),'device_unavailable');
-      await m.ManagedDevice.updateOne({deviceId:id},{$set:{firmwareVersion:'0.3.11'}});
-      await reject(start(),'device_update_required');
-      await m.ManagedDevice.updateOne({deviceId:id},{$set:{firmwareVersion:'0.3.12'}});
-      await reject(createDeviceClaimService({now,pepper:()=>''}).start('A','A',{deviceId:id,locationId:'LA',setupCode:setup(),requestKey:'a'.repeat(32)}),'claim_unavailable');
-      assert.equal(await m.DeviceClaim.countDocuments(),0);
-    });
-    await t.test('parallel merchants: exactly one challenge; code only on authenticated correct device; retry stable',async()=>{
-      const results = await Promise.allSettled([start(),start('2','B')]);
-      assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
-      const pending = await m.DeviceClaim.findOne({deviceId:id});
-      const owner = pending.merchantId;
-      // Keep all later tests deterministic regardless of race winner.
-      if(owner==='B') {await m.DeviceClaim.deleteOne({deviceId:id});await start('3');} // Reset only the isolated race fixture.
-      const p = await m.DeviceClaim.findOne({deviceId:id}).select('+requestKey');
-      const retry = await claims.start('A','A',{deviceId:id,locationId:'LA',setupCode:setup(),requestKey:p.requestKey});
-      assert.equal(retry.claimId,p.claimId); assert.equal(+new Date(retry.expiresAt),+p.expiresAt);
-      assert(!/"code"|nonce|verifier|secret|requestKey/.test(JSON.stringify(retry)));
-      const challenge = await shown();assert.match(challenge.code,/^\d{6}$/);assert.equal(challenge.merchantName,'Merchant A');assert.equal(challenge.locationName,'Location A');
-      assert.equal(await shown('0.3.11'),undefined);
-      assert.equal((await devices.config(auth[1],'0.3.12')).claimPreview,undefined);
-      await reject(devices.config({...auth[3],secret:auth[1].secret},'0.3.12'),'device_unauthorized');
-      await reject(finish(p,challenge.code,'B'),'claim_not_found');
-      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:id}),0);
-    });
-    await t.test('wrong codes persist across expiry/restart; budget is isolated per device and merchant',async()=>{
-      let p=await m.DeviceClaim.findOne({deviceId:id});
-      let wrong=(await shown()).code==='000000'?'000001':'000000';
-      for(let i=0;i<4;i++)await reject(finish(p,wrong),'invalid_claim_code');
-      at=new Date(+at+CLAIM_TTL_MS);await m.ManagedDevice.updateOne({deviceId:id},{$set:{lastSeenAt:at}});
-      await reject(finish(p,wrong),'claim_expired');assert.equal(await shown(),undefined);
-      p=await start('4');wrong=(await shown()).code==='000000'?'000001':'000000';
-      await reject(finish(p,wrong),'invalid_claim_code');
-      await reject(finish(p,'123456'),'claim_locked');await reject(start('5'),'claim_locked');
-      assert.equal(await shown(),undefined);
-      assert.equal((await start('5','B')).status,'PENDING');
-      at=new Date(+at+600_001);await m.ManagedDevice.updateOne({deviceId:id},{$set:{lastSeenAt:at}});
-    });
-    await t.test('expired proof replay, changed scope and credential revocation cannot assign',async()=>{
-      const p=await start('6'), code=(await shown()).code;
-      await m.Merchant.updateOne({merchantId:'A'},{$set:{displayName:'Changed name'}});
-      await reject(finish(p,code),'claim_expired');assert.equal(await shown(),undefined);
-      await m.Merchant.updateOne({merchantId:'A'},{$set:{displayName:'Merchant A'}});
-      await credentials.revoke(id,auth[3].version);
-      await reject(finish(p,code),'device_unavailable');
-      await m.DeviceCredential.updateOne({deviceId:id},{$set:{credentialStatus:'ACTIVE'}});
-      at=new Date(+at+CLAIM_TTL_MS);await m.ManagedDevice.updateOne({deviceId:id},{$set:{lastSeenAt:at}});
-      await reject(finish(p,code),'claim_expired');
-    });
-    await t.test('HTTP session, CSRF, strict scope, concurrent confirmation, lost response retry and no product binding',async()=>{
-      const password='test-only-claim-login-password';
-      await MerchantAccount.updateOne({accountId:'A'},{$set:{passwordHash:await hashPassword(password)}});
-      store=MongoStore.create({mongoUrl:uri,collectionName:'test_claim_sessions'});
-      await store.collectionP;
-      const origin='http://127.0.0.1:5173', app=express();app.use(express.json());
-      app.use('/api',createMerchantPortal({secret:'test-only-session-secret-'+ 'x'.repeat(32),origin,production:false,store,claims}));
+    const issue = (f,merchantId='A',requestKey=key()) => grants.issue('synthetic-operator',{deviceId:f.deviceId,merchantId,requestKey});
+    const config = f => devices.config(f.auth,'0.3.13');
+    const input = async (f,merchant='A',requestKey=key()) => ({deviceId:f.deviceId,locationId:'L'+merchant,requestKey,setupCode:(await config(f)).claimSetup.code});
+    const start = async (f,merchant='A') => claims.start(merchant,merchant,await input(f,merchant));
+    const wrong = code => (code[0]==='0'?'1':'0')+code.slice(1);
+    const protectedDevices=[];
+    for (const deviceId of ['QR2B-000001','QR2B-000002']) {
+      await m.ManagedDevice.create({deviceId,displayName:'Existing',hardwareUid:'test-'+deviceId,hardwareVariant:deviceId.endsWith('1')?'ESP32_ILI9341_CS5':'ESP32_ILI9341_NOCS',status:'ACTIVE',firmwareVersion:'0.3.11',lastSeenAt:at});
+      await credentials.rotate(deviceId);
+      await m.DeviceMerchantAssignment.create({deviceId,merchantId:'A',locationId:'LA',status:'ACTIVE',usageType:'PILOT',validFrom:at});
+      protectedDevices.push(deviceId);
+    }
+    const snapshot = async () => JSON.stringify(await Promise.all([m.ManagedDevice,m.DeviceCredential,m.DeviceMerchantAssignment].map(Model=>Model.find({deviceId:{$in:protectedDevices}}).select('+verifier').sort({deviceId:1}).lean())));
+    const before=await snapshot();
+    await t.test('operator auth, CSRF, JSON, origin and query gates cannot be bypassed by merchant role',async()=>{
+      process.env.ADMIN_USER='synthetic-admin'; process.env.ADMIN_PASS='synthetic-password';process.env.PUBLIC_BASE_URL='https://example.invalid';
+      let calls=0;
+      const app=express();app.use(express.json());app.use('/admin',createClaimAuthorizationRouter({issue:async actor=>{calls++;assert.equal(actor,'synthetic-admin');return {ok:true};},revoke:async()=>({ok:true})}));
       server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
-      const base='http://127.0.0.1:'+server.address().port;
-      let cookie='',csrf='';
+      const url='http://127.0.0.1:'+server.address().port+'/admin';
+      const good={authorization:'Basic '+Buffer.from('synthetic-admin:synthetic-password').toString('base64'),'content-type':'application/json','x-qr2buy-admin-action':'claim-authorization'};
+      for(const [headers,status,path] of [[{},401,''],[{...good,authorization:'Bearer merchant-session'},401,''],[{...good,origin:'https://evil.invalid'},403,''],[{...good,'x-qr2buy-admin-action':''},400,''],[{...good,'content-type':'text/plain'},415,''],[good,400,'?token=synthetic']]) {
+        assert.equal((await fetch(url+path,{method:'POST',headers,body:'{}'})).status,status);
+      }
+      assert.equal(calls,0);assert.equal((await fetch(url,{method:'POST',headers:good,body:'{}'})).status,200);assert.equal(calls,1);
+      await new Promise(r=>server.close(r));server=null;
+    });
+    await t.test('no authorization, legacy proof and unsupported firmware fail closed',async()=>{
+      const f=await fixture();assert.equal((await config(f)).claimSetup,undefined);
+      await reject(claims.start('A','A',{deviceId:f.deviceId,locationId:'LA',setupCode:'00000000',requestKey:key()}),'claim_not_authorized');
+      await assert.rejects(claims.start('A','A',{deviceId:f.deviceId,locationId:'LA',setupCode:'a'.repeat(32),requestKey:key()}),e=>e.name==='ZodError');
+      for(const version of ['0.3.11','0.3.12']) await reject(issue(await fixture(version)),'device_update_required');
+      for(const deviceId of protectedDevices) await reject(grants.issue('operator',{deviceId,merchantId:'A',requestKey:key()}),'device_unavailable');
+      await reject(grants.issue('',{deviceId:f.deviceId,merchantId:'A',requestKey:key()}),'claim_forbidden');
+    });
+    await t.test('only one merchant, persistent five guesses and no foreign lockout across accounts',async()=>{
+      const f=await fixture();await issue(f);const body=await input(f);const invalid=wrong(body.setupCode);
+      const grant=await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId}).lean();
+      await reject(claims.start('A','A2',{...body,setupCode:invalid}),'claim_forbidden');
+      for(let i=0;i<12;i++) await reject(claims.start('B','B',{...body,locationId:'LB',requestKey:key(),setupCode:invalid}),'claim_not_authorized');
+      assert.equal((await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).attempts,0);
+      for(let i=0;i<5;i++) {
+        // A second OWNER-like account in the same merchant must share the exact grant budget.
+        if(i===2) {await MerchantAccount.updateOne({accountId:'A'},{$set:{role:'ADMIN'}});await MerchantAccount.updateOne({accountId:'A2'},{$set:{role:'OWNER'}});}
+        const actor=i<2?'A':'A2';
+        await reject(createDeviceClaimService({now,pepper}).start('A',actor,{...body,requestKey:key(),setupCode:invalid}),'invalid_setup_code');
+      }
+      await MerchantAccount.updateOne({accountId:'A2'},{$set:{role:'ADMIN'}});await MerchantAccount.updateOne({accountId:'A'},{$set:{role:'OWNER'}});
+      await reject(claims.start('A','A',body),'claim_locked');
+      assert.equal((await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).attempts,5);
+      assert.equal((await config(f)).claimSetup,undefined);
+      await grants.revoke('operator',{deviceId:f.deviceId,authorizationId:grant.authorizationId});
+      await reject(issue(f,'B'),'authorization_cooldown');
+    });
+    await t.test('parallel guesses commit at most five attempts; parallel issue/start has one winner',async()=>{
+      const f=await fixture();const issued=await Promise.allSettled([issue(f),issue(f,'B')]);assert.equal(issued.filter(x=>x.status==='fulfilled').length,1);
+      const grant=await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId});const merchant=grant.merchantId;const body=await input(f,merchant);
+      await Promise.allSettled(Array.from({length:12},()=>claims.start(merchant,merchant,{...body,requestKey:key(),setupCode:wrong(body.setupCode)})));
+      assert.equal((await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).attempts,5);
+      const other=await fixture();await issue(other);const good=await input(other);
+      const results=await Promise.allSettled([claims.start('A','A',good),claims.start('A','A',{...good,requestKey:key()})]);
+      assert.equal(results.filter(x=>x.status==='fulfilled').length,1);
+      assert.equal(await m.DeviceClaim.countDocuments({deviceId:other.deviceId}),1);
+    });
+    await t.test('expiry, revocation, one-time grants, issuance replay and audit actor/time',async()=>{
+      const f=await fixture();const requestKey=key();const issued=await issue(f,'A',requestKey);
+      assert.deepEqual(await issue(f,'A',requestKey),issued);
+      const body=await input(f);at=new Date(+at+120001);await m.ManagedDevice.updateMany({status:'PROVISIONED'},{$set:{lastSeenAt:at}});
+      await reject(claims.start('A','A',body),'claim_not_authorized');
+      assert.equal((await config(f)).claimSetup,undefined);
+      at=new Date(+at+600001);await m.ManagedDevice.updateMany({status:'PROVISIONED'},{$set:{lastSeenAt:at}});
+      const again=await issue(f);await reject(issue(f,'A',requestKey),'authorization_replay');
+      const pending=await start(f);const shown=(await config(f)).claimPreview;
+      await grants.revoke('second-operator',{deviceId:f.deviceId,authorizationId:again.authorizationId});
+      await reject(claims.confirm('A','A',pending.claimId,{code:shown.code}),'claim_expired');
+      assert.equal((await config(f)).claimPreview,undefined);
+      const audit=await m.DeviceClaimAudit.find({deviceId:f.deviceId}).lean();assert(audit.some(e=>e.event==='REVOKED'&&e.actor==='second-operator'));assert(audit.every(e=>e.at instanceof Date&&!('code' in e)));
+    });
+    await t.test('success and lost HTTP result resume idempotently without extending expiry or binding a product',async()=>{
+      const f=await fixture();await issue(f);const original=await input(f);const p=await claims.start('A','A',original);
+      for(const legacy of ['0.3.11','0.3.12'])assert.deepEqual(await devices.config(f.auth,legacy),{ok:true,deviceId:f.deviceId,assigned:false});
+      await config(f); // Restore the synthetic caller's actual firmware heartbeat after legacy probes.
+      assert.deepEqual(await claims.start('A','A',original),p);
+      const shown=(await config(f)).claimPreview;assert.match(shown.code,/^[0-9]{6}$/);assert.equal(shown.protocol,3);
+      assert(!JSON.stringify(p).includes('code'));assert.equal(p.status,'PENDING');
+      await reject(claims.confirm('B','B',p.claimId,{code:shown.code}),'claim_not_found');
+      const results=await Promise.all([claims.confirm('A','A',p.claimId,{code:shown.code}),claims.confirm('A','A',p.claimId,{code:shown.code})]);
+      assert(results.every(r=>r.status==='CONFIRMED'));assert.equal((await claims.start('A','A',original)).status,'CONFIRMED');
+      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),1);assert.equal(await m.DisplayAssignment.countDocuments({deviceId:f.deviceId}),0);
+      assert.equal((await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).status,'CONSUMED');
+      assert.equal((await m.DeviceCredential.findOne({deviceId:f.deviceId})).credentialVersion,f.auth.version);
+      await reject(grants.revoke('operator',{deviceId:f.deviceId,authorizationId:(await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).authorizationId}),'authorization_finished');
+    });
+    await t.test('six-digit confirmation retains persistent five-attempt budget and scope/name/credential guards',async()=>{
+      const f=await fixture();await issue(f);const body=await input(f);
+      await reject(claims.start('A','A',{...body,locationId:'LB'}),'claim_forbidden');
+      await m.Merchant.updateOne({merchantId:'A'},{$set:{displayName:'Unsupported \u00df'}});await reject(claims.start('A','A',body),'claim_name_unsupported');
+      await m.Merchant.updateOne({merchantId:'A'},{$set:{displayName:'Merchant A'}});
+      const p=await claims.start('A','A',body);const shown=(await config(f)).claimPreview;
+      for(let i=0;i<5;i++) await reject(claims.confirm('A','A',p.claimId,{code:wrong(shown.code)}),'invalid_claim_code');
+      await reject(claims.confirm('A','A',p.claimId,{code:shown.code}),'claim_locked');
+      assert.equal((await config(f)).claimPreview,undefined);
+      const rotated=await fixture();await issue(rotated);const c=await start(rotated);const code=(await config(rotated)).claimPreview.code;
+      await credentials.rotate(rotated.deviceId);await reject(claims.confirm('A','A',c.claimId,{code}),'claim_expired');
+      for(const name of ['Merchant A','Mu\u00e4'])assert(claimNameSupported(name));for(const name of ['\u00df','\n','x'.repeat(65)])assert(!claimNameSupported(name));
+    });
+    await t.test('authenticated portal enforces session, CSRF and immutable merchant scope; rollback is atomic',async()=>{
+      const password='synthetic-login-password';
+      await MerchantAccount.updateOne({accountId:'A'},{$set:{passwordHash:await hashPassword(password)}});
+      store=MongoStore.create({mongoUrl:mongoose.connection.client.s.url,collectionName:'synthetic_claim_sessions'});
+      await store.collectionP;
+      const origin='http://127.0.0.1:5173',app=express();app.use(express.json());
+      app.use('/api',createMerchantPortal({secret:'synthetic-session-secret-'+'x'.repeat(32),origin,production:false,store,claims}));
+      server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+      const base='http://127.0.0.1:'+server.address().port;let cookie='',csrf='';
       async function call(path,body,headers={}) {
-        const r=await fetch(base+'/api/'+path,{method:body?'POST':'GET',headers:{Cookie:cookie,...(body?{'Content-Type':'application/json',Origin:origin,'x-csrf-token':csrf}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});
-        if(r.headers.getSetCookie().length)cookie=r.headers.getSetCookie()[0].split(';')[0];
-        const data=await r.json();if(data.csrfToken)csrf=data.csrfToken;return{status:r.status,data};
+        const response=await fetch(base+'/api/'+path,{method:body?'POST':'GET',headers:{Cookie:cookie,...(body?{'Content-Type':'application/json',Origin:origin,'x-csrf-token':csrf}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});
+        if(response.headers.getSetCookie().length)cookie=response.headers.getSetCookie()[0].split(';')[0];
+        const data=await response.json();if(data.csrfToken)csrf=data.csrfToken;return{status:response.status,data};
       }
       assert.equal((await call('merchant/device-claims',{})).status,401);
       await call('merchant-auth/csrf');assert.equal((await call('merchant-auth/login',{email:'A@example.invalid',password})).status,200);
-      const input={deviceId:id,locationId:'LA',setupCode:setup(),requestKey:'7'.repeat(32)};
-      assert.equal((await call('merchant/device-claims',input,{'x-csrf-token':''})).status,403);
-      assert.equal((await call('merchant/device-claims',{...input,merchantId:'B'})).status,400);
-      assert.equal((await call('merchant/device-claims',{...input,locationId:'LB'})).status,403);
-      const p=(await call('merchant/device-claims',input)).data, code=(await shown()).code;
-      const rollback=createDeviceClaimService({now,pepper,transaction:work=>bindingTransaction(async session=>{await work(session);throw new Error('test-only-rollback');})});
-      await assert.rejects(rollback.confirm('A','A',p.claimId,{code}),/test-only-rollback/);
-      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:id}),0);
-      assert.equal((await m.ManagedDevice.findOne({deviceId:id})).status,'PROVISIONED');
-      assert.equal((await m.DeviceClaim.findOne({deviceId:id})).status,'PENDING');
-      const path='merchant/device-claims/'+p.claimId+'/confirm';
-      assert.equal((await call(path,{code},{Origin:'https://foreign.invalid'})).status,403);
-      const confirmations=await Promise.all([call(path,{code}),call(path,{code})]);
-      assert(confirmations.every(r=>r.status===200&&r.data.status==='CONFIRMED'));
-      assert.equal((await call(path,{code})).status,200);
-      assert.equal((await call('merchant/device-claims',input)).data.claimId,p.claimId);
-      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:id}),1);
-      const assignment=await m.DeviceMerchantAssignment.findOne({deviceId:id});
-      assert.equal(assignment.merchantId,'A');assert.equal(assignment.locationId,'LA');
-      const device=await m.ManagedDevice.findOne({deviceId:id});assert.equal(device.status,'ACTIVE');assert.equal(device.hardwareUid,'test-mac-3');
-      assert.equal(await m.DisplayAssignment.countDocuments({deviceId:id}),0);assert.equal(await m.BindingPreview.countDocuments({deviceId:id}),0);
-      assert.deepEqual(await devices.config(auth[3],'0.3.12'),{ok:true,deviceId:id,assigned:false});
-      assert.equal((await call('merchant/devices')).data.items.length,3);
-      await reject(start('8','B'),'device_unavailable');
-      // Credential values and permanent identity survive; no active product/offer writes.
-      const verifier=await m.DeviceCredential.findOne({deviceId:id}).select('+verifier');
-      assert.equal(verifier.credentialVersion,auth[3].version);assert.equal(verifier.credentialStatus,'ACTIVE');
-      assert.equal(await m.MerchantProduct.countDocuments(),0);assert.equal(await m.Offer.countDocuments(),0);
-      assert.ok(await snapshot()===before,'Device 1/2 identity, credentials and assignments remain unchanged');
+      const f=await fixture();await issue(f);const body=await input(f);
+      assert.equal((await call('merchant/device-claims',body,{'x-csrf-token':''})).status,403);
+      assert.equal((await call('merchant/device-claims',body,{Origin:'https://foreign.invalid'})).status,403);
+      assert.equal((await call('merchant/device-claims',{...body,merchantId:'B'})).status,400);
+      assert.equal((await call('merchant/device-claims',{...body,locationId:'LB'})).status,403);
+      const pending=(await call('merchant/device-claims',body)).data;
+      assert.equal(pending.status,'PENDING');assert(!JSON.stringify(pending).includes('code'));
+      const code=(await config(f)).claimPreview.code;
+      const rollback=createDeviceClaimService({now,pepper,transaction:work=>bindingTransaction(async session=>{await work(session);throw Error('synthetic rollback');})});
+      await assert.rejects(rollback.confirm('A','A',pending.claimId,{code}),/synthetic rollback/);
+      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),0);
+      assert.equal((await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId})).status,'CLAIMED');
+      assert.equal(await m.DeviceClaimAudit.countDocuments({deviceId:f.deviceId,event:'CONSUMED'}),0);
+      const path='merchant/device-claims/'+pending.claimId+'/confirm';
+      assert.equal((await call(path,{code})).data.status,'CONFIRMED');
+      assert.equal((await call('merchant/device-claims',body)).data.status,'CONFIRMED');
+      await new Promise(r=>server.close(r));server=null;await store.close();store=null;
     });
-    await t.test('historical ownership is never reclaimed; rotation and confirmation share the device lock',async()=>{
-      for(const n of [4,5]){
-        const deviceId='QR2B-00000'+n;
-        await m.ManagedDevice.create({deviceId,displayName:deviceId,hardwareVariant:'ESP32_ILI9341_CS5',status:'PROVISIONED',firmwareVersion:'0.3.12',lastSeenAt:at});
-        const original=await credentials.rotate(deviceId);
-        if(n===4){
-          await m.DeviceMerchantAssignment.create({deviceId,merchantId:'B',locationId:'LB',status:'ENDED',usageType:'PILOT',validFrom:at,validUntil:at});
-          await reject(claims.start('A','A',{deviceId,locationId:'LA',setupCode:setup(),requestKey:'9'.repeat(32)}),'device_unavailable');
-          continue;
+    await t.test('unbiased rejection-sampled derivation preserves leading zeros and grant scope',async()=>{
+      const grant={deviceId:'QR2B-000999',credentialVersion:1,merchantId:'A',status:'AUTHORIZED',attempts:0,expiresAt:new Date(+at+120000)};
+      let leading=false,rejected=false;
+      for(let i=0;i<200;i++) {
+        grant.authorizationId=String(i);const result=claimSetup(grant.deviceId,1,at,pepper(),grant);
+        assert.match(result.code,/^[0-9]{8}$/);if(result.code[0]==='0')leading=true;assert.equal(result.protocol,3);
+        const digest=createHmac('sha256',Buffer.from(pepper(),'hex')).update(JSON.stringify(['qr2buy-claim-setup-v3',grant.deviceId,1,grant.authorizationId,'A',0])).digest();
+        if(digest.readUInt32BE(0)>=4_200_000_000) {
+          rejected=true;let offset=4;while(offset<32&&digest.readUInt32BE(offset)>=4_200_000_000)offset+=4;
+          if(offset<32)assert.equal(result.code,String(digest.readUInt32BE(offset)%100_000_000).padStart(8,'0'));
         }
-        const p=await claims.start('A','A',{deviceId,locationId:'LA',setupCode:setup(deviceId,original.version),requestKey:'b'.repeat(32)});
-        const code=(await devices.config(original,'0.3.12')).claimPreview.code;
-        const [rotation,confirmation]=await Promise.allSettled([credentials.rotate(deviceId),claims.confirm('A','A',p.claimId,{code})]);
-        assert.equal(rotation.status,'fulfilled');assert.equal(rotation.value.version,2);
-        if(confirmation.status==='rejected'){
-          assert.equal(confirmation.reason.code,'claim_expired');
-          assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId}),0);
-          assert.equal((await devices.config(rotation.value,'0.3.12')).claimPreview,undefined);
-        }else assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId}),1);
-        await reject(devices.config(original,'0.3.12'),'device_unauthorized');
       }
+      assert(leading);assert(rejected);assert.equal(claimSetup('QR2B-999999',1,at,pepper(),grant),null);
+      await assert.rejects(claims.start('A','A',{deviceId:'../bad',locationId:'LA',setupCode:'00000000',requestKey:key()}),e=>e.name==='ZodError');
     });
-    await t.test('multiple attack cycles: unknown physical setup cannot mutate state; B cannot lock A',async()=>{
-      const deviceId='QR2B-000006';
-      await m.ManagedDevice.create({deviceId,displayName:'Attack test',hardwareVariant:'ESP32_ILI9341_CS5',status:'PROVISIONED',firmwareVersion:'0.3.12',lastSeenAt:at});
-      const own=await credentials.rotate(deviceId);
-      const request=async merchant=>({deviceId,locationId:'L'+merchant,requestKey:randomBytes(16).toString('hex'),setupCode:(await devices.config(own,'0.3.12')).claimSetup.code});
-      for(let cycle=0;cycle<3;cycle++){
-        at=new Date(+at+601000);await m.ManagedDevice.updateOne({deviceId},{$set:{lastSeenAt:at}});
-        const oldCount=await m.DeviceClaim.countDocuments();
-        for(let attempt=0;attempt<8;attempt++) await reject(claims.start('B','B',{deviceId,locationId:'LB',requestKey:randomBytes(16).toString('hex'),setupCode:'0'.repeat(32)}),'invalid_setup_code');
-        assert.equal(await m.DeviceClaim.countDocuments(),oldCount);
-        // Even an attacker who once observed a real setup code cannot lock another merchant's budget.
-        const inputB=await request('B'), b=await claims.start('B','B',inputB);
-        const shownB=(await devices.config(own,'0.3.12')).claimPreview.code;
-        const wrong=shownB==='000000'?'000001':'000000';
-        await Promise.all(Array.from({length:5},()=>reject(claims.confirm('B','B',b.claimId,{code:wrong}),'invalid_claim_code')));
-        const blocked=await devices.config(own,'0.3.12');assert(blocked.claimSetup);assert(!blocked.claimPreview);
-        await reject(createDeviceClaimService({now,pepper}).start('B','B',await request('B')),'claim_locked');
-        const inputA=await request('A'), a=await claims.start('A','A',inputA);assert.equal(a.status,'PENDING');
-        await reject(claims.confirm('B','B',b.claimId,{code:shownB}),'claim_not_found');
-        assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId}),0);
-        // New setup epoch invalidates a captured token; same active request remains idempotent.
-        assert.equal((await claims.start('A','A',inputA)).claimId,a.claimId);
-        at=new Date(+at+121000);await m.ManagedDevice.updateOne({deviceId},{$set:{lastSeenAt:at}});
-        await reject(claims.start('A','A',{...inputA,requestKey:randomBytes(16).toString('hex')}),'invalid_setup_code');
-      }
-      const p=await claims.start('A','A',await request('A'));
-      const proof=(await devices.config(own,'0.3.12')).claimPreview;
-      await m.DeviceClaim.updateOne({claimId:p.claimId},{$set:{proofVersion:1}});
-      await reject(claims.confirm('A','A',p.claimId,{code:proof.code}),'claim_expired');
-      assert.equal((await devices.config(own,'0.3.12')).claimPreview,undefined);
-      await m.DeviceClaim.updateOne({claimId:p.claimId},{$set:{proofVersion:2}});
-      await claims.confirm('A','A',p.claimId,{code:proof.code});
-      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId,merchantId:'A',status:'ACTIVE'}),1);
+    await t.test('index gate is read-only and fail-closed; Device 1/2 remain byte-identical',async()=>{
+      assert.equal((await verifyClaimIndexes()).ok,true);
+      const f=await fixture();const blocked=createClaimAuthorizationService({now,checkIndexes:async()=>({ok:false})});
+      await reject(blocked.issue('operator',{deviceId:f.deviceId,merchantId:'A',requestKey:key()}),'claim_indexes_unavailable');
+      assert.equal(await snapshot(),before);
     });
-    await t.test('display names are exact, supported and bounded; unsupported names create no challenge',async()=>{
-      for(const text of ['ecily.com','A & B / "Shop"', 'ÄÖÜ äöü', 'x'.repeat(64)]) assert(claimNameSupported(text));
-      for(const text of ['', ' ', ' A', 'A ', 'x'.repeat(65),'é','ß','ẞ','商店','🙂','a\u0308','a\nB','a\u202eB','a\u200bB', 'ä'.repeat(33)]) assert(!claimNameSupported(text));
-      await m.Merchant.updateOne({merchantId:'A'},{$set:{displayName:'Café'}});
-      const count=await m.DeviceClaim.countDocuments();
-      await reject(start('c'),'claim_name_unsupported');assert.equal(await m.DeviceClaim.countDocuments(),count);
-      await m.Merchant.updateOne({merchantId:'A'},{$set:{displayName:'Merchant A'}});
+    await t.test('authorization plus audit roll back together; missing authorization index closes claims',async()=>{
+      const f=await fixture();
+      const rollback=createClaimAuthorizationService({now,transaction:work=>bindingTransaction(async session=>{await work(session);throw Error('synthetic rollback');})});
+      await assert.rejects(rollback.issue('operator',{deviceId:f.deviceId,merchantId:'A',requestKey:key()}),/synthetic rollback/);
+      assert.equal(await m.DeviceClaimAuthorization.countDocuments({deviceId:f.deviceId}),0);
+      assert.equal(await m.DeviceClaimAudit.countDocuments({deviceId:f.deviceId}),0);
+      await m.DeviceClaimAuthorization.collection.dropIndex('deviceId_1');
+      assert((await verifyClaimIndexes()).missing.includes('device_claim_authorizations:deviceId'));
+      await reject(issue(f),'claim_indexes_unavailable');
+      await m.DeviceClaimAuthorization.createIndexes();
+      assert.equal((await verifyClaimIndexes()).ok,true);
     });
-    await t.test('index verification is read-only/idempotent and missing required indexes close the service',async()=>{
-      const collections=await mongoose.connection.db.listCollections().toArray();
-      assert((await verifyClaimIndexes()).ok);assert((await verifyClaimIndexes()).ok);
-      const previousUrl=process.env.MONGO_URL,previousGate=process.env.QR2BUY_CLAIM_INDEX_CHECK;
-      try { process.env.MONGO_URL=uri;process.env.QR2BUY_CLAIM_INDEX_CHECK='true';assert((await verifyIndexCommand()).ok); }
-      finally { for(const [key,value] of [['MONGO_URL',previousUrl],['QR2BUY_CLAIM_INDEX_CHECK',previousGate]]) {if(value===undefined)delete process.env[key];else process.env[key]=value;} }
-      assert.equal((await mongoose.connection.db.listCollections().toArray()).length,collections.length);
-      await m.DeviceClaimAttempt.collection.dropIndex('deviceId_1_merchantId_1');
-      const result=await verifyClaimIndexes();assert.equal(result.ok,false);assert(result.missing.includes('device_claim_attempts:deviceId+merchantId'));
-      await reject(start('d'),'claim_indexes_unavailable');
-      const confirmed=await m.DeviceClaim.findOne({deviceId:id});
-      await reject(claims.confirm('A','A',confirmed.claimId,{code:'000000'}),'claim_indexes_unavailable');
-      await m.DeviceClaimAttempt.createIndexes();assert((await verifyClaimIndexes()).ok);
-      const fake={collection:()=>({listIndexes:()=>({toArray:async()=>[{key:{deviceId:1},unique:true,sparse:true}]})})};
-      assert.equal((await verifyClaimIndexes(fake)).ok,false);
+    await t.test('lost committed issue response resumes exactly once; revoke/confirm serialize',async()=>{
+      const f=await fixture(), requestKey=key();let loseResponse=true;
+      const uncertain=createClaimAuthorizationService({now,transaction:async work=>{
+        const value=await bindingTransaction(work);
+        if(loseResponse){loseResponse=false;throw Error('synthetic lost response');}return value;
+      }});
+      const body={deviceId:f.deviceId,merchantId:'A',requestKey};
+      await assert.rejects(uncertain.issue('operator',body),/synthetic lost response/);
+      const resumed=await uncertain.issue('operator',body);
+      assert.equal(resumed.authorizationId,requestKey);
+      assert.equal(await m.DeviceClaimAudit.countDocuments({deviceId:f.deviceId,event:'AUTHORIZED'}),1);
+      const pending=await start(f),code=(await config(f)).claimPreview.code;
+      await Promise.allSettled([claims.confirm('A','A',pending.claimId,{code}),grants.revoke('operator',{deviceId:f.deviceId,authorizationId:requestKey})]);
+      const grant=await m.DeviceClaimAuthorization.findOne({deviceId:f.deviceId});
+      assert(['CONSUMED','REVOKED'].includes(grant.status));
+      assert.equal(await m.DeviceMerchantAssignment.countDocuments({deviceId:f.deviceId}),grant.status==='CONSUMED'?1:0);
     });
   } finally {
-    if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}
+    if(server)await new Promise(r=>server.close(r));
     if(store)await store.close();
-    if(mongoose.connection.readyState)await mongoose.connection.dropDatabase();
+    for(const [k,v]of Object.entries(savedEnv)) {if(v===undefined)delete process.env[k];else process.env[k]=v;}
     await mongoose.disconnect();await repl.stop();
   }
 });

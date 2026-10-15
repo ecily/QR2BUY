@@ -735,19 +735,19 @@ static void renderConfig(const ConfigPayload& config) {
     drawStatusText("SCHILD EINRICHTEN", 8, 28, 2, COLOR_PINE_DARK);
     drawStatusText(QR2BUY_DEVICE_ID, 42, 28, 2, COLOR_INK);
     drawStatusText("Setupcode im Haendlerportal eingeben", 80, 40, 2, COLOR_MUTED);
-    drawStatusText(config.previewCode.substring(0, 16).c_str(), 130, 28, 2, COLOR_PINE_DARK);
-    drawStatusText(config.previewCode.substring(16).c_str(), 165, 28, 2, COLOR_PINE_DARK);
-    drawStatusText("Nur fuer die Erstzuordnung", 210, 24, 2, COLOR_MUTED);
+    drawStatusText(config.previewCode.c_str(), 125, 46, 4, COLOR_PINE_DARK);
+
+    drawStatusText("Nur fuer die Geraetezuordnung", 210, 24, 2, COLOR_MUTED);
     return;
   }
   if (config.claimPreview) {
     footerIndicatorVisible = false;
     tft.fillScreen(COLOR_PAPER);
-    drawStatusText("SCHILD ZUORDNEN", 8, 25, 2, COLOR_PINE_DARK);
+    drawStatusText("BESTAETIGUNG - 6 ZIFFERN", 8, 25, 2, COLOR_PINE_DARK);
     drawStatusText(config.claimMerchant.c_str(), 38, 44, 2, COLOR_INK);
     drawStatusText(config.claimLocation.c_str(), 86, 44, 2, COLOR_INK);
-    drawStatusText("Haendler und Standort pruefen", 136, 25, 2, COLOR_MUTED);
-    drawStatusText(config.previewCode.c_str(), 165, 38, 4, COLOR_PINE_DARK);
+    drawStatusText("Haendler und Standort pruefen", 131, 20, 2, COLOR_MUTED);
+    drawStatusText(config.previewCode.c_str(), 152, 31, 4, COLOR_PINE_DARK);
     drawStatusText("Code nur bei Uebereinstimmung eingeben", 207, 30, 2, COLOR_MUTED);
     return;
   }
@@ -1053,7 +1053,7 @@ static bool fetchConfig(ConfigPayload& config) {
 #if defined(QR2BUY_MERCHANT_DEVICE)
   http.addHeader("x-device-id", QR2BUY_DEVICE_ID);
   http.addHeader("x-device-credential-version", String(QR2BUY_CREDENTIAL_VERSION));
-  http.addHeader("x-firmware-version", "0.3.12");
+  http.addHeader("x-firmware-version", "0.3.13");
 #endif
 
   const int statusCode = http.GET();
@@ -1189,6 +1189,17 @@ void loop() {
     renderedConfig = ConfigPayload{};
     renderConfig(renderedConfig);
   }
+  // Keep countdown local; no API request or code logging is needed for each tick.
+  static int64_t countdownExpiry = 0, countdownSecond = -1;
+  if (hasRenderedConfig && (renderedConfig.claimSetup || renderedConfig.claimPreview)) {
+    const int64_t remaining = renderedConfig.previewExpiresAt - time(nullptr);
+    if (countdownExpiry != renderedConfig.previewExpiresAt || countdownSecond != remaining) {
+      countdownExpiry = renderedConfig.previewExpiresAt; countdownSecond = remaining;
+      tft.fillRect(14, 184, 292, 22, COLOR_PAPER);
+      char label[48]; snprintf(label, sizeof(label), "Noch %lld Sekunden", (long long)remaining);
+      drawStatusText(label, 184, 22, 2, COLOR_MUTED);
+    }
+  } else { countdownExpiry = 0; countdownSecond = -1; }
   serviceConnectionIndicator();
   delay(10);
 }

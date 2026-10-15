@@ -195,6 +195,7 @@ const DeviceClaimSchema = new mongoose.Schema({
   claimId: { type: String, required: true, unique: true },
   requestKey: { type: String, required: true, select: false },
   proofVersion: { type: Number, default: 1 },
+  authorizationId: { type: String },
   merchantId: { type: String, required: true },
   accountId: { type: String, required: true },
   locationId: { type: String, required: true },
@@ -219,6 +220,28 @@ const DeviceClaimAttemptSchema = new mongoose.Schema({
 }, { timestamps: true, collection: 'device_claim_attempts', autoIndex: false, autoCreate: false });
 DeviceClaimAttemptSchema.index({ deviceId: 1, merchantId: 1 }, { unique: true });
 export const DeviceClaimAttempt = mongoose.models.DeviceClaimAttempt || mongoose.model('DeviceClaimAttempt', DeviceClaimAttemptSchema);
+
+// One current authorization per physical identity; history is append-only in the audit collection.
+const DeviceClaimAuthorizationSchema = new mongoose.Schema({
+  deviceId: { type: String, required: true, unique: true },
+  authorizationId: { type: String, required: true },
+  merchantId: { type: String, required: true },
+  credentialVersion: { type: Number, required: true },
+  actor: { type: String, required: true },
+  expiresAt: { type: Date, required: true },
+  nextIssueAt: { type: Date, required: true },
+  status: { type: String, enum: ['AUTHORIZED', 'CLAIMED', 'CONSUMED', 'REVOKED'], required: true },
+  attempts: { type: Number, default: 0, required: true },
+  claimId: { type: String, default: null }
+}, { timestamps: true, collection: 'device_claim_authorizations', autoCreate: false, autoIndex: false });
+export const DeviceClaimAuthorization = mongoose.models.DeviceClaimAuthorization || mongoose.model('DeviceClaimAuthorization', DeviceClaimAuthorizationSchema);
+const DeviceClaimAuditSchema = new mongoose.Schema({
+  deviceId: { type: String, required: true }, authorizationId: { type: String, required: true },
+  merchantId: { type: String, required: true }, actor: { type: String, required: true },
+  event: { type: String, enum: ['AUTHORIZED', 'REVOKED', 'CLAIMED', 'CONSUMED', 'SETUP_REJECTED'], required: true },
+  at: { type: Date, required: true }
+}, { collection: 'device_claim_audit', autoCreate: false, autoIndex: false });
+export const DeviceClaimAudit = mongoose.models.DeviceClaimAudit || mongoose.model('DeviceClaimAudit', DeviceClaimAuditSchema);
 
 const ReservationSchema = new mongoose.Schema({
   reservationId: { type: String, required: true, unique: true },

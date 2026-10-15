@@ -1,0 +1,15 @@
+{
+  "base": "502d5391d61b306f34c242d2b372c173dfc7bb2d",
+  "target": "687d0855c93aacbf616b93b6b7d8b3c0bfe9bf06",
+  "tree": "6bf71fa12bb83bf145e89e6ab20d624d342671ce",
+  "patchSha256": "89246b3b344fea4e838f1dfd73e96746a3ef444b1e94cb14ce0592d03fd0cfde",
+  "patchEncoding": "UTF-8 with canonical LF",
+  "filesSha256": {
+    "backend/src/index.js": "3eadfab6dbb0c902454c4ecd82ae55fe993097c61eaa60b4274700c7d3649f72",
+    "backend/src/merchant/binding.js": "b74b2280ea401c3782c3cefea1836572180b06a7deb315d9bd743e24f932bc75",
+    "backend/src/merchant/deviceService.js": "5d7b81f234d0906eea92d0db46cdc017446c8d41b9f2cc389514a24f0dede40e",
+    "backend/src/routes/checkout.js": "541e6c686bfcb7eb009f54247b39327ba6f61c18c6b503ff4932844f7b222e18",
+    "backend/test/deviceLogging.test.js": "b212a27936ffcf20e5bb59a87903758db3e1c1d0c2f51a2a116024a02dc42b09",
+    "backend/test/merchantMongo.integration.test.js": "2be9730781b2ac82b3aa5d2fdd29fca15fb961b671c7c34d3852b2efed38b3b6"
+  }
+}
